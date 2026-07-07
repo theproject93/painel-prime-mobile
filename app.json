@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Painel Prime",
+    "slug": "lucas-ferreira",
+    "extra": {
+      "eas": {
+        "projectId": "b9ebc23c-7804-4567-a260-ddab1e43132c"
+      }
+    }
+  }
+}
