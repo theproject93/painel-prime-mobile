@@ -30,28 +30,25 @@ jobs:
       - name: 6. Setup EAS CLI
         run: npm install -g eas-cli
 
-      - name: 7. Create .env.local for mobile build
-        run: |
-          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" > apps/mobile/.env.local
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> apps/mobile/.env.local
-          echo "EXPO_PUBLIC_BASE_SIGNATURE_URL=${{ secrets.EXPO_PUBLIC_BASE_SIGNATURE_URL }}" >> apps/mobile/.env.local
-          echo "EXPO_PUBLIC_BASE_INVITE_URL=${{ secrets.EXPO_PUBLIC_BASE_INVITE_URL }}" >> apps/mobile/.env.local
-          echo "EXPO_PUBLIC_BASE_NOIVOS_URL=${{ secrets.EXPO_PUBLIC_BASE_NOIVOS_URL }}" >> apps/mobile/.env.local
-
-      - name: 8. Build APK Local no Runner
+      - name: 7. Build APK Local no Runner
         run: |
           cd apps/mobile
           eas build --platform android --profile preview --local --output=../../painel-prime-preview.apk
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_BASE_SIGNATURE_URL: ${{ secrets.EXPO_PUBLIC_BASE_SIGNATURE_URL }}
+          EXPO_PUBLIC_BASE_INVITE_URL: ${{ secrets.EXPO_PUBLIC_BASE_INVITE_URL }}
+          EXPO_PUBLIC_BASE_NOIVOS_URL: ${{ secrets.EXPO_PUBLIC_BASE_NOIVOS_URL }}
 
-      - name: 9. Upload APK Artifact
+      - name: 8. Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: painel-prime-apk
           path: painel-prime-preview.apk
 
-      - name: 10. Upload to Firebase App Distribution
+      - name: 9. Upload to Firebase App Distribution
         uses: w9jds/firebase-action@master
         with:
           args: appdistribution:distribute painel-prime-preview.apk --app ${{ secrets.FIREBASE_APP_ID }} --groups "testers"
