@@ -23,23 +23,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Setup Expo & EAS
-        run: |
-          npm install -g expo eas-cli
-          expo --version
-          eas --version
+      - name: Setup Expo globally
+        run: npm install -g expo
 
       - name: EAS Build
         working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_USE_PATH: true
         run: |
-          NODE_OPTIONS="--no-experimental-strip-types" eas build --platform android --profile preview --non-interactive --wait
+          which expo
+          expo config --json 2>&1 || echo "config step failed, but continuing"
+          npx eas-cli build --platform android --profile preview --non-interactive --wait
 
       - name: Download APK
         working-directory: apps/mobile
         run: |
-          LAST_BUILD=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive)
+          LAST_BUILD=$(npx eas-cli build:list --platform android --status finished --limit 1 --json --non-interactive)
           echo "$LAST_BUILD" | node -e "const b=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(b[0]?.artifacts?.applicationArchiveUrl||'')" > build_url.txt
           BUILD_URL=$(cat build_url.txt)
           curl -L -o app-release.apk "$BUILD_URL"
