@@ -9,4 +9,3 @@ jobs:
       platform: android
       profile: preview
       working_directory: apps/mobile
-
