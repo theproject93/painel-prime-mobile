@@ -12,67 +12,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Patch expo
-        working-directory: apps/mobile
+      - name: Setup Expo & EAS
         run: |
-          set -e
-          EXPO_DIR=$(node -p "require('path').dirname(require.resolve('expo/package.json'))")
-          echo "Patching expo at $EXPO_DIR"
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('$EXPO_DIR/package.json','utf8'));
-            pkg.main = 'src/Expo.js';
-            fs.writeFileSync('$EXPO_DIR/package.json', JSON.stringify(pkg, null, 2));
-          "
-          cat > "$EXPO_DIR/src/Expo.js" << 'ENDJS'
-          'use strict';
-          let expoCore;
-          try { expoCore = require('expo-modules-core'); } catch(e) {}
-          Object.assign(exports, {
-            get disableErrorHandling() { return require('./errors/ExpoErrorManager').disableErrorHandling; },
-            get registerRootComponent() { return require('./launch/registerRootComponent').default; },
-            get isRunningInExpoGo() { return require('./environment/ExpoGo').isRunningInExpoGo; },
-            get getExpoGoProjectConfig() { return require('./environment/ExpoGo').getExpoGoProjectConfig; },
-            EventEmitter: expoCore?.EventEmitter,
-            SharedObject: expoCore?.SharedObject,
-            SharedRef: expoCore?.SharedRef,
-            NativeModule: expoCore?.NativeModule,
-            requireNativeModule: expoCore?.requireNativeModule,
-            requireOptionalNativeModule: expoCore?.requireOptionalNativeModule,
-            requireNativeView: expoCore?.requireNativeViewManager,
-            registerWebModule: expoCore?.registerWebModule,
-            reloadAppAsync: expoCore?.reloadAppAsync,
-          });
-          ENDJS
-          cat > "$EXPO_DIR/src/Expo.fx.js" << 'ENDFX'
-          'use strict';
-          ENDFX
-          echo "Patch complete"
+          npm install -g expo eas-cli
+          expo --version
+          eas --version
 
       - name: EAS Build
         working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas-cli build --platform android --profile preview --non-interactive --wait
+        run: |
+          NODE_OPTIONS="--no-experimental-strip-types" eas build --platform android --profile preview --non-interactive --wait
 
       - name: Download APK
         working-directory: apps/mobile
         run: |
-          LAST_BUILD=$(npx eas-cli build:list --platform android --status finished --limit 1 --json --non-interactive)
+          LAST_BUILD=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive)
           echo "$LAST_BUILD" | node -e "const b=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(b[0]?.artifacts?.applicationArchiveUrl||'')" > build_url.txt
           BUILD_URL=$(cat build_url.txt)
-          echo "Downloading from $BUILD_URL"
           curl -L -o app-release.apk "$BUILD_URL"
 
       - name: Upload to Firebase
