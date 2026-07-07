@@ -8,3 +8,4 @@ jobs:
     params:
       platform: android
       profile: preview
+      package_manager: pnpm
