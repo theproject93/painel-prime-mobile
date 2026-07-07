@@ -34,10 +34,7 @@
       "esbuild",
       "workerd"
     ],
-    "patchedDependencies": {
-      "next@15.5.12": "patches/next@15.5.12.patch",
-      "@opennextjs/aws@3.9.16": "patches/@opennextjs__aws@3.9.16.patch"
-    }
+    "patchedDependencies": {}
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
