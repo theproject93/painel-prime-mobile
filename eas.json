@@ -1,4 +1,8 @@
 {
+  "cli": {
+    "appDir": "apps/mobile",
+    "packageManager": "pnpm"
+  },
   "build": {
     "preview": {
       "android": {
