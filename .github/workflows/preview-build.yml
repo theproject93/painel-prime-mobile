@@ -1,0 +1,46 @@
+name: Build Android Preview (EAS Local)
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 3. Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: 4. Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: 5. Install dependencies
+        run: pnpm install
+
+      - name: 6. Setup EAS CLI
+        run: npm install -g eas-cli
+
+      - name: 7. Build APK Local no Runner
+        run: |
+          cd apps/mobile
+          eas build --platform android --profile preview --local --output=../../painel-prime-preview.apk
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 8. Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: painel-prime-apk
+          path: painel-prime-preview.apk
