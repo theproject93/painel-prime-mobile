@@ -3,6 +3,9 @@
     "preview": {
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_USE_MONOREPO": "1"
       }
     }
   }
