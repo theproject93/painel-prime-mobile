@@ -1,0 +1,9 @@
+{
+  "extends": "../config/typescript/react-web.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true
+  },
+  "include": ["src"]
+}

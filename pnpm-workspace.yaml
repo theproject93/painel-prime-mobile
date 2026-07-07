@@ -1,0 +1,21 @@
+packages:
+  - apps/*
+  - packages/*
+overrides:
+  react: 19.1.0
+  react-dom: 19.1.0
+  '@types/react': ~19.1.0
+  '@supabase/supabase-js': ^2.97.0
+onlyBuiltDependencies:
+  - esbuild
+  - workerd
+patchedDependencies:
+  next@15.5.12: patches/next@15.5.12.patch
+  '@opennextjs/aws@3.9.16': patches/@opennextjs__aws@3.9.16.patch
+allowBuilds:
+  '@sentry/cli': true
+  core-js: true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+  workerd: true

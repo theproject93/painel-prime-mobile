@@ -1,0 +1,15 @@
+{
+  "name": "@painel-prime/config",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    "./tailwind": "./tailwind/tailwind.config.ts",
+    "./typescript/base": "./typescript/base.json",
+    "./typescript/react-web": "./typescript/react-web.json",
+    "./typescript/react-native": "./typescript/react-native.json"
+  },
+  "peerDependencies": {
+    "tailwindcss": "^4.1.18"
+  }
+}

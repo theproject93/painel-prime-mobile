@@ -1,0 +1,47 @@
+{
+  "name": "@painel-prime/workspace",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev": "turbo run dev --parallel --filter=@painel-prime/web --filter=@painel-prime/mobile",
+    "dev:web": "pnpm --filter @painel-prime/web dev",
+    "dev:web:doppler": "doppler run -- pnpm dev:web",
+    "dev:web:op": "op run --env-file .env.1password -- pnpm dev:web",
+    "dev:mobile": "pnpm --filter @painel-prime/mobile dev",
+    "dev:plan-ia-functions": "supabase functions serve --no-verify-jwt --env-file supabase/functions/.env.local",
+    "dev:plan-ia": "supabase start && pnpm exec concurrently -k -n functions,app \"pnpm dev:plan-ia-functions\" \"pnpm dev\"",
+    "preflight:web": "pnpm --filter @painel-prime/web preflight:supabase",
+    "deploy:web": "pnpm --filter @painel-prime/web run deploy",
+    "deploy:web:doppler": "doppler run -- pnpm deploy:web",
+    "deploy:web:op": "op run --env-file .env.1password -- pnpm deploy:web",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "build": "turbo run build",
+    "audit:security": "deno run --allow-env --allow-read --allow-write --allow-net scripts/security-audit.ts --baseline scripts/security-audit-baseline.json --json-output reports/security-audit.json --summary-output reports/security-audit-summary.md",
+    "security:secrets": "node scripts/security/secrets-audit.mjs",
+    "security:secrets:report": "node scripts/security/secrets-audit.mjs --json-output reports/secrets-audit.json",
+    "security:secrets:powershell": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/secret-scan.ps1",
+    "cloudflare:rate-limits": "node scripts/apply-cloudflare-rate-limits.mjs",
+    "supabase:deploy:plan-ia-function": "supabase functions deploy plan-assistant-chat"
+  },
+  "pnpm": {
+    "overrides": {
+      "@supabase/supabase-js": "^2.97.0"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd"
+    ],
+    "patchedDependencies": {
+      "next@15.5.12": "patches/next@15.5.12.patch",
+      "@opennextjs/aws@3.9.16": "patches/@opennextjs__aws@3.9.16.patch"
+    }
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "esbuild": "^0.27.3",
+    "turbo": "^2.0.0"
+  }
+}
