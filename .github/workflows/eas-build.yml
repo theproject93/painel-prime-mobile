@@ -23,19 +23,54 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Install EAS & Expo CLI globally
+      - name: Patch expo (JS entry point)
         run: |
-          npm install -g eas-cli
-          npm install -g expo-cli
+          EXPO_PKG=$(cd apps/mobile && node -e "console.log(require.resolve('expo/package.json'))" 2>/dev/null)
+          EXPO_DIR=$(dirname "$EXPO_PKG")
+          echo "Patching expo at $EXPO_DIR"
+          # Create minimal JS entry that doesn't need React Native
+          cat > "$EXPO_DIR/src/Expo.js" << 'EOF'
+          'use strict';
+          let expoCore;
+          let hooks;
+          try { expoCore = require('expo-modules-core'); } catch(e) {}
+          try { hooks = require('./hooks/useEvent'); } catch(e) {}
+          module.exports = {
+            get disableErrorHandling() { return require('./errors/ExpoErrorManager').disableErrorHandling; },
+            get registerRootComponent() { return require('./launch/registerRootComponent').default; },
+            get isRunningInExpoGo() { return require('./environment/ExpoGo').isRunningInExpoGo; },
+            get getExpoGoProjectConfig() { return require('./environment/ExpoGo').getExpoGoProjectConfig; },
+            EventEmitter: expoCore?.EventEmitter,
+            SharedObject: expoCore?.SharedObject,
+            SharedRef: expoCore?.SharedRef,
+            NativeModule: expoCore?.NativeModule,
+            requireNativeModule: expoCore?.requireNativeModule,
+            requireOptionalNativeModule: expoCore?.requireOptionalNativeModule,
+            requireNativeView: expoCore?.requireNativeViewManager,
+            registerWebModule: expoCore?.registerWebModule,
+            reloadAppAsync: expoCore?.reloadAppAsync,
+            useEvent: hooks?.useEvent,
+            useEventListener: hooks?.useEventListener,
+          };
+          EOF
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('$EXPO_DIR/package.json','utf8'));
+            pkg.main = 'src/Expo.js';
+            fs.writeFileSync('$EXPO_DIR/package.json', JSON.stringify(pkg, null, 2));
+          "
+          echo "Patched expo"
 
       - name: EAS Build
         working-directory: apps/mobile
-        run: eas build --platform android --profile preview --non-interactive --wait
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli build --platform android --profile preview --non-interactive --wait
 
       - name: Download APK
         working-directory: apps/mobile
         run: |
-          LAST_BUILD=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive)
+          LAST_BUILD=$(npx eas-cli build:list --platform android --status finished --limit 1 --json --non-interactive)
           echo "$LAST_BUILD" | node -e "const b=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(b[0]?.artifacts?.applicationArchiveUrl||'')" > build_url.txt
           BUILD_URL=$(cat build_url.txt)
           echo "Downloading from $BUILD_URL"
