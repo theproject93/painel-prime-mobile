@@ -63,8 +63,8 @@ importers:
         specifier: ^17.0.10
         version: 17.0.10(expo@54.0.33)
       expo-linear-gradient:
-        specifier: ^57.0.0
-        version: 57.0.0(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+        specifier: ~14.0.2
+        version: 14.0.2(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-linking:
         specifier: ~8.0.12
         version: 8.0.12(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
@@ -2017,8 +2017,8 @@ packages:
       expo: '*'
       react: '*'
 
-  expo-linear-gradient@57.0.0:
-    resolution: {integrity: sha512-jtZLklPhdc34QiGGGW0zGrOKMiBySPmxIi3uajQD4dPklpCUItx8FGzY1hqL5ygQyXqEIdCY4XEiQZIStkmFeg==}
+  expo-linear-gradient@14.0.2:
+    resolution: {integrity: sha512-nvac1sPUfFFJ4mY25UkvubpUV/olrBH+uQw5k+beqSvQaVQiUfFtYzfRr+6HhYBNb4AEsOtpsCRkpDww3M2iGQ==}
     peerDependencies:
       expo: '*'
       react: '*'
@@ -5879,7 +5879,7 @@ snapshots:
       expo: 54.0.33(@babel/core@7.29.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       react: 19.1.0
 
-  expo-linear-gradient@57.0.0(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
+  expo-linear-gradient@14.0.2(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
     dependencies:
       expo: 54.0.33(@babel/core@7.29.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       react: 19.1.0
