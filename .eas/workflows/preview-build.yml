@@ -1,4 +1,5 @@
 name: Preview Build
+# Monorepo - appDir in root eas.json
 on:
   push:
     branches: [main]
