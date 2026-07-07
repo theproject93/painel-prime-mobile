@@ -49,3 +49,4 @@ jobs:
           args: appdistribution:distribute painel-prime-preview.apk --app ${{ secrets.FIREBASE_APP_ID }} --groups "testers"
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
