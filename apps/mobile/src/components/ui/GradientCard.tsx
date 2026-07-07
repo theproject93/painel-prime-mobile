@@ -1,6 +1,6 @@
-import { ReactNode } from 'react';
+import { ReactNode, useId } from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { gradients, colors, radii, shadows } from '../../theme/colors';
 
 type GradientCardProps = {
@@ -12,20 +12,40 @@ type GradientCardProps = {
 };
 
 export function GradientCard({ children, gradient = 'warm', accentColor, gradientPosition = 'top', style }: GradientCardProps) {
-  const gradientColors = gradients[gradient] || gradients.warm;
+  const id = useId();
+  const [startColor, endColor] = gradients[gradient] || gradients.warm;
+  const bgGradId = `gc-bg-${id}`;
+  const topGradId = `gc-top-${id}`;
 
   if (gradientPosition === 'background') {
     return (
-      <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.card, shadows.card, style]}>
+      <View style={[styles.card, shadows.card, style]}>
+        <Svg style={StyleSheet.absoluteFill}>
+          <Defs>
+            <LinearGradient id={bgGradId} x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor={startColor} />
+              <Stop offset="1" stopColor={endColor} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill={`url(#${bgGradId})`} />
+        </Svg>
         {accentColor ? <View style={[styles.accentBar, { backgroundColor: accentColor }]} /> : null}
         {children}
-      </LinearGradient>
+      </View>
     );
   }
 
   return (
     <View style={[styles.card, shadows.card, style]}>
-      <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.topBar} />
+      <Svg width="100%" height={4} style={styles.topBar}>
+        <Defs>
+          <LinearGradient id={topGradId} x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={startColor} />
+            <Stop offset="1" stopColor={endColor} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height={4} fill={`url(#${topGradId})`} />
+      </Svg>
       {accentColor ? <View style={[styles.accentBar, { backgroundColor: accentColor }]} /> : null}
       {children}
     </View>

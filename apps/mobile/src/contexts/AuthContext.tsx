@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signInWithProvider(provider: 'google' | 'azure') {
-    const redirectTo = `br.com.planejarpro.app://auth/callback`;
+    const redirectTo = `painelprime://auth/callback`;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {

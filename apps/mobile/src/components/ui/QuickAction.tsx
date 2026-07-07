@@ -1,6 +1,7 @@
+import { useId } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { gradients, colors, radii } from '../../theme/colors';
 
 type QuickActionProps = {
@@ -12,18 +13,28 @@ type QuickActionProps = {
 };
 
 export function QuickAction({ label, icon, gradient = 'gold', onPress, badge }: QuickActionProps) {
-  const gradientColors = gradients[gradient] || gradients.gold;
+  const id = useId();
+  const [startColor, endColor] = gradients[gradient] || gradients.gold;
 
   return (
     <Pressable style={styles.wrap} onPress={onPress}>
-      <LinearGradient colors={gradientColors} style={styles.iconWrap} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <Ionicons name={icon} size={22} color="#FFFFFF" />
+      <View style={styles.iconWrap}>
+        <Svg width={52} height={52}>
+          <Defs>
+            <LinearGradient id={`qa-icn-${id}`} x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor={startColor} />
+              <Stop offset="1" stopColor={endColor} />
+            </LinearGradient>
+          </Defs>
+          <Rect width={52} height={52} rx={radii.lg} ry={radii.lg} fill={`url(#qa-icn-${id})`} />
+        </Svg>
+        <Ionicons name={icon} size={22} color="#FFFFFF" style={styles.iconContent} />
         {badge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
           </View>
         ) : null}
-      </LinearGradient>
+      </View>
       <Text style={styles.label} numberOfLines={2}>{label}</Text>
     </Pressable>
   );
@@ -37,7 +48,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  iconContent: { position: 'absolute' },
   badge: {
     position: 'absolute',
     top: -4,

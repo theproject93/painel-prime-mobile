@@ -1,6 +1,7 @@
+import { useId } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { gradients, colors, radii, shadows } from '../../theme/colors';
 
 type StatCardPremiumProps = {
@@ -30,17 +31,38 @@ const GRADIENT_ICON: Record<string, readonly string[]> = {
 };
 
 export function StatCardPremium({ title, value, subtitle, icon, gradient = 'gold', trend, trendValue }: StatCardPremiumProps) {
+  const id = useId();
   const bgColors = GRADIENT_BG[gradient] || GRADIENT_BG.gold;
   const iconColors = GRADIENT_ICON[gradient] || GRADIENT_ICON.gold;
   const trendColor = trend === 'up' ? colors.successText : trend === 'down' ? colors.dangerText : colors.mutedText;
   const trendIcon = trend === 'up' ? 'trending-up' : trend === 'down' ? 'trending-down' : 'remove';
+  const [bgStart, bgEnd] = bgColors;
+  const [iconStart, iconEnd] = iconColors;
 
   return (
-    <LinearGradient colors={bgColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.card, shadows.sm]}>
+    <View style={[styles.card, shadows.sm]}>
+      <Svg style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id={`scp-bg-${id}`} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={bgStart} />
+            <Stop offset="1" stopColor={bgEnd} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" rx={radii.lg} ry={radii.lg} fill={`url(#scp-bg-${id})`} />
+      </Svg>
       <View style={styles.top}>
-        <LinearGradient colors={iconColors} style={styles.iconWrap} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <Ionicons name={icon} size={20} color="#FFFFFF" />
-        </LinearGradient>
+        <View style={styles.iconWrap}>
+          <Svg width={40} height={40}>
+            <Defs>
+              <LinearGradient id={`scp-icn-${id}`} x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor={iconStart} />
+                <Stop offset="1" stopColor={iconEnd} />
+              </LinearGradient>
+            </Defs>
+            <Rect width={40} height={40} rx={radii.md} ry={radii.md} fill={`url(#scp-icn-${id})`} />
+          </Svg>
+          <Ionicons name={icon} size={20} color="#FFFFFF" style={styles.iconContent} />
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.title} numberOfLines={1}>{title}</Text>
           <Text style={styles.value}>{value}</Text>
@@ -55,7 +77,7 @@ export function StatCardPremium({ title, value, subtitle, icon, gradient = 'gold
           </View>
         ) : null}
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -68,7 +90,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  iconContent: { position: 'absolute' },
   title: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
   value: { fontSize: 22, fontWeight: '800', color: colors.text, marginTop: 2 },
   bottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
