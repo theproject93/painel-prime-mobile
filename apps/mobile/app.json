@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "Painel Prime",
+    "slug": "painel-prime",
+    "version": "1.0.2",
+    "scheme": "painelprime",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "bundleIdentifier": "br.com.painelprime.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "br.com.painelprime.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "painelprime.com.br"
+            },
+            {
+              "scheme": "https",
+              "host": "www.painelprime.com.br"
+            },
+            {
+              "scheme": "https",
+              "host": "app.painelprime.com.br"
+            },
+            {
+              "scheme": "https",
+              "host": "www.app.painelprime.com.br"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-video",
+      "expo-font",
+      "expo-asset",
+      "expo-router",
+      "expo-web-browser",
+      "expo-linear-gradient",
+      [
+        "react-native-svg",
+        {
+          "assets": ["./assets/fonts/SFMono-Regular.ttf"]
+        }
+      ]
+    ]
+  }
+}
