@@ -1,18 +1,13 @@
 {
   "expo": {
     "name": "Painel Prime",
-    "slug": "lucas-ferreira",
+    "slug": "painel-prime",
     "version": "1.0.2",
     "scheme": "painelprime",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "extra": {
-      "eas": {
-        "projectId": "b9ebc23c-7804-4567-a260-ddab1e43132c"
-      }
-    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -68,7 +63,14 @@
       "expo-font",
       "expo-asset",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-linear-gradient",
+      [
+        "react-native-svg",
+        {
+          "assets": ["./assets/fonts/SFMono-Regular.ttf"]
+        }
+      ]
     ]
   }
 }
