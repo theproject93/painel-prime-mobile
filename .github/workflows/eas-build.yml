@@ -1,0 +1,53 @@
+name: EAS Build & Firebase
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build APK on EAS
+        working-directory: apps/mobile
+        run: npx eas-cli build --platform android --profile preview --non-interactive --wait
+
+      - name: Download APK
+        working-directory: apps/mobile
+        run: |
+          LAST_BUILD=$(npx eas-cli build:list --platform android --status finished --limit 1 --json --non-interactive)
+          BUILD_URL=$(echo "$LAST_BUILD" | node -e "const b=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(b[0]?.artifacts?.applicationArchiveUrl||'')")
+          echo "BUILD_URL=$BUILD_URL" >> $GITHUB_ENV
+          curl -L -o app-release.apk "$BUILD_URL"
+
+      - name: Upload to Firebase
+        run: |
+          npm install -g firebase-tools
+          firebase appdistribution:distribute apps/mobile/app-release.apk \
+            --app ${{ secrets.FIREBASE_APP_ID }} \
+            --token ${{ secrets.FIREBASE_TOKEN }} \
+            --groups "testers" \
+            --release-notes "${{ github.event.head_commit.message }}"
