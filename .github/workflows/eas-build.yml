@@ -21,26 +21,28 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
       - name: Setup EAS
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
+          expo-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+          packager: pnpm
 
-      - name: Build APK on EAS
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: EAS Build
         working-directory: apps/mobile
-        run: npx eas-cli build --platform android --profile preview --non-interactive --wait
+        run: eas build --platform android --profile preview --non-interactive --wait
 
       - name: Download APK
         working-directory: apps/mobile
         run: |
-          LAST_BUILD=$(npx eas-cli build:list --platform android --status finished --limit 1 --json --non-interactive)
+          LAST_BUILD=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive)
           echo "$LAST_BUILD" | node -e "const b=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(b[0]?.artifacts?.applicationArchiveUrl||'')" > build_url.txt
           BUILD_URL=$(cat build_url.txt)
-          echo "BUILD_URL=$BUILD_URL" >> $GITHUB_ENV
+          echo "Downloading from $BUILD_URL"
           curl -L -o app-release.apk "$BUILD_URL"
 
       - name: Upload to Firebase
