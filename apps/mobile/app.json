@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Painel Prime",
-    "slug": "painel-prime",
+    "slug": "lucas-ferreira",
     "version": "1.0.2",
     "scheme": "painelprime",
     "orientation": "portrait",
@@ -63,8 +63,8 @@
       "expo-font",
       "expo-asset",
       "expo-router",
-      "expo-web-browser",
-      "react-native-svg"
+      "expo-web-browser"
+    ]
     ]
   }
 }
