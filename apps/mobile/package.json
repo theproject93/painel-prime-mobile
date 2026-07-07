@@ -8,7 +8,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "eas-build-on-success": "npm install -g firebase-tools && firebase appdistribution:distribute $(find android/app/build/outputs/apk -name '*.apk' | head -n 1) --app $FIREBASE_APP_ID --token $FIREBASE_TOKEN --groups \"testers\""
+    "eas-build-on-success": "echo 'Firebase upload via GitHub Actions step 9'"
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.2",
