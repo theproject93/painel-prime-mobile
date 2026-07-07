@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "extra": {
       "eas": {
         "projectId": "b9ebc23c-7804-4567-a260-ddab1e43132c"
@@ -68,9 +68,7 @@
       "expo-font",
       "expo-asset",
       "expo-router",
-      "expo-web-browser",
-      "expo-linear-gradient",
-      "react-native-svg"
+      "expo-web-browser"
     ]
   }
 }
