@@ -12,43 +12,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Trigger EAS Build via API
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          RESPONSE=$(curl -s -X POST "https://api.expo.dev/v2/projects/b9ebc23c-7804-4567-a260-ddab1e43132c/builds" \
-            -H "Authorization: Bearer $EXPO_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"platform":"android","profile":"preview","gitSource":{"type":"github","repo":"theproject93/painel-prime-mobile","branch":"main"}}')
-          echo "Response: $RESPONSE"
-          BUILD_ID=$(echo "$RESPONSE" | node -e "const b=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(b.id||'')")
-          echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-      - name: Wait for build & download APK
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: EAS Build
+        working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          NODE_OPTIONS: "--import=tsx/esm"
         run: |
-          BUILD_ID="${{ env.BUILD_ID }}"
-          if [ -z "$BUILD_ID" ]; then
-            echo "No build ID, exiting"
-            exit 1
-          fi
-          echo "Waiting for build $BUILD_ID..."
-          STATUS=""
-          while [ "$STATUS" != "finished" ] && [ "$STATUS" != "errored" ]; do
-            sleep 30
-            RESPONSE=$(curl -s "https://api.expo.dev/v2/projects/b9ebc23c-7804-4567-a260-ddab1e43132c/builds/$BUILD_ID" \
-              -H "Authorization: Bearer $EXPO_TOKEN")
-            STATUS=$(echo "$RESPONSE" | node -e "const b=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(b.status||'');")
-            echo "Build status: $STATUS"
-          done
-          if [ "$STATUS" = "errored" ]; then
-            echo "Build failed"
-            exit 1
-          fi
-          ARTIFACT_URL=$(echo "$RESPONSE" | node -e "const b=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(b.artifacts?.applicationArchiveUrl||'');")
-          echo "Downloading from $ARTIFACT_URL"
-          curl -L -o apps/mobile/app-release.apk "$ARTIFACT_URL"
+          npx tsx --version 2>/dev/null || npm install -g tsx
+          npx eas-cli build --platform android --profile preview --non-interactive --wait
+
+      - name: Download APK
+        working-directory: apps/mobile
+        run: |
+          LAST_BUILD=$(npx eas-cli build:list --platform android --status finished --limit 1 --json --non-interactive)
+          echo "$LAST_BUILD" | node -e "const b=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(b[0]?.artifacts?.applicationArchiveUrl||'')" > build_url.txt
+          BUILD_URL=$(cat build_url.txt)
+          curl -L -o app-release.apk "$BUILD_URL"
 
       - name: Upload to Firebase
         run: |
