@@ -1,49 +1,23 @@
-name: EAS Build & Firebase
+name: Firebase Upload
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      apk_url:
+        description: 'URL do APK gerado pelo EAS'
+        required: true
 
 jobs:
-  build:
+  upload:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
-      - name: EAS Build
-        working-directory: apps/mobile
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          NODE_OPTIONS: "--import=tsx/esm"
-        run: |
-          npx tsx --version 2>/dev/null || npm install -g tsx
-          npx eas-cli build --platform android --profile preview --non-interactive --wait
-
       - name: Download APK
-        working-directory: apps/mobile
-        run: |
-          LAST_BUILD=$(npx eas-cli build:list --platform android --status finished --limit 1 --json --non-interactive)
-          echo "$LAST_BUILD" | node -e "const b=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(b[0]?.artifacts?.applicationArchiveUrl||'')" > build_url.txt
-          BUILD_URL=$(cat build_url.txt)
-          curl -L -o app-release.apk "$BUILD_URL"
+        run: curl -L -o app-release.apk "${{ github.event.inputs.apk_url }}"
 
       - name: Upload to Firebase
         run: |
           npm install -g firebase-tools
-          firebase appdistribution:distribute apps/mobile/app-release.apk \
+          firebase appdistribution:distribute app-release.apk \
             --app ${{ secrets.FIREBASE_APP_ID }} \
             --token ${{ secrets.FIREBASE_TOKEN }} \
             --groups "testers"
