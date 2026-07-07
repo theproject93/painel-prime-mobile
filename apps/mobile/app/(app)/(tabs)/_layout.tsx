@@ -1,6 +1,7 @@
+import { useId } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { StyleSheet, View } from 'react-native';
 
 import { ModuleWalkthroughOverlay } from '../../../src/components/ModuleWalkthroughOverlay';
@@ -8,6 +9,7 @@ import { PlanAssistantFloating } from '../../../src/components/PlanAssistantFloa
 import { colors, gradients } from '../../../src/theme/colors';
 
 export default function AppTabsLayout() {
+  const tabGradId = useId();
   return (
     <View style={styles.container}>
       <Tabs
@@ -42,12 +44,15 @@ export default function AppTabsLayout() {
           tabBarIcon: ({ focused, color, size }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
               {focused && (
-                <LinearGradient
-                  colors={gradients.gold}
-                  style={styles.iconBg}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                />
+                <Svg style={StyleSheet.absoluteFill}>
+                  <Defs>
+                    <LinearGradient id={`tab-${tabGradId}`} x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0" stopColor={gradients.gold[0]} />
+                      <Stop offset="1" stopColor={gradients.gold[1]} />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect width="100%" height="100%" rx={14} ry={14} fill={`url(#tab-${tabGradId})`} />
+                </Svg>
               )}
               <Ionicons
                 name={getIconName(route.name, focused)}

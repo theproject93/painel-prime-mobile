@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -109,6 +109,7 @@ const PRICE_RANGE_OPTIONS = [
 
 export function VendorsCatalogScreen() {
   const { user } = useAuth();
+  const vcId = useId();
 
   const [vendors, setVendors] = useState<VendorRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -304,14 +305,28 @@ export function VendorsCatalogScreen() {
           {item.cover_image_url ? (
             <Image source={{ uri: item.cover_image_url }} style={styles.vendorImage} resizeMode="cover" />
           ) : (
-            <LinearGradient colors={gradients.royal} style={styles.vendorImagePlaceholder}>
+            <View style={styles.vendorImagePlaceholder}>
+              <Svg style={StyleSheet.absoluteFill}>
+                <Defs>
+                  <LinearGradient id={`vc-ph-${vcId}-${item.id}`} x1="0" y1="0" x2="1" y2="1">
+                    <Stop offset="0" stopColor={gradients.royal[0]} />
+                    <Stop offset="1" stopColor={gradients.royal[1]} />
+                  </LinearGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill={`url(#vc-ph-${vcId}-${item.id})`} />
+              </Svg>
               <Ionicons name="storefront" size={32} color="#FFFFFF" />
-            </LinearGradient>
+            </View>
           )}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
-            style={styles.vendorImageOverlay}
-          />
+          <Svg style={styles.vendorImageOverlay}>
+            <Defs>
+              <LinearGradient id={`vc-ov-${vcId}-${item.id}`} x1="0" y1="1" x2="0" y2="0">
+                <Stop offset="0" stopColor="rgba(0,0,0,0.7)" />
+                <Stop offset="1" stopColor="transparent" />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill={`url(#vc-ov-${vcId}-${item.id})`} />
+          </Svg>
           <View style={styles.vendorImageOverlayContent}>
             <Text style={styles.vendorImageName} numberOfLines={1}>{item.name}</Text>
             {item.city || item.state ? (
