@@ -36,6 +36,14 @@ visual-checks/
 apps/mobile/.expo/
 expo-env.d.ts
 
+# Android build artifacts
+android/build/
+android/app/build/
+android/.gradle/
+apps/mobile/android/build/
+apps/mobile/android/app/build/
+apps/mobile/android/.gradle/
+
 # Env files
 .env
 .env.*
