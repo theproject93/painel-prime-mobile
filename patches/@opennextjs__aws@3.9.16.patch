@@ -1,0 +1,38 @@
+diff --git a/dist/build/createServerBundle.js b/dist/build/createServerBundle.js
+index c0c11e453f981861483fe2a2d2332932d2d35ef7..c1ad62f0d7159d81f411c8536632d5c3dad34536 100644
+--- a/dist/build/createServerBundle.js
++++ b/dist/build/createServerBundle.js
+@@ -194,6 +194,7 @@ async function generateBundle(name, options, fnOptions, codeCustomization) {
+                 "const require = topLevelCreateRequire(import.meta.url);",
+                 "import bannerUrl from 'url';",
+                 "const __dirname = bannerUrl.fileURLToPath(new URL('.', import.meta.url));",
++                "process.chdir(globalThis.monorepoPackagePath);",
+                 name === "default" ? "" : `globalThis.fnName = "${name}";`,
+             ].join(""),
+         },
+diff --git a/dist/build/middleware/buildNodeMiddleware.js b/dist/build/middleware/buildNodeMiddleware.js
+index 1bf1a3f6fb27a0164abd9bf66a44fe1500e4a7a3..0361dd3f8986f3b3fa5e76f7d5efe30e7cfb9f4a 100644
+--- a/dist/build/middleware/buildNodeMiddleware.js
++++ b/dist/build/middleware/buildNodeMiddleware.js
+@@ -78,6 +78,7 @@ export async function buildExternalNodeMiddleware(options) {
+                 "const require = topLevelCreateRequire(import.meta.url);",
+                 "import bannerUrl from 'url';",
+                 "const __dirname = bannerUrl.fileURLToPath(new URL('.', import.meta.url));",
++                "process.chdir(globalThis.monorepoPackagePath);",
+             ].join(""),
+         },
+     }, options);
+diff --git a/dist/core/util.js b/dist/core/util.js
+index a740d2bd250a8e1f67a04d1968bed71f47b92236..25f71fab0b1d37f96ff2aa7264a12421711ab5ce 100644
+--- a/dist/core/util.js
++++ b/dist/core/util.js
+@@ -52,7 +52,8 @@ const nextServer = new NextServer.default({
+     },
+     customServer: false,
+     dev: false,
+-    dir: __dirname,
++    minimalMode: true,
++    dir: globalThis.monorepoPackagePath,
+ });
+ let routesLoaded = false;
+ globalThis.__next_route_preloader = async (stage) => {

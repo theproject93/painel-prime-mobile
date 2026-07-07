@@ -1,0 +1,32 @@
+diff --git a/dist/build/utils.js b/dist/build/utils.js
+index 7e665b863da5ff4fcc0eccdef0987f6092e24ec0..92fc232e81b16cdb40411e15aa54443b7b63120a 100644
+--- a/dist/build/utils.js
++++ b/dist/build/utils.js
+@@ -1218,11 +1218,22 @@ async function copyTracedFiles(dir, distDir, pageKeys, appPageKeys, tracingRoot,
+                 });
+                 const symlink = await _fs.promises.readlink(tracedFilePath).catch(()=>null);
+                 if (symlink) {
+-                    try {
+-                        await _fs.promises.symlink(symlink, fileOutputPath);
+-                    } catch (e) {
+-                        if (e.code !== 'EEXIST') {
+-                            throw e;
++                    const symlinkTargetPath = _path.default.resolve(_path.default.dirname(tracedFilePath), symlink);
++                    const symlinkStat = await _fs.promises.stat(symlinkTargetPath).catch(()=>null);
++                    if (symlinkStat == null ? void 0 : symlinkStat.isDirectory()) {
++                        await _fs.promises.cp(symlinkTargetPath, fileOutputPath, {
++                            recursive: true,
++                            force: true
++                        });
++                    } else if (symlinkStat) {
++                        await _fs.promises.copyFile(symlinkTargetPath, fileOutputPath);
++                    } else {
++                        try {
++                            await _fs.promises.symlink(symlink, fileOutputPath);
++                        } catch (e) {
++                            if (e.code !== 'EEXIST') {
++                                throw e;
++                            }
+                         }
+                     }
+                 } else {
