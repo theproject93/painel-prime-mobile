@@ -23,19 +23,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Patch expo (JS entry point)
+      - name: Patch expo
+        working-directory: apps/mobile
         run: |
-          EXPO_PKG=$(cd apps/mobile && node -e "console.log(require.resolve('expo/package.json'))" 2>/dev/null)
-          EXPO_DIR=$(dirname "$EXPO_PKG")
+          set -e
+          EXPO_DIR=$(node -p "require('path').dirname(require.resolve('expo/package.json'))")
           echo "Patching expo at $EXPO_DIR"
-          # Create minimal JS entry that doesn't need React Native
-          cat > "$EXPO_DIR/src/Expo.js" << 'EOF'
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('$EXPO_DIR/package.json','utf8'));
+            pkg.main = 'src/Expo.js';
+            fs.writeFileSync('$EXPO_DIR/package.json', JSON.stringify(pkg, null, 2));
+          "
+          cat > "$EXPO_DIR/src/Expo.js" << 'ENDJS'
           'use strict';
           let expoCore;
-          let hooks;
           try { expoCore = require('expo-modules-core'); } catch(e) {}
-          try { hooks = require('./hooks/useEvent'); } catch(e) {}
-          module.exports = {
+          Object.assign(exports, {
             get disableErrorHandling() { return require('./errors/ExpoErrorManager').disableErrorHandling; },
             get registerRootComponent() { return require('./launch/registerRootComponent').default; },
             get isRunningInExpoGo() { return require('./environment/ExpoGo').isRunningInExpoGo; },
@@ -49,17 +53,12 @@ jobs:
             requireNativeView: expoCore?.requireNativeViewManager,
             registerWebModule: expoCore?.registerWebModule,
             reloadAppAsync: expoCore?.reloadAppAsync,
-            useEvent: hooks?.useEvent,
-            useEventListener: hooks?.useEventListener,
-          };
-          EOF
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('$EXPO_DIR/package.json','utf8'));
-            pkg.main = 'src/Expo.js';
-            fs.writeFileSync('$EXPO_DIR/package.json', JSON.stringify(pkg, null, 2));
-          "
-          echo "Patched expo"
+          });
+          ENDJS
+          cat > "$EXPO_DIR/src/Expo.fx.js" << 'ENDFX'
+          'use strict';
+          ENDFX
+          echo "Patch complete"
 
       - name: EAS Build
         working-directory: apps/mobile
