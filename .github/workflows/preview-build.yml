@@ -25,7 +25,7 @@ jobs:
           cache: 'pnpm'
 
       - name: 5. Install dependencies
-        run: pnpm install
+        run: pnpm install --force
 
       - name: 6. Setup EAS CLI
         run: npm install -g eas-cli
