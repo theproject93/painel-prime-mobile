@@ -64,13 +64,7 @@
       "expo-asset",
       "expo-router",
       "expo-web-browser",
-      "expo-linear-gradient",
-      [
-        "react-native-svg",
-        {
-          "assets": ["./assets/fonts/SFMono-Regular.ttf"]
-        }
-      ]
+      "react-native-svg"
     ]
   }
 }
