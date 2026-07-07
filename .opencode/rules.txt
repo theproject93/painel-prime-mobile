@@ -1,0 +1,26 @@
+# DIRETRIZES GRAVADAS PERMANENTEMENTE
+
+## Nome do Projeto
+- Nome oficial: **Painel Prime**
+- Package / ApplicationID Android: **br.com.painelprime.app** (EXATAMENTE este, sem variações)
+- Bundle ID iOS: **br.com.painelprime.app**
+- Deep link scheme: **painelprime**
+
+## PROIBIÇÕES ABSOLUTAS
+- **NUNCA** use "planejarpro", "br.com.planejarpro.app" ou qualquer variação
+- O nome "PlanejarPro" foi descontinuado. É nome de projeto antigo/morto.
+- Se encontrar qualquer menção a "planejarpro" em arquivos fonte (app.json, build.gradle, Kotlin files, AndroidManifest.xml, AuthContext.tsx, etc), corrija IMEDIATAMENTE para "painelprime"
+
+## Firebase
+- Project ID: painel-prime-br
+- Android App ID: 1:78206101227:android:3d0104479ca6cb324b80ae (package: br.com.painelprime.app)
+- NÃO crie novos apps Firebase. Use o existente.
+
+## Build
+- SEMPRE use `assembleRelease` (nunca `assembleDebug` para distribuição)
+- Java: JDK 17 em C:\Program Files\Eclipse Adoptium\jdk-17.0.18.8-hotspot
+- Gradle: use --no-daemon
+
+## Distribuição
+- APK de saída: apps\mobile\android\app\build\outputs\apk\release\app-release.apk
+- Comando Firebase: firebase appdistribution:distribute --app "1:78206101227:android:3d0104479ca6cb324b80ae" --testers "lucasfer.mail@gmail.com"
