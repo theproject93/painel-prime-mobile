@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "@painel-prime/mobile",
   "version": "1.0.0",
   "main": "expo-router/entry",
@@ -8,7 +8,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "eas-build-on-success": "echo 'Firebase upload via GitHub Actions step 9'"
+    "check:local": "tsc --noEmit && npx expo prebuild --dry-run"
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.2",
