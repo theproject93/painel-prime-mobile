@@ -15,7 +15,7 @@ Voc├¬ ├® um Engenheiro de Software S├¬nior atuando neste monorepo (`pnp
   - `origin` ÔåÆ `theproject93/painel-prime` (monorepo completo: web + mobile + packages)
   - `mobile` ÔåÆ `theproject93/painel-prime-mobile` (reposit├│rio dedicado ao app Expo/React Native)
 - Toda modifica├º├úo no escopo `apps/mobile/` precisa ser enviada para **ambos** os remotes. O push cego de commits do monorepo para o reposit├│rio mobile sem valida├º├úo de alinhamento ├® PROIBIDO.
-- Ambos os reposit├│rios possuem workflows de CI/CD independentes (`Build Android Preview (EAS Local)`) que disparam em push para `main`.
+- Ambos os reposit├│rios possuem workflows de CI/CD independentes. O reposit├│rio `mobile` (`painel-prime-mobile`) ├® o **├ÜNICO** detentor e executor dos workflows de gera├º├úo de APK (`eas-build.yml` e `preview-build.yml`). ├ë **EXPRESSAMENTE PROIBIDO** comitar ou manter esses arquivos de workflow no reposit├│rio `origin` (`painel-prime`), garantindo um hist├│rico de commits limpo e focado em WEB.
 
 ---
 
@@ -98,12 +98,12 @@ Os seguintes plugins est├úo ativos e validados em `apps/mobile/app.json`:
 
 ## 5. ESTREIRA DE DEPLOY & CI/CD
 - **Proibido EAS Cloud:** Nunca execute builds nos servidores de nuvem da Expo (`eas build`). A cota gratuita ├® estritamente limitada a 15 builds.
-- **GitHub Actions Ativo:** O empacotamento do APK ├® feito localmente e de forma infinita atrav├®s do workflow `.github/workflows/preview-build.yml`.
+- **GitHub Actions Mobile:** O empacotamento do APK ├® feito localmente e de forma infinita atrav├®s do workflow `.github/workflows/preview-build.yml` contido **exclusivamente** no reposit├│rio `painel-prime-mobile`.
 - **Pipeline (9 steps):** Checkout ÔåÆ Java 17 ÔåÆ pnpm ÔåÆ Node 20 ÔåÆ Install deps ÔåÆ EAS CLI ÔåÆ Build APK local ÔåÆ Upload Artifact ÔåÆ Firebase App Distribution.
-- **Distribui├º├úo Automatizada:** Ao realizar o push para a branch `main`, a pipeline compila o APK e faz o upload autom├ítico para o **Firebase App Distribution** (grupo de testadores: `"testers"`, tester: `lucasfer.mail@gmail.com`).
+- **Distribui├º├úo Automatizada:** Ao realizar o push para a branch `main` no reposit├│rio `painel-prime-mobile`, a pipeline compila o APK e faz o upload autom├ítico para o **Firebase App Distribution** (grupo de testadores: `"testers"`, tester: `lucasfer.mail@gmail.com`).
 - **Perfil de Build:** `eas.json` cont├®m apenas o perfil `preview` com `android.buildType: "apk"`.
 - **Cache pnpm:** O workflow usa `pnpm/action-setup@v4` com cache autom├ítico. Se suspeitar de cache corrompido, use `pnpm install --force` no step 5.
-- **Dois Runners Independentes:** O workflow `Build Android Preview (EAS Local)` existe em AMBOS os reposit├│rios (`painel-prime` e `painel-prime-mobile`). O push para `main` em qualquer um deles dispara sua respectiva pipeline. Certifique-se de que o `pnpm-lock.yaml` de cada reposit├│rio est├í consistente com seu pr├│prio `package.json` antes de empurrar.
+- **├Ünico Runner de Mobile:** O workflow `Build Android Preview (EAS Local)` deve existir e rodar **EXCLUSIVAMENTE** no reposit├│rio dedicado `painel-prime-mobile`. O reposit├│rio principal `painel-prime` deve conter apenas as esteiras universais (`ci.yml` e `storage-r2-maintenance.yml`).
 
 ---
 
