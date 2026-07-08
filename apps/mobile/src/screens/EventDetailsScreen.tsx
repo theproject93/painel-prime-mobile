@@ -158,6 +158,10 @@ const TAB_KEYS: Record<Tab, DataKey[]> = {
   team: ['team'],
   tables: ['tables', 'guests'],
   invites: ['guests'],
+  catalog: ['vendors'],
+  portal: ['guests'],
+  presentes: ['guests'],
+  analytics: ['expenses', 'payments'],
 };
 
 export function EventDetailsScreen() {
