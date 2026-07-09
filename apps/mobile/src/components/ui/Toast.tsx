@@ -1,8 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
-import { useToast, type ToastItem } from '../../contexts/ToastContext';
+
+type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+type ToastItem = {
+  id: number;
+  type: ToastType;
+  message: string;
+};
 
 const TOAST_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   success: { bg: '#f0fdf4', text: '#166534', border: '#bbf7d0' },
@@ -82,9 +88,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
 });
-
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { ToastType } from '../contexts/ToastContext';
 
 type InternalToastContextType = {
   toasts: ToastItem[];

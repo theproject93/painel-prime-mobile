@@ -39,6 +39,6 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   label: { fontSize: fontSize.xs, fontWeight: fontWeight.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  value: { fontSize: fontSize.xxl, fontWeight: fontWeight.extrabold },
+  value: { fontSize: fontSize['2xl'], fontWeight: fontWeight.extrabold },
   sub: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, marginTop: 2 },
 });
