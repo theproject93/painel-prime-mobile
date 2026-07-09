@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ModuleWalkthroughOverlay } from '../../../src/components/ModuleWalkthroughOverlay';
 import { PlanAssistantFloating } from '../../../src/components/PlanAssistantFloating';
@@ -10,6 +11,7 @@ import { colors, gradients } from '../../../src/theme/colors';
 
 export default function AppTabsLayout() {
   const tabGradId = useId();
+  const insets = useSafeAreaInsets();
   return (
     <View style={styles.container}>
       <Tabs
@@ -19,9 +21,9 @@ export default function AppTabsLayout() {
           tabBarInactiveTintColor: colors.mutedText,
           tabBarHideOnKeyboard: true,
           tabBarStyle: {
-            height: 64,
-            paddingBottom: 8,
-            paddingTop: 6,
+            height: 56 + insets.bottom,
+            paddingBottom: insets.bottom + 4,
+            paddingTop: 4,
             backgroundColor: colors.surface,
             borderTopColor: colors.border,
             borderTopWidth: StyleSheet.hairlineWidth,
@@ -33,13 +35,13 @@ export default function AppTabsLayout() {
           },
           tabBarItemStyle: {
             borderRadius: 12,
-            paddingVertical: 4,
+            paddingVertical: 2,
           },
           tabBarLabelStyle: {
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: '700',
-            marginTop: 2,
-            letterSpacing: 0.2,
+            marginTop: 1,
+            letterSpacing: -0.2,
           },
           tabBarIcon: ({ focused, color, size }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
@@ -66,8 +68,8 @@ export default function AppTabsLayout() {
         <Tabs.Screen name="dashboard" options={{ title: 'Início' }} />
         <Tabs.Screen name="eventos" options={{ title: 'Eventos' }} />
         <Tabs.Screen name="clientes" options={{ title: 'Clientes' }} />
-        <Tabs.Screen name="financeiro" options={{ title: 'Financeiro' }} />
-        <Tabs.Screen name="fornecedores" options={{ title: 'Fornecedores' }} />
+        <Tabs.Screen name="financeiro" options={{ title: 'Finanças' }} />
+        <Tabs.Screen name="fornecedores" options={{ title: 'Fornec.' }} />
         <Tabs.Screen name="mais" options={{ title: 'Mais' }} />
       </Tabs>
       <ModuleWalkthroughOverlay />

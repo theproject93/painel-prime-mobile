@@ -1,5 +1,6 @@
 import { PropsWithChildren } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
 
@@ -9,8 +10,18 @@ type ScreenProps = PropsWithChildren<{
 }>;
 
 export function Screen({ title, subtitle, children }: ScreenProps) {
+  const insets = useSafeAreaInsets();
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.page}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: insets.top + 10,
+          paddingBottom: insets.bottom + 80,
+        },
+      ]}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
