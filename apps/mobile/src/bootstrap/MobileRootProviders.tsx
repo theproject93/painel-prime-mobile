@@ -23,7 +23,7 @@ export function MobileRootProviders({ children }: PropsWithChildren) {
     <SafeAreaProvider>
       <AuthProvider>
         <WalkthroughAnchorsProvider>
-          <StatusBar style="light" />
+          <StatusBar style="dark" backgroundColor={colors.background} translucent={false} />
           {children}
         </WalkthroughAnchorsProvider>
       </AuthProvider>
