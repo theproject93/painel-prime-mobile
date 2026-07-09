@@ -208,13 +208,13 @@ export function ClientPortalScreen() {
             <View style={styles.linkActions}>
               <Button
                 title="Copiar link"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onPress={handleCopyLink}
               />
               <Button
                 title="Compartilhar"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onPress={handleShareLink}
               />
@@ -267,14 +267,12 @@ export function ClientPortalScreen() {
             onPress={() => {
               Share.share({ message: portalUrl });
             }}
-            fullWidth
           />
         ) : null}
         <Button
           title="Compartilhar Link"
-          variant="secondary"
+          variant="ghost"
           onPress={handleShareLink}
-          fullWidth
         />
       </View>
     </ScrollView>

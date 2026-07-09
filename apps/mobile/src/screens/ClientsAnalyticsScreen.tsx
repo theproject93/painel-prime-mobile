@@ -12,7 +12,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Card } from '../components/ui/Card';
 import { StatCard } from '../components/ui/StatCard';
-import { SkeletonBlock, SkeletonPage } from '../components/ui/Skeleton';
 import { colors } from '../theme/colors';
 
 type FunnelStage =
@@ -226,23 +225,8 @@ export function ClientsAnalyticsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.page}>
-        <View style={styles.skeletonHeader}>
-          <SkeletonBlock width="50%" height={22} borderRadius={6} />
-          <SkeletonBlock width="80%" height={14} borderRadius={4} />
-        </View>
-        <View style={styles.skeletonRow}>
-          <SkeletonBlock width="30%" height={80} borderRadius={12} />
-          <SkeletonBlock width="30%" height={80} borderRadius={12} />
-          <SkeletonBlock width="30%" height={80} borderRadius={12} />
-        </View>
-        <View style={styles.skeletonRow}>
-          <SkeletonBlock width="30%" height={80} borderRadius={12} />
-          <SkeletonBlock width="30%" height={80} borderRadius={12} />
-        </View>
-        <SkeletonBlock width="100%" height={140} borderRadius={12} />
-        <SkeletonBlock width="100%" height={120} borderRadius={12} />
-        <SkeletonBlock width="100%" height={160} borderRadius={12} />
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primaryStrong} />
       </View>
     );
   }
@@ -293,24 +277,24 @@ export function ClientsAnalyticsScreen() {
       <Text style={styles.sectionTitle}>Funil de Vendas</Text>
 
       <View style={styles.statsRow}>
-        <StatCard label="Total" value={`${funnelMetrics.total}`} color={colors.primary} />
-        <StatCard label="Leads" value={`${funnelMetrics.lead}`} color={colors.infoText} />
+        <StatCard label="Total" value={`${funnelMetrics.total}`} tone="blue" />
+        <StatCard label="Leads" value={`${funnelMetrics.lead}`} tone="blue" />
         <StatCard
           label="Em Negociação"
           value={`${funnelMetrics.negociacao}`}
-          color={colors.warningText}
+          tone="amber"
         />
       </View>
       <View style={styles.statsRow}>
         <StatCard
           label="Fechados"
           value={`${funnelMetrics.cliente_fechado}`}
-          color={colors.successText}
+          tone="green"
         />
         <StatCard
           label="Perdidos"
           value={`${funnelMetrics.cliente_perdido}`}
-          color={colors.dangerText}
+          tone="red"
         />
         <View style={styles.statPlaceholder} />
       </View>
@@ -440,6 +424,12 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     paddingBottom: 32,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
   },
   sectionTitle: {
     color: colors.text,
@@ -627,15 +617,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  skeletonHeader: {
-    gap: 8,
-    padding: 16,
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    marginBottom: 12,
   },
 });
