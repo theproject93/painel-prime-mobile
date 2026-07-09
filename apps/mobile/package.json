@@ -8,8 +8,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "check:local": "pnpm install --frozen-lockfile && tsc --noEmit && npx expo prebuild --dry-run",
-    "check:smoke": "tsc --noEmit && npx expo start --android"
+    "check:local": "pnpm install --frozen-lockfile && pnpm run validate",
+    "check:smoke": "tsc --noEmit && npx expo start --android",
+    "validate": "tsc --noEmit && npx expo config --type introspect --json"
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.2",
