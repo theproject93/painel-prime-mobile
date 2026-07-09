@@ -27,10 +27,13 @@ jobs:
       - name: 5. Install dependencies
         run: pnpm install --force
 
-      - name: 6. Setup EAS CLI
+      - name: 6. Validate (fail-fast)
+        run: pnpm --filter @painel-prime/mobile run validate
+
+      - name: 7. Setup EAS CLI
         run: npm install -g eas-cli
 
-      - name: 7. Build APK Local no Runner
+      - name: 8. Build APK Local no Runner
         run: |
           cd apps/mobile
           eas build --platform android --profile preview --local --output=../../painel-prime-preview.apk
@@ -42,13 +45,13 @@ jobs:
           EXPO_PUBLIC_BASE_INVITE_URL: ${{ secrets.EXPO_PUBLIC_BASE_INVITE_URL }}
           EXPO_PUBLIC_BASE_NOIVOS_URL: ${{ secrets.EXPO_PUBLIC_BASE_NOIVOS_URL }}
 
-      - name: 8. Upload APK Artifact
+      - name: 9. Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: painel-prime-apk
           path: painel-prime-preview.apk
 
-      - name: 9. Upload to Firebase App Distribution
+      - name: 10. Upload to Firebase App Distribution
         uses: w9jds/firebase-action@master
         with:
           args: appdistribution:distribute painel-prime-preview.apk --app ${{ secrets.FIREBASE_APP_ID }} --groups "testers"
