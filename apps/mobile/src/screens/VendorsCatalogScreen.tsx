@@ -1,4 +1,4 @@
-﻿import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -35,24 +35,24 @@ const CARD_IMAGE_H = 140;
 
 const CATEGORIES = [
   'Assessoria/Cerimonial',
-  'Espa├ºo/Local',
+  'Espaço/Local',
   'Buffet/Gastronomia',
   'Bar/Bebidas',
   'Bolo/Doces',
-  'Decora├º├úo/Floral',
+  'Decoraçúo/Floral',
   'Foto',
-  'V├¡deo',
-  'M├║sica/DJ/Banda',
-  'Som/Ilumina├º├úo/Estrutura',
-  'Loca├º├úo/Mobili├írio',
+  'Vídeo',
+  'Música/DJ/Banda',
+  'Som/Iluminaçúo/Estrutura',
+  'Locaçúo/Mobiliírio',
   'Beleza/Dia da noiva',
-  'Trajes/Acess├│rios',
+  'Trajes/Acessórios',
   'Convites/Papelaria',
   'Celebrante',
-  'Transporte/Log├¡stica',
-  'Lembran├ºas/Personalizados',
-  'Entretenimento/Experi├¬ncias',
-  'Conte├║do/Redes sociais',
+  'Transporte/Logística',
+  'Lembranças/Personalizados',
+  'Entretenimento/Experiências',
+  'Conteúdo/Redes sociais',
   'Outros',
 ] as const;
 
@@ -102,7 +102,7 @@ const EMPTY_FORM: VendorForm = {
 
 const PRICE_RANGE_OPTIONS = [
   { value: '', label: 'Selecione...' },
-  { value: '$', label: '$ - Econ├┤mico' },
+  { value: '$', label: '$ - Econômico' },
   { value: '$$', label: '$$ - Moderado' },
   { value: '$$$', label: '$$$ - Premium' },
   { value: '$$$$', label: '$$$$ - Luxo' },
@@ -246,7 +246,7 @@ export function VendorsCatalogScreen() {
   function handleDelete(vendor: VendorRecord) {
     confirmAlert(
       'Remover fornecedor',
-      `Deseja remover "${vendor.name}" do cat├ílogo? Esta a├º├úo n├úo pode ser desfeita.`,
+      `Deseja remover "${vendor.name}" do catílogo? Esta açúo núo pode ser desfeita.`,
       async () => {
         const { error: deleteError } = await supabase
           .rpc('delete_vendor', { p_vendor_id: vendor.id });
@@ -430,7 +430,7 @@ export function VendorsCatalogScreen() {
 
       <View style={styles.statsRow}>
         <StatCardPremium title="Total" value={vendors.length} icon="people" gradient="royal" subtitle="cadastrados" />
-        <StatCardPremium title="Vitrine" value={vendors.filter(v => v.is_visible_in_vitrine).length} icon="eye" gradient="gold" subtitle="vis├¡veis" />
+        <StatCardPremium title="Vitrine" value={vendors.filter(v => v.is_visible_in_vitrine).length} icon="eye" gradient="gold" subtitle="visíveis" />
       </View>
 
       <View style={{ marginHorizontal: 16, marginTop: spacing.md }}>
@@ -490,7 +490,7 @@ export function VendorsCatalogScreen() {
         {filtered.length === 0 ? (
           <EmptyState
             title="Nenhum fornecedor cadastrado"
-            message="Cadastre fornecedores no cat├ílogo global para reutilizar em v├írios eventos."
+            message="Cadastre fornecedores no catílogo global para reutilizar em vírios eventos."
             actionLabel="Cadastrar fornecedor"
             onAction={openCreateModal}
           />
@@ -516,7 +516,7 @@ export function VendorsCatalogScreen() {
             style={styles.textInput}
             value={form.name}
             onChangeText={(value) => setForm((prev) => ({ ...prev, name: value }))}
-            placeholder="Ex.: Lumi├¿re Filmes"
+            placeholder="Ex.: Lumière Filmes"
             placeholderTextColor={colors.mutedText}
           />
 
@@ -598,7 +598,7 @@ export function VendorsCatalogScreen() {
             maxLength={2}
           />
 
-          <Text style={styles.fieldLabel}>Faixa de Pre├ºo</Text>
+          <Text style={styles.fieldLabel}>Faixa de Preço</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -635,9 +635,9 @@ export function VendorsCatalogScreen() {
               color={form.is_visible_in_vitrine ? colors.primaryStrong : colors.mutedText}
             />
             <View style={styles.vitrineTextGroup}>
-              <Text style={styles.fieldLabel}>Exibir na vitrine p├║blica</Text>
+              <Text style={styles.fieldLabel}>Exibir na vitrine pública</Text>
               <Text style={styles.vitrineHint}>
-                Quando ativado, aparece na p├ígina p├║blica da sua assessoria.
+                Quando ativado, aparece na pígina pública da sua assessoria.
               </Text>
             </View>
           </Pressable>

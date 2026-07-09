@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -126,7 +126,7 @@ type ConsentRecord = {
 
 const STAGES: Array<{ value: Stage; label: string }> = [
   { value: 'conhecendo_cliente', label: 'Conhecendo cliente' },
-  { value: 'analisando_orcamento', label: 'Analisando or├ºamento' },
+  { value: 'analisando_orcamento', label: 'Analisando orçamento' },
   { value: 'assinatura_contrato', label: 'Assinatura de contrato' },
   { value: 'cliente_fechado', label: 'Cliente fechado' },
   { value: 'cliente_perdido', label: 'Cliente perdido' },
@@ -333,8 +333,8 @@ export function ClientsScreen() {
         client_name: row.name,
         stage: row.stage,
         priority_score: 100 - index,
-        priority_reason: 'Sem prioriza├º├úo RPC, usando fallback local.',
-        next_action: 'Registrar intera├º├úo e pr├│ximo follow-up',
+        priority_reason: 'Sem priorizaçúo RPC, usando fallback local.',
+        next_action: 'Registrar interaçúo e próximo follow-up',
         due_date: row.event_date_expected,
       }));
 
@@ -420,11 +420,11 @@ export function ClientsScreen() {
     const contractDoc = selectedDocs.find((row) => row.doc_type === 'contract');
     setBudgetText(
       budgetDoc?.content ??
-        `Proposta comercial para ${selected.name}\n\nEscopo:\n- Planejamento\n- Fornecedores\n- Opera├º├úo`,
+        `Proposta comercial para ${selected.name}\n\nEscopo:\n- Planejamento\n- Fornecedores\n- Operaçúo`,
     );
     setContractText(
       contractDoc?.content ??
-        `Contrato de presta├º├úo de servi├ºos\n\nContratante: ${selected.name}\n\nCl├íusulas:\n1. Objeto\n2. Pagamento\n3. Cancelamento`,
+        `Contrato de prestaçúo de serviços\n\nContratante: ${selected.name}\n\nClíusulas:\n1. Objeto\n2. Pagamento\n3. Cancelamento`,
     );
   }, [selected, selectedDocs]);
 
@@ -493,7 +493,7 @@ export function ClientsScreen() {
       .maybeSingle();
 
     if (insertError || !data) {
-      setError(insertError?.message ?? 'N├úo foi poss├¡vel registrar a intera├º├úo.');
+      setError(insertError?.message ?? 'Núo foi possível registrar a interaçúo.');
       return;
     }
 
@@ -560,7 +560,7 @@ export function ClientsScreen() {
           user_id: user.id,
           client_id: selected.id,
           doc_type: type,
-          title: `${type === 'budget' ? 'Or├ºamento' : 'Contrato'} - ${selected.name}`,
+          title: `${type === 'budget' ? 'Orçamento' : 'Contrato'} - ${selected.name}`,
           content,
           status,
         })
@@ -568,7 +568,7 @@ export function ClientsScreen() {
         .maybeSingle();
       setSavingDoc(null);
       if (insertError || !data) {
-        setError(insertError?.message ?? 'N├úo foi poss├¡vel salvar documento.');
+        setError(insertError?.message ?? 'Núo foi possível salvar documento.');
         return null;
       }
       const inserted = data as ClientDoc;
@@ -584,7 +584,7 @@ export function ClientsScreen() {
       .maybeSingle();
     setSavingDoc(null);
     if (updateError || !data) {
-      setError(updateError?.message ?? 'N├úo foi poss├¡vel atualizar documento.');
+      setError(updateError?.message ?? 'Núo foi possível atualizar documento.');
       return null;
     }
     const updated = data as ClientDoc;
@@ -620,7 +620,7 @@ export function ClientsScreen() {
       .maybeSingle();
     setSendingSignature(false);
     if (reqError || !data) {
-      setError(reqError?.message ?? 'N├úo foi poss├¡vel enviar para assinatura.');
+      setError(reqError?.message ?? 'Núo foi possível enviar para assinatura.');
       return;
     }
     const req = data as SignReq;
@@ -648,7 +648,7 @@ export function ClientsScreen() {
       .maybeSingle();
     setSavingConsent(false);
     if (consentError || !data) {
-      setError(consentError?.message ?? 'N├úo foi poss├¡vel registrar consentimento.');
+      setError(consentError?.message ?? 'Núo foi possível registrar consentimento.');
       return;
     }
     setConsentNote('');
@@ -689,7 +689,7 @@ export function ClientsScreen() {
       </View>
       <View style={[styles.statsRow, { marginTop: spacing.sm }]}>
         <StatCardPremium title="Funil" value={toBRL(weightedPipeline)} icon="cash" gradient="success" subtitle="valor ponderado" />
-        <StatCardPremium title="Taxa" value={`${conversionRate}%`} icon="trending-up" gradient="info" subtitle="convers├úo" />
+        <StatCardPremium title="Taxa" value={`${conversionRate}%`} icon="trending-up" gradient="info" subtitle="conversúo" />
       </View>
 
       <View style={{ marginTop: spacing.lg }}>
@@ -729,7 +729,7 @@ export function ClientsScreen() {
                     onPress={() => setSelectedId(client.id)}
                   >
                     <Text style={styles.clientName}>{client.name}</Text>
-                    <Text style={styles.clientMeta}>{client.event_type || 'Evento n├úo definido'}</Text>
+                    <Text style={styles.clientMeta}>{client.event_type || 'Evento núo definido'}</Text>
                     <Text style={styles.clientMeta}>{client.event_date_expected || 'Sem data'}</Text>
                     <Text style={styles.clientBudget}>{toBRL(Number(client.budget_expected ?? 0))}</Text>
                   </Pressable>
@@ -754,20 +754,20 @@ export function ClientsScreen() {
             ))}
           </View>
 
-          <Text style={styles.cardSubTitle}>Registrar intera├º├úo</Text>
+          <Text style={styles.cardSubTitle}>Registrar interaçúo</Text>
           <View style={styles.rowBtns}>
             <Pressable style={[styles.btnGhost, interactionForm.channel === 'whatsapp' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, channel: 'whatsapp' }))}><Text style={styles.smallText}>WhatsApp</Text></Pressable>
             <Pressable style={[styles.btnGhost, interactionForm.channel === 'email' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, channel: 'email' }))}><Text style={styles.smallText}>Email</Text></Pressable>
-            <Pressable style={[styles.btnGhost, interactionForm.channel === 'ligacao' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, channel: 'ligacao' }))}><Text style={styles.smallText}>Liga├º├úo</Text></Pressable>
+            <Pressable style={[styles.btnGhost, interactionForm.channel === 'ligacao' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, channel: 'ligacao' }))}><Text style={styles.smallText}>Ligaçúo</Text></Pressable>
           </View>
           <View style={styles.rowBtns}>
             <Pressable style={[styles.btnGhost, interactionForm.direction === 'outbound' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, direction: 'outbound' }))}><Text style={styles.smallText}>Saida</Text></Pressable>
             <Pressable style={[styles.btnGhost, interactionForm.direction === 'inbound' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, direction: 'inbound' }))}><Text style={styles.smallText}>Entrada</Text></Pressable>
           </View>
-          <TextInput style={styles.input} value={interactionForm.summary} onChangeText={(value) => setInteractionForm((prev) => ({ ...prev, summary: value }))} placeholder="Resumo da intera├º├úo" />
-          <TextInput style={styles.input} value={interactionForm.next_followup_at} onChangeText={(value) => setInteractionForm((prev) => ({ ...prev, next_followup_at: value }))} placeholder="Pr├│ximo follow-up (YYYY-MM-DD)" />
+          <TextInput style={styles.input} value={interactionForm.summary} onChangeText={(value) => setInteractionForm((prev) => ({ ...prev, summary: value }))} placeholder="Resumo da interaçúo" />
+          <TextInput style={styles.input} value={interactionForm.next_followup_at} onChangeText={(value) => setInteractionForm((prev) => ({ ...prev, next_followup_at: value }))} placeholder="Próximo follow-up (YYYY-MM-DD)" />
           <Pressable style={styles.btn} onPress={() => void addInteraction()}>
-            <Text style={styles.btnText}>Salvar intera├º├úo</Text>
+            <Text style={styles.btnText}>Salvar interaçúo</Text>
           </Pressable>
 
           <Text style={styles.cardSubTitle}>Follow-ups do cliente</Text>
@@ -784,8 +784,8 @@ export function ClientsScreen() {
             </View>
           ))}
 
-          <Text style={styles.cardSubTitle}>Hist├│rico de intera├º├Áes</Text>
-          {selectedInteractions.length === 0 ? <Text style={styles.caption}>Sem intera├º├Áes registradas.</Text> : null}
+          <Text style={styles.cardSubTitle}>Histórico de interaçÁes</Text>
+          {selectedInteractions.length === 0 ? <Text style={styles.caption}>Sem interaçÁes registradas.</Text> : null}
           {selectedInteractions.slice(0, 12).map((interaction) => (
             <View key={interaction.id} style={styles.taskRow}>
               <View style={{ flex: 1 }}>
@@ -802,12 +802,12 @@ export function ClientsScreen() {
             style={[styles.input, styles.areaLarge]}
             value={budgetText}
             onChangeText={setBudgetText}
-            placeholder="Or├ºamento (texto)"
+            placeholder="Orçamento (texto)"
             multiline
           />
           <View style={styles.rowBtns}>
             <Pressable style={styles.btnGhost} onPress={() => void upsertDoc('budget', budgetText, 'draft')}>
-              <Text style={styles.smallText}>{savingDoc === 'budget' ? 'Salvando...' : 'Salvar or├ºamento'}</Text>
+              <Text style={styles.smallText}>{savingDoc === 'budget' ? 'Salvando...' : 'Salvar orçamento'}</Text>
             </Pressable>
           </View>
           <TextInput
@@ -861,7 +861,7 @@ export function ClientsScreen() {
             style={styles.input}
             value={consentNote}
             onChangeText={setConsentNote}
-            placeholder="Observa├º├úo de consentimento"
+            placeholder="Observaçúo de consentimento"
           />
           <Pressable style={styles.btnGhost} onPress={() => void addConsent()}>
             <Text style={styles.smallText}>{savingConsent ? 'Registrando...' : 'Registrar consentimento'}</Text>
@@ -933,7 +933,7 @@ export function ClientsScreen() {
             <TextInput style={styles.input} value={form.phone} onChangeText={(value) => setForm((prev) => ({ ...prev, phone: value }))} placeholder="Telefone" />
             <TextInput style={styles.input} value={form.eventType} onChangeText={(value) => setForm((prev) => ({ ...prev, eventType: value }))} placeholder="Tipo de evento" />
             <TextInput style={styles.input} value={form.eventDate} onChangeText={(value) => setForm((prev) => ({ ...prev, eventDate: value }))} placeholder="Data esperada (YYYY-MM-DD)" />
-            <TextInput style={styles.input} value={form.budgetExpected} onChangeText={(value) => setForm((prev) => ({ ...prev, budgetExpected: value }))} placeholder="Or├ºamento esperado" keyboardType="numeric" />
+            <TextInput style={styles.input} value={form.budgetExpected} onChangeText={(value) => setForm((prev) => ({ ...prev, budgetExpected: value }))} placeholder="Orçamento esperado" keyboardType="numeric" />
             <TextInput style={[styles.input, styles.area]} value={form.notes} onChangeText={(value) => setForm((prev) => ({ ...prev, notes: value }))} placeholder="Notas" multiline />
             <View style={styles.rowBtns}>
               {STAGES.map((stage) => (
