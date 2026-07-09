@@ -18,7 +18,7 @@ export function Screen({ title, subtitle, children }: ScreenProps) {
         styles.content,
         {
           paddingTop: insets.top + 10,
-          paddingBottom: insets.bottom + 80,
+          paddingBottom: insets.bottom + 140,
         },
       ]}
     >

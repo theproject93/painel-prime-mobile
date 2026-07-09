@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
@@ -66,6 +67,7 @@ const EVENT_TYPE_CARDS: Record<
 export function EventsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const userId = user?.id;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -377,7 +379,7 @@ export function EventsScreen() {
   }
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { paddingTop: insets.top + 10 }]}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Eventos</Text>
@@ -520,7 +522,7 @@ function Pill({ label, selected, onPress }: { label: string; selected: boolean; 
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16, paddingTop: 16 },
+  page: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16, paddingBottom: 20 },
   centerPage: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   title: { color: colors.text, fontSize: 28, fontWeight: '700' },

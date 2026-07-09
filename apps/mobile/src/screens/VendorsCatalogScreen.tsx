@@ -15,6 +15,7 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -109,6 +110,7 @@ const PRICE_RANGE_OPTIONS = [
 
 export function VendorsCatalogScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const vcId = useId();
 
   const [vendors, setVendors] = useState<VendorRecord[]>([]);
@@ -400,14 +402,14 @@ export function VendorsCatalogScreen() {
 
   if (loading) {
     return (
-      <View style={styles.page}>
+      <View style={[styles.page, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 140 }]}>
         <SkeletonList count={4} />
       </View>
     );
   }
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 140 }]}>
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Fornecedores</Text>

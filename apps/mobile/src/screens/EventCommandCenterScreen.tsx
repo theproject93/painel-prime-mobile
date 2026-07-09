@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
@@ -160,6 +161,7 @@ async function hydrateCoupleUpdatePhotoUrls(rows: CoupleUpdateRow[]) {
 
 export function EventCommandCenterScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const eventId = Array.isArray(params.id) ? params.id[0] ?? '' : params.id ?? '';
   const { user } = useAuth();
@@ -581,7 +583,7 @@ export function EventCommandCenterScreen() {
   }
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 140 }]}>
       <Pressable onPress={() => router.push(`/eventos/${eventId}`)}>
         <Text style={styles.back}>Voltar para o evento</Text>
       </Pressable>
