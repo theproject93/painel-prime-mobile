@@ -927,7 +927,7 @@ export function PlanAssistantFloating() {
           setFabPosition(next);
         }
       } catch {
-        // Nao bloqueia render caso storage falhe.
+        // Não bloqueia render caso storage falhe.
       }
     }
 

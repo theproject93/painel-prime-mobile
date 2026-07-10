@@ -1,4 +1,4 @@
-﻿import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSegments } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -716,7 +716,7 @@ export function ModuleWalkthroughOverlay() {
           setStepIndex(0);
         }
       } catch {
-        // Nao bloqueia o app caso AsyncStorage falhe.
+        // Não bloqueia o app caso AsyncStorage falhe.
       } finally {
         checkingRef.current = false;
       }

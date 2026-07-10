@@ -179,7 +179,7 @@ export function OperationalHealthScreen() {
   }
 
   return (
-    <Screen title="Saude Operacional" subtitle="Erros por tela, RPC failures e page views">
+    <Screen title="Saúde Operacional" subtitle="Erros por tela, RPC failures e page views">
       <Pressable onPress={() => router.push('/mais')}>
         <Text style={styles.back}>Voltar</Text>
       </Pressable>
@@ -189,7 +189,7 @@ export function OperationalHealthScreen() {
           <Text style={styles.smallText}>Últimas 24h</Text>
         </Pressable>
         <Pressable style={[styles.btnGhost, windowDays === 7 && styles.btnOn]} onPress={() => setWindowDays(7)}>
-          <Text style={styles.smallText}>Ultimos 7 dias</Text>
+          <Text style={styles.smallText}>Últimos 7 dias</Text>
         </Pressable>
         <Pressable style={styles.btn} onPress={() => void loadDashboard()}>
           <Text style={styles.btnText}>Atualizar</Text>
