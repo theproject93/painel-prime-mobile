@@ -14,10 +14,11 @@ import {
   uploadPrivateAsset,
 } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
-import { isEventDetailsInitialTab } from '../navigation/eventRouteTypes';
+import { isEventDetailsInitialTab, EVENT_MODULES } from '../navigation/eventRouteTypes';
+import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
 import { colors } from '../theme/colors';
+import { OptionPickerModal } from '../components/ui/OptionPickerModal';
 
-type Tab = 'overview' | 'command' | 'history' | 'tasks' | 'budget' | 'guests' | 'timeline' | 'vendors' | 'documents' | 'notes' | 'team' | 'tables' | 'invites' | 'catalog' | 'portal' | 'presentes' | 'analytics';
 type DataKey = 'tasks' | 'expenses' | 'payments' | 'guests' | 'timeline' | 'vendors' | 'documents' | 'notes' | 'team' | 'tables';
 type VisibleKey = 'tasks' | 'guests' | 'vendors' | 'documents' | 'timeline';
 const PAGE_SIZE = 50;
@@ -111,25 +112,7 @@ type CommandComputedAlert = {
 
 const CHART_COLORS = ['#D4AF37', '#0EA5E9', '#22C55E', '#F97316', '#A855F7', '#EF4444'];
 
-const TABS: Array<{ key: Tab; label: string }> = [
-  { key: 'overview', label: 'Visão Geral' },
-  { key: 'command', label: 'Torre de Comando' },
-  { key: 'history', label: 'Histórico' },
-  { key: 'tasks', label: 'Tarefas' },
-  { key: 'budget', label: 'Orçamento' },
-  { key: 'guests', label: 'Convidados' },
-  { key: 'timeline', label: 'Timeline' },
-  { key: 'vendors', label: 'Fornecedores' },
-  { key: 'documents', label: 'Documentos' },
-  { key: 'notes', label: 'Notas' },
-  { key: 'team', label: 'Equipe' },
-  { key: 'tables', label: 'Mesas' },
-  { key: 'invites', label: 'Convites' },
-  { key: 'catalog', label: 'Catálogo' },
-  { key: 'portal', label: 'Portal do Cliente' },
-  { key: 'presentes', label: 'Presentes' },
-  { key: 'analytics', label: 'Relatório de Encerramento' },
-];
+const TABS = EVENT_MODULES;
 
 const TABLE_BY_KEY: Record<DataKey, string> = {
   tasks: 'event_tasks',
@@ -144,7 +127,7 @@ const TABLE_BY_KEY: Record<DataKey, string> = {
   tables: 'event_tables',
 };
 
-const TAB_KEYS: Record<Tab, DataKey[]> = {
+const TAB_KEYS: Record<EventDetailsInitialTab, DataKey[]> = {
   overview: ['expenses', 'payments', 'tasks', 'guests', 'timeline', 'vendors'],
   command: ['expenses', 'payments', 'tasks', 'guests', 'timeline', 'vendors'],
   history: ['tasks', 'guests', 'timeline', 'vendors', 'documents', 'expenses', 'payments'],
@@ -171,7 +154,16 @@ export function EventDetailsScreen() {
   const eventId = Array.isArray(params.id) ? params.id[0] ?? '' : params.id ?? '';
   const initialTabParam = Array.isArray(params.initialTab) ? params.initialTab[0] : params.initialTab;
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<EventDetailsInitialTab>('overview');
+  const [isModulePickerOpen, setIsModulePickerOpen] = useState(false);
+  const activeTabLabel = useMemo(() => TABS.find((x) => x.key === activeTab)?.label || 'Visão Geral', [activeTab]);
+  const pickerOptions = useMemo(() => {
+    return TABS.map((t) => ({
+      value: t.key,
+      label: t.label,
+      group: t.group,
+    }));
+  }, []);
   const [event, setEvent] = useState<EventRow | null>(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const [loadingTab, setLoadingTab] = useState(false);
@@ -360,7 +352,7 @@ export function EventDetailsScreen() {
     setLoaded((s) => ({ ...s, [key]: true }));
   }
 
-  async function loadTab(tab: Tab, force = false) {
+  async function loadTab(tab: EventDetailsInitialTab, force = false) {
     const wanted = TAB_KEYS[tab];
     const todo = force ? wanted : wanted.filter((k) => !loaded[k]);
     if (todo.length === 0) return;
@@ -1272,7 +1264,7 @@ export function EventDetailsScreen() {
     setVisible((s) => ({ ...s, [key]: s[key] + step }));
   }
 
-  function openModule(tab: Tab) {
+  function openModule(tab: EventDetailsInitialTab) {
     setActiveTab(tab);
   }
 
@@ -1512,14 +1504,30 @@ export function EventDetailsScreen() {
           ) : null}
         </View>
       )}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
-          {TABS.map((x) => (
-            <Pressable key={x.key} onPress={() => setActiveTab(x.key)} style={[styles.tab, activeTab === x.key && styles.tabOn]}>
-              <Text style={[styles.tabText, activeTab === x.key && styles.tabTextOn]}>{x.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-            {!!error && <Text style={styles.err}>{error}</Text>}
+      <View style={styles.compactPickerRow}>
+        <View style={styles.compactPickerTextGroup}>
+          <Text style={styles.compactPickerLabel}>Módulo atual</Text>
+          <Text style={styles.compactPickerValue} numberOfLines={1}>{activeTabLabel}</Text>
+        </View>
+        <Pressable
+          style={styles.compactPickerBtn}
+          onPress={() => setIsModulePickerOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Trocar módulo"
+        >
+          <Text style={styles.compactPickerBtnText}>Trocar módulo</Text>
+        </Pressable>
+      </View>
+
+      <OptionPickerModal
+        visible={isModulePickerOpen}
+        title="Selecione o módulo"
+        options={pickerOptions}
+        selectedValue={activeTab}
+        onSelect={(val) => setActiveTab(val as EventDetailsInitialTab)}
+        onClose={() => setIsModulePickerOpen(false)}
+      />
+      {!!error && <Text style={styles.err}>{error}</Text>}
       {loadingTab ? (
         <View style={styles.loadingModule}>
           <ActivityIndicator color={colors.primaryStrong} />
@@ -3242,4 +3250,44 @@ const styles = StyleSheet.create({
   visualTableName: { color: colors.text, fontSize: 14, fontWeight: '700' },
   visualTrack: { height: 10, borderRadius: 999, backgroundColor: '#ECEFF3', overflow: 'hidden' },
   visualFill: { height: '100%', borderRadius: 999 },
+  compactPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  compactPickerTextGroup: {
+    flex: 1,
+    marginRight: 12,
+  },
+  compactPickerLabel: {
+    fontSize: 11,
+    color: colors.mutedText,
+    textTransform: 'uppercase',
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  compactPickerValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  compactPickerBtn: {
+    backgroundColor: colors.primarySoft,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    minHeight: 32,
+    justifyContent: 'center',
+  },
+  compactPickerBtnText: {
+    color: colors.primaryStrong,
+    fontSize: 13,
+    fontWeight: '700',
+  },
 });
