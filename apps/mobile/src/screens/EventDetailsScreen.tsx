@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 
 import { EventTablesVisualMap } from '../components/EventTablesVisualMap';
 import { useAuth } from '../contexts/AuthContext';
@@ -157,11 +158,13 @@ export function EventDetailsScreen() {
   const [activeTab, setActiveTab] = useState<EventDetailsInitialTab>('overview');
   const [isModulePickerOpen, setIsModulePickerOpen] = useState(false);
   const activeTabLabel = useMemo(() => TABS.find((x) => x.key === activeTab)?.label || 'Visão Geral', [activeTab]);
+  const activeTabIcon = useMemo(() => TABS.find((x) => x.key === activeTab)?.icon || 'grid-outline', [activeTab]);
   const pickerOptions = useMemo(() => {
     return TABS.map((t) => ({
       value: t.key,
       label: t.label,
       group: t.group,
+      icon: t.icon,
     }));
   }, []);
   const [event, setEvent] = useState<EventRow | null>(null);
@@ -1504,26 +1507,31 @@ export function EventDetailsScreen() {
           ) : null}
         </View>
       )}
-      <View style={styles.compactPickerRow}>
+      <Pressable
+        style={styles.compactPickerRow}
+        onPress={() => setIsModulePickerOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`Navegar pelas áreas do evento. Área atual: ${activeTabLabel}`}
+      >
+        <View style={styles.compactPickerIcon}>
+          <Ionicons name={activeTabIcon} size={22} color={colors.primaryStrong} />
+        </View>
         <View style={styles.compactPickerTextGroup}>
-          <Text style={styles.compactPickerLabel}>Módulo atual</Text>
+          <Text style={styles.compactPickerLabel}>Área do evento</Text>
           <Text style={styles.compactPickerValue} numberOfLines={1}>{activeTabLabel}</Text>
         </View>
-        <Pressable
-          style={styles.compactPickerBtn}
-          onPress={() => setIsModulePickerOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Trocar módulo"
-        >
-          <Text style={styles.compactPickerBtnText}>Trocar módulo</Text>
-        </Pressable>
-      </View>
+        <View style={styles.compactPickerAction}>
+          <Text style={styles.compactPickerActionText}>Ver áreas</Text>
+          <Ionicons name="chevron-down" size={18} color={colors.primaryStrong} />
+        </View>
+      </Pressable>
 
       <OptionPickerModal
         visible={isModulePickerOpen}
-        title="Selecione o módulo"
+        title="Navegar pelo evento"
         options={pickerOptions}
         selectedValue={activeTab}
+        variant="grid"
         onSelect={(val) => setActiveTab(val as EventDetailsInitialTab)}
         onClose={() => setIsModulePickerOpen(false)}
       />
@@ -3261,6 +3269,15 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
   },
+  compactPickerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+    marginRight: 10,
+  },
   compactPickerTextGroup: {
     flex: 1,
     marginRight: 12,
@@ -3277,17 +3294,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  compactPickerBtn: {
-    backgroundColor: colors.primarySoft,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    minHeight: 32,
-    justifyContent: 'center',
+  compactPickerAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
-  compactPickerBtnText: {
+  compactPickerActionText: {
     color: colors.primaryStrong,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
 });

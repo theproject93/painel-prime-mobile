@@ -3,17 +3,19 @@ import {
   Modal as RNModal,
   Pressable,
   SafeAreaView,
-  SectionList,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 
 export type PickerOption = {
   value: string;
   label: string;
   group?: string;
+  icon?: React.ComponentProps<typeof Ionicons>['name'];
 };
 
 export type OptionPickerModalProps = {
@@ -21,6 +23,7 @@ export type OptionPickerModalProps = {
   title: string;
   options: PickerOption[];
   selectedValue: string;
+  variant?: 'list' | 'grid';
   onSelect: (value: string) => void;
   onClose: () => void;
 };
@@ -30,6 +33,7 @@ export function OptionPickerModal({
   title,
   options,
   selectedValue,
+  variant = 'list',
   onSelect,
   onClose,
 }: OptionPickerModalProps) {
@@ -67,7 +71,10 @@ export function OptionPickerModal({
     return (
       <Pressable
         key={opt.value}
-        style={[styles.optionRow, isSelected && styles.optionRowActive]}
+        style={[
+          variant === 'grid' ? styles.optionCard : styles.optionRow,
+          isSelected ? styles.optionRowActive : null,
+        ]}
         onPress={() => {
           onSelect(opt.value);
           onClose();
@@ -76,9 +83,24 @@ export function OptionPickerModal({
         accessibilityLabel={opt.label}
         accessibilityState={{ selected: isSelected }}
       >
-        <Text style={[styles.optionText, isSelected && styles.optionTextActive]}>
+        {opt.icon ? (
+          <View style={[styles.optionIcon, isSelected ? styles.optionIconActive : null]}>
+            <Ionicons
+              name={opt.icon}
+              size={20}
+              color={isSelected ? colors.primaryStrong : colors.mutedText}
+            />
+          </View>
+        ) : null}
+        <Text
+          style={[styles.optionText, isSelected ? styles.optionTextActive : null]}
+          numberOfLines={variant === 'grid' ? 2 : 1}
+        >
           {opt.label}
         </Text>
+        {isSelected ? (
+          <Ionicons name="checkmark-circle" size={18} color={colors.primaryStrong} />
+        ) : null}
       </Pressable>
     );
   };
@@ -98,18 +120,23 @@ export function OptionPickerModal({
               <Text style={styles.closeButtonText}>Fechar</Text>
             </Pressable>
           </View>
-          <SectionList
-            sections={sections}
-            keyExtractor={(item) => item.value}
-            renderItem={({ item }) => renderOption(item)}
-            renderSectionHeader={({ section }) => section.key ? (
-              <Text style={styles.groupHeader}>{getGroupLabel(section.key)}</Text>
-            ) : null}
+          <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-          />
+          >
+            {sections.map((section) => (
+              <View key={section.key || 'options'} style={styles.section}>
+                {section.key ? (
+                  <Text style={styles.groupHeader}>{getGroupLabel(section.key)}</Text>
+                ) : null}
+                <View style={variant === 'grid' ? styles.optionGrid : styles.optionList}>
+                  {section.data.map(renderOption)}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
         </View>
       </SafeAreaView>
     </RNModal>
@@ -162,26 +189,64 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     paddingHorizontal: 20,
   },
+  section: {
+    marginTop: 14,
+  },
+  optionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  optionList: {
+    gap: 2,
+  },
   optionRow: {
     minHeight: 44,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
+  optionCard: {
+    width: '48%',
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+  },
   optionRowActive: {
     backgroundColor: colors.primarySoft,
     borderRadius: 8,
     borderBottomWidth: 0,
+    borderColor: colors.primaryStrong,
   },
   optionText: {
+    flex: 1,
     fontSize: 15,
     color: colors.text,
   },
   optionTextActive: {
     color: colors.primaryStrong,
     fontWeight: '700',
+  },
+  optionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  optionIconActive: {
+    backgroundColor: colors.primarySoft,
   },
   groupHeader: {
     fontSize: 12,
@@ -191,7 +256,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     letterSpacing: 0.5,
     paddingLeft: 8,
-    marginTop: 12,
     backgroundColor: colors.surface,
   },
 });
