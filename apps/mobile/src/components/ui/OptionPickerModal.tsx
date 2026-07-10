@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, Text } from 'react-native';
 import { Modal } from './Modal';
 import { colors } from '../../theme/colors';
 
@@ -26,25 +26,20 @@ export function OptionPickerModal({
   onSelect,
   onClose,
 }: OptionPickerModalProps) {
-  // Agrupa as opções mantendo a ordem em que foram declaradas.
-  const grouped = React.useMemo(() => {
-    const groups: { name: string; items: PickerOption[] }[] = [];
-    const noGroup: PickerOption[] = [];
+  const sections = React.useMemo(() => {
+    const groups: { key: string; data: PickerOption[] }[] = [];
 
     options.forEach((opt) => {
-      if (opt.group) {
-        let g = groups.find((x) => x.name === opt.group);
-        if (!g) {
-          g = { name: opt.group, items: [] };
-          groups.push(g);
-        }
-        g.items.push(opt);
-      } else {
-        noGroup.push(opt);
+      const groupKey = opt.group ?? '';
+      let group = groups.find((item) => item.key === groupKey);
+      if (!group) {
+        group = { key: groupKey, data: [] };
+        groups.push(group);
       }
+      group.data.push(opt);
     });
 
-    return { groups, noGroup };
+    return groups;
   }, [options]);
 
   const getGroupLabel = (groupKey: string) => {
@@ -83,25 +78,18 @@ export function OptionPickerModal({
 
   return (
     <Modal visible={visible} onClose={onClose} title={title}>
-      <ScrollView
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.value}
+        renderItem={({ item }) => renderOption(item)}
+        renderSectionHeader={({ section }) => section.key ? (
+          <Text style={styles.groupHeader}>{getGroupLabel(section.key)}</Text>
+        ) : null}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-      >
-        {grouped.groups.map((g) => (
-          <View key={g.name} style={styles.groupContainer}>
-            <Text style={styles.groupHeader}>{getGroupLabel(g.name)}</Text>
-            <View style={styles.groupItems}>
-              {g.items.map(renderOption)}
-            </View>
-          </View>
-        ))}
-        {grouped.noGroup.length > 0 ? (
-          <View style={styles.noGroupItems}>
-            {grouped.noGroup.map(renderOption)}
-          </View>
-        ) : null}
-      </ScrollView>
+        showsVerticalScrollIndicator={false}
+      />
     </Modal>
   );
 }
@@ -135,9 +123,6 @@ const styles = StyleSheet.create({
     color: colors.primaryStrong,
     fontWeight: '700',
   },
-  groupContainer: {
-    marginTop: 16,
-  },
   groupHeader: {
     fontSize: 12,
     fontWeight: '700',
@@ -146,12 +131,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     letterSpacing: 0.5,
     paddingLeft: 8,
-  },
-  groupItems: {
-    gap: 4,
-  },
-  noGroupItems: {
-    gap: 2,
     marginTop: 12,
+    backgroundColor: colors.surface,
   },
 });
