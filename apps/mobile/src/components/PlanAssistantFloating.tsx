@@ -1419,7 +1419,7 @@ export function PlanAssistantFloating() {
         </View>
       ) : null}
 
-              <View {...fabPanResponder.panHandlers} style={styles.fab} collapsable={false}>
+              <View {...fabPanResponder.panHandlers} style={[styles.fab, { position: 'absolute', left: resolvedFabPosition.x, top: resolvedFabPosition.y }]} collapsable={false}>
           {isOpen ? (
             <Ionicons name="close" size={22} color="#FFFFFF" />
           ) : (
