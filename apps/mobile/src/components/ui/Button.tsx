@@ -1,1 +1,95 @@
-﻿import { Pressable, StyleSheet, Text, ActivityIndicator } from 'react-native';import { colors } from '../../theme/colors';type ButtonVariant = 'primary' | 'ghost';type ButtonSize = 'sm' | 'md';type ButtonProps = {  title: string;  onPress: () => void;  variant?: ButtonVariant;  size?: ButtonSize;  loading?: boolean;  disabled?: boolean;};export function Button({ title, onPress, variant = 'primary', size = 'md', loading, disabled }: ButtonProps) {  return (    <Pressable      onPress={onPress}      disabled={disabled ?? loading}      style={({ pressed }) => [        styles.base,        size === 'md' && styles.sizeMd,        variant === 'primary' && styles.primary,        variant === 'ghost' && styles.ghost,        (disabled || loading) && styles.disabled,        pressed && styles.pressed,      ]}    >      {loading ? (        <ActivityIndicator size={size === 'sm' ? 12 : 16} color={variant === 'ghost' ? colors.primaryStrong : '#FFFFFF'} />      ) : (        <Text style={[styles.text, size === 'md' && styles.textMd, variant === 'ghost' && styles.textGhost]}>          {title}        </Text>      )}    </Pressable>  );}const styles = StyleSheet.create({  base: {    borderRadius: 10,    paddingHorizontal: 16,    paddingVertical: 8,    alignItems: 'center',    justifyContent: 'center',    minHeight: 36,  },  sizeMd: { paddingHorizontal: 20, paddingVertical: 10, minHeight: 42 },  primary: { backgroundColor: colors.primaryStrong },  ghost: { backgroundColor: 'transparent' },  disabled: { opacity: 0.5 },  pressed: { opacity: 0.75 },  text: { fontWeight: '700', fontSize: 13, color: '#FFFFFF' },  textMd: { fontSize: 14 },  textGhost: { color: colors.primaryStrong },});
+import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+
+import { colors } from '../../theme/colors';
+
+type ButtonVariant = 'primary' | 'ghost';
+type ButtonSize = 'sm' | 'md';
+
+type ButtonProps = {
+  title: string;
+  onPress: () => void;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  loading?: boolean;
+  disabled?: boolean;
+};
+
+export function Button({
+  title,
+  onPress,
+  variant = 'primary',
+  size = 'md',
+  loading,
+  disabled,
+}: ButtonProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled ?? loading}
+      style={({ pressed }) => [
+        styles.base,
+        size === 'md' ? styles.sizeMd : null,
+        variant === 'primary' ? styles.primary : null,
+        variant === 'ghost' ? styles.ghost : null,
+        disabled || loading ? styles.disabled : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator
+          size={size === 'sm' ? 12 : 16}
+          color={variant === 'ghost' ? colors.primaryStrong : '#FFFFFF'}
+        />
+      ) : (
+        <Text
+          style={[
+            styles.text,
+            size === 'md' ? styles.textMd : null,
+            variant === 'ghost' ? styles.textGhost : null,
+          ]}
+        >
+          {title}
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  base: {
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 36,
+  },
+  sizeMd: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    minHeight: 42,
+  },
+  primary: {
+    backgroundColor: colors.primaryStrong,
+  },
+  ghost: {
+    backgroundColor: 'transparent',
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+  text: {
+    fontWeight: '700',
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
+  textMd: {
+    fontSize: 14,
+  },
+  textGhost: {
+    color: colors.primaryStrong,
+  },
+});
