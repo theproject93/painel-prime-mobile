@@ -38,12 +38,12 @@ const CATEGORIES = [
   'Buffet/Gastronomia',
   'Bar/Bebidas',
   'Bolo/Doces',
-  'Decoraçúo/Floral',
+  'Decoração/Floral',
   'Foto',
   'Vídeo',
   'Música/DJ/Banda',
-  'Som/Iluminaçúo/Estrutura',
-  'Locaçúo/Mobiliírio',
+  'Som/Iluminação/Estrutura',
+  'Locação/Mobiliário',
   'Beleza/Dia da noiva',
   'Trajes/Acessórios',
   'Convites/Papelaria',
@@ -245,7 +245,7 @@ export function VendorsCatalogScreen() {
   function handleDelete(vendor: VendorRecord) {
     confirmAlert(
       'Remover fornecedor',
-      `Deseja remover "${vendor.name}" do catílogo? Esta açúo núo pode ser desfeita.`,
+      `Deseja remover "${vendor.name}" do catálogo? Esta ação não pode ser desfeita.`,
       async () => {
         const { error: deleteError } = await supabase
           .rpc('delete_vendor', { p_vendor_id: vendor.id });
@@ -486,7 +486,7 @@ export function VendorsCatalogScreen() {
               {filtered.length === 0 ? (
           <EmptyState
             title="Nenhum fornecedor cadastrado"
-            message="Cadastre fornecedores no catílogo global para reutilizar em vírios eventos."
+            message="Cadastre fornecedores no catálogo global para reutilizar em vários eventos."
             actionLabel="Cadastrar fornecedor"
             onAction={openCreateModal}
           />

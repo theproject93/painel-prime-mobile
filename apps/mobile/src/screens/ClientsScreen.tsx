@@ -332,8 +332,8 @@ export function ClientsScreen() {
         client_name: row.name,
         stage: row.stage,
         priority_score: 100 - index,
-        priority_reason: 'Sem priorizaçúo RPC, usando fallback local.',
-        next_action: 'Registrar interaçúo e próximo follow-up',
+        priority_reason: 'Sem priorização RPC, usando fallback local.',
+        next_action: 'Registrar interação e próximo follow-up',
         due_date: row.event_date_expected,
       }));
 
@@ -419,11 +419,11 @@ export function ClientsScreen() {
     const contractDoc = selectedDocs.find((row) => row.doc_type === 'contract');
     setBudgetText(
       budgetDoc?.content ??
-        `Proposta comercial para ${selected.name}\n\nEscopo:\n- Planejamento\n- Fornecedores\n- Operaçúo`,
+        `Proposta comercial para ${selected.name}\n\nEscopo:\n- Planejamento\n- Fornecedores\n- Operação`,
     );
     setContractText(
       contractDoc?.content ??
-        `Contrato de prestaçúo de serviços\n\nContratante: ${selected.name}\n\nClíusulas:\n1. Objeto\n2. Pagamento\n3. Cancelamento`,
+        `Contrato de prestação de serviços\n\nContratante: ${selected.name}\n\nCláusulas:\n1. Objeto\n2. Pagamento\n3. Cancelamento`,
     );
   }, [selected, selectedDocs]);
 
@@ -492,7 +492,7 @@ export function ClientsScreen() {
       .maybeSingle();
 
     if (insertError || !data) {
-      setError(insertError?.message ?? 'Núo foi possível registrar a interaçúo.');
+      setError(insertError?.message ?? 'Não foi possível registrar a interação.');
       return;
     }
 
@@ -567,7 +567,7 @@ export function ClientsScreen() {
         .maybeSingle();
       setSavingDoc(null);
       if (insertError || !data) {
-        setError(insertError?.message ?? 'Núo foi possível salvar documento.');
+        setError(insertError?.message ?? 'Não foi possível salvar documento.');
         return null;
       }
       const inserted = data as ClientDoc;
@@ -583,7 +583,7 @@ export function ClientsScreen() {
       .maybeSingle();
     setSavingDoc(null);
     if (updateError || !data) {
-      setError(updateError?.message ?? 'Núo foi possível atualizar documento.');
+      setError(updateError?.message ?? 'Não foi possível atualizar documento.');
       return null;
     }
     const updated = data as ClientDoc;
@@ -619,7 +619,7 @@ export function ClientsScreen() {
       .maybeSingle();
     setSendingSignature(false);
     if (reqError || !data) {
-      setError(reqError?.message ?? 'Núo foi possível enviar para assinatura.');
+      setError(reqError?.message ?? 'Não foi possível enviar para assinatura.');
       return;
     }
     const req = data as SignReq;
@@ -647,7 +647,7 @@ export function ClientsScreen() {
       .maybeSingle();
     setSavingConsent(false);
     if (consentError || !data) {
-      setError(consentError?.message ?? 'Núo foi possível registrar consentimento.');
+      setError(consentError?.message ?? 'Não foi possível registrar consentimento.');
       return;
     }
     setConsentNote('');
@@ -686,7 +686,7 @@ export function ClientsScreen() {
       </View>
       <View style={[styles.statsRow, { marginTop: spacing.sm }]}>
         <StatCardPremium title="Funil" value={toBRL(weightedPipeline)} icon="cash" gradient="success" subtitle="valor ponderado" />
-        <StatCardPremium title="Taxa" value={`${conversionRate}%`} icon="trending-up" gradient="info" subtitle="conversúo" />
+        <StatCardPremium title="Taxa" value={`${conversionRate}%`} icon="trending-up" gradient="info" subtitle="conversão" />
       </View>
 
       <View style={{ marginTop: spacing.lg }}>
@@ -714,7 +714,7 @@ export function ClientsScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.boardRow}>
-          {STAGES.map((stage) => (
+          {(stageFilter === 'all' ? STAGES : STAGES.filter((s) => s.value === stageFilter)).map((stage) => (
               <View key={stage.value} style={styles.column}>
                 <Text style={styles.columnTitle}>{stage.label}</Text>
                 <Text style={styles.columnCount}>{stageBuckets[stage.value].length}</Text>
@@ -725,11 +725,14 @@ export function ClientsScreen() {
                     onPress={() => setSelectedId(client.id)}
                   >
                     <Text style={styles.clientName}>{client.name}</Text>
-                    <Text style={styles.clientMeta}>{client.event_type || 'Evento núo definido'}</Text>
+                    <Text style={styles.clientMeta}>{client.event_type || 'Evento não definido'}</Text>
                     <Text style={styles.clientMeta}>{client.event_date_expected || 'Sem data'}</Text>
                     <Text style={styles.clientBudget}>{toBRL(Number(client.budget_expected ?? 0))}</Text>
                   </Pressable>
                 ))}
+                {stageBuckets[stage.value].length === 0 ? (
+                  <Text style={styles.columnEmpty}>Nenhum cliente nesta etapa.</Text>
+                ) : null}
               </View>
             ))}
           </ScrollView>
@@ -748,20 +751,20 @@ export function ClientsScreen() {
             ))}
           </View>
 
-          <Text style={styles.cardSubTitle}>Registrar interaçúo</Text>
+          <Text style={styles.cardSubTitle}>Registrar interação</Text>
           <View style={styles.rowBtns}>
             <Pressable style={[styles.btnGhost, interactionForm.channel === 'whatsapp' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, channel: 'whatsapp' }))}><Text style={styles.smallText}>WhatsApp</Text></Pressable>
             <Pressable style={[styles.btnGhost, interactionForm.channel === 'email' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, channel: 'email' }))}><Text style={styles.smallText}>Email</Text></Pressable>
-            <Pressable style={[styles.btnGhost, interactionForm.channel === 'ligacao' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, channel: 'ligacao' }))}><Text style={styles.smallText}>Ligaçúo</Text></Pressable>
+            <Pressable style={[styles.btnGhost, interactionForm.channel === 'ligacao' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, channel: 'ligacao' }))}><Text style={styles.smallText}>Ligação</Text></Pressable>
           </View>
           <View style={styles.rowBtns}>
-            <Pressable style={[styles.btnGhost, interactionForm.direction === 'outbound' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, direction: 'outbound' }))}><Text style={styles.smallText}>Saida</Text></Pressable>
+            <Pressable style={[styles.btnGhost, interactionForm.direction === 'outbound' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, direction: 'outbound' }))}><Text style={styles.smallText}>Saída</Text></Pressable>
             <Pressable style={[styles.btnGhost, interactionForm.direction === 'inbound' && styles.btnStageOn]} onPress={() => setInteractionForm((prev) => ({ ...prev, direction: 'inbound' }))}><Text style={styles.smallText}>Entrada</Text></Pressable>
           </View>
-          <TextInput style={styles.input} value={interactionForm.summary} onChangeText={(value) => setInteractionForm((prev) => ({ ...prev, summary: value }))} placeholder="Resumo da interaçúo" />
+          <TextInput style={styles.input} value={interactionForm.summary} onChangeText={(value) => setInteractionForm((prev) => ({ ...prev, summary: value }))} placeholder="Resumo da interação" />
           <TextInput style={styles.input} value={interactionForm.next_followup_at} onChangeText={(value) => setInteractionForm((prev) => ({ ...prev, next_followup_at: value }))} placeholder="Próximo follow-up (YYYY-MM-DD)" />
           <Pressable style={styles.btn} onPress={() => void addInteraction()}>
-            <Text style={styles.btnText}>Salvar interaçúo</Text>
+            <Text style={styles.btnText}>Salvar interação</Text>
           </Pressable>
 
           <Text style={styles.cardSubTitle}>Follow-ups do cliente</Text>
@@ -778,8 +781,8 @@ export function ClientsScreen() {
             </View>
           ))}
 
-          <Text style={styles.cardSubTitle}>Histórico de interaçÁes</Text>
-          {selectedInteractions.length === 0 ? <Text style={styles.caption}>Sem interaçÁes registradas.</Text> : null}
+              <Text style={styles.cardSubTitle}>Histórico de interações</Text>
+          {selectedInteractions.length === 0 ? <Text style={styles.caption}>Sem interações registradas.</Text> : null}
           {selectedInteractions.slice(0, 12).map((interaction) => (
             <View key={interaction.id} style={styles.taskRow}>
               <View style={{ flex: 1 }}>
@@ -845,17 +848,17 @@ export function ClientsScreen() {
               <Text style={styles.smallText}>Consentimento</Text>
             </Pressable>
             <Pressable style={[styles.btnGhost, consentBasis === 'execucao_contrato' && styles.btnStageOn]} onPress={() => setConsentBasis('execucao_contrato')}>
-              <Text style={styles.smallText}>Execucao contrato</Text>
+              <Text style={styles.smallText}>Execução do contrato</Text>
             </Pressable>
             <Pressable style={[styles.btnGhost, consentBasis === 'legitimo_interesse' && styles.btnStageOn]} onPress={() => setConsentBasis('legitimo_interesse')}>
-              <Text style={styles.smallText}>Legitimo interesse</Text>
+              <Text style={styles.smallText}>Legítimo interesse</Text>
             </Pressable>
           </View>
           <TextInput
             style={styles.input}
             value={consentNote}
             onChangeText={setConsentNote}
-            placeholder="Observaçúo de consentimento"
+            placeholder="Observação de consentimento"
           />
           <Pressable style={styles.btnGhost} onPress={() => void addConsent()}>
             <Text style={styles.smallText}>{savingConsent ? 'Registrando...' : 'Registrar consentimento'}</Text>
@@ -900,7 +903,7 @@ export function ClientsScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Execucao CRM</Text>
+        <Text style={styles.cardTitle}>Execução do CRM</Text>
         {executionMetrics.length === 0 ? <Text style={styles.caption}>Sem metricas retornadas.</Text> : null}
         {executionMetrics.map((metric) => (
           <View key={metric.metric} style={styles.taskRow}>
@@ -992,10 +995,11 @@ const styles = StyleSheet.create({
   metricLabel: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
   metricValue: { color: colors.text, fontSize: 16, fontWeight: '700' },
   metricSub: { color: colors.mutedText, fontSize: 11 },
-  boardRow: { gap: 10, paddingVertical: 4 },
-  column: { width: 250, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, gap: 8 },
+  boardRow: { gap: 10, paddingVertical: 4, alignItems: 'flex-start' },
+  column: { width: 250, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, gap: 8, alignSelf: 'flex-start' },
   columnTitle: { color: colors.text, fontWeight: '700', fontSize: 13 },
   columnCount: { color: colors.mutedText, fontSize: 12 },
+  columnEmpty: { color: colors.mutedText, fontSize: 12, fontStyle: 'italic', paddingVertical: 4 },
   clientCard: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 8, gap: 3, backgroundColor: '#FFFFFF' },
   clientCardOn: { borderColor: colors.primaryStrong, backgroundColor: colors.primarySoft },
   clientName: { color: colors.text, fontSize: 13, fontWeight: '700' },
