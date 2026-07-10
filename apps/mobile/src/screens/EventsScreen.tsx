@@ -4,11 +4,15 @@ import {
   Alert,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -67,6 +71,7 @@ export function EventsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const userId = user?.id;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -463,44 +468,53 @@ export function EventsScreen() {
           }
         />
 
-      <Modal visible={isCreateModalOpen} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+      <Modal visible={isCreateModalOpen} transparent animationType="fade" onRequestClose={resetCreateForm}>
+        <KeyboardAvoidingView
+          style={styles.modalBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={[styles.modalCard, { maxHeight: windowHeight * 0.85 }]}>
             <Text style={styles.modalTitle}>Novo evento</Text>
-            <TextInput style={styles.input} placeholder="Nome do evento" value={name} onChangeText={setName} />
-            <TextInput style={styles.input} placeholder="Data (AAAA-MM-DD)" value={eventDate} onChangeText={setEventDate} />
-            <TextInput style={styles.input} placeholder="Local" value={location} onChangeText={setLocation} />
-            <Text style={styles.previewLabel}>Capa do evento (preview)</Text>
-            <Image source={{ uri: coverUpload?.previewUrl || coverExternalUrl.trim() || EVENT_TYPE_CARDS[eventType].image }} style={styles.previewImage} />
-            <TextInput style={styles.input} placeholder="URL da capa (opcional)" value={coverExternalUrl} onChangeText={handleCoverUrlChange} />
-            <Pressable style={styles.ghostButton} onPress={() => void pickCoverFromGallery()}>
-              <Text style={styles.ghostButtonText}>
-                {uploadingCover ? 'Enviando imagem...' : 'Selecionar imagem do celular'}
-              </Text>
-            </Pressable>
-            <View style={styles.typeGrid}>
-              {(['wedding', 'birthday', 'debutante', 'corporate'] as const).map((typeOption) => (
-                <Pressable
-                  key={typeOption}
-                  onPress={() => setEventType(typeOption)}
-                  style={[styles.typeCard, eventType === typeOption ? styles.typeCardOn : null]}
-                >
-                  <Image source={{ uri: EVENT_TYPE_CARDS[typeOption].image }} style={styles.typeImage} />
-                  <View style={styles.typeOverlay} />
-                  <Text style={styles.typeCardText}>{EVENT_TYPE_CARDS[typeOption].label}</Text>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.modalFormContent}
+            >
+              <TextInput style={styles.input} placeholder="Nome do evento" value={name} onChangeText={setName} />
+              <TextInput style={styles.input} placeholder="Data (AAAA-MM-DD)" value={eventDate} onChangeText={setEventDate} />
+              <TextInput style={styles.input} placeholder="Local" value={location} onChangeText={setLocation} />
+              <Text style={styles.previewLabel}>Capa do evento (preview)</Text>
+              <Image source={{ uri: coverUpload?.previewUrl || coverExternalUrl.trim() || EVENT_TYPE_CARDS[eventType].image }} style={styles.previewImage} />
+              <TextInput style={styles.input} placeholder="URL da capa (opcional)" value={coverExternalUrl} onChangeText={handleCoverUrlChange} />
+              <Pressable style={styles.ghostButton} onPress={() => void pickCoverFromGallery()}>
+                <Text style={styles.ghostButtonText}>
+                  {uploadingCover ? 'Enviando imagem...' : 'Selecionar imagem do celular'}
+                </Text>
+              </Pressable>
+              <View style={styles.typeGrid}>
+                {(['wedding', 'birthday', 'debutante', 'corporate'] as const).map((typeOption) => (
+                  <Pressable
+                    key={typeOption}
+                    onPress={() => setEventType(typeOption)}
+                    style={[styles.typeCard, eventType === typeOption ? styles.typeCardOn : null]}
+                  >
+                    <Image source={{ uri: EVENT_TYPE_CARDS[typeOption].image }} style={styles.typeImage} />
+                    <View style={styles.typeOverlay} />
+                    <Text style={styles.typeCardText}>{EVENT_TYPE_CARDS[typeOption].label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View style={styles.modalActions}>
+                <Pressable style={styles.ghostButton} onPress={resetCreateForm}>
+                  <Text style={styles.ghostButtonText}>Cancelar</Text>
                 </Pressable>
-              ))}
-            </View>
-            <View style={styles.modalActions}>
-              <Pressable style={styles.ghostButton} onPress={resetCreateForm}>
-                <Text style={styles.ghostButtonText}>Cancelar</Text>
-              </Pressable>
-              <Pressable style={styles.primaryButton} onPress={() => void handleCreateEvent()}>
-                {creating ? <ActivityIndicator color={colors.primaryTextOn} /> : <Text style={styles.primaryButtonText}>Criar</Text>}
-              </Pressable>
-            </View>
+                <Pressable style={styles.primaryButton} onPress={() => void handleCreateEvent()}>
+                  {creating ? <ActivityIndicator color={colors.primaryTextOn} /> : <Text style={styles.primaryButtonText}>Criar</Text>}
+                </Pressable>
+              </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -538,7 +552,8 @@ const styles = StyleSheet.create({
   errorBox: { backgroundColor: colors.dangerBg, borderRadius: 10, padding: 10, marginBottom: 10 },
   errorText: { color: colors.dangerText, fontSize: 13, textAlign: 'center', fontWeight: '600' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', padding: 20, justifyContent: 'center' },
-  modalCard: { backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 },
+  modalCard: { backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16 },
+  modalFormContent: { gap: 10, paddingBottom: 8 },
   modalTitle: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: 4 },
   previewLabel: { color: colors.mutedText, fontSize: 12, fontWeight: '600' },
   previewImage: { width: '100%', height: 130, borderRadius: 10, borderWidth: 1, borderColor: colors.border },

@@ -1,1 +1,61 @@
-﻿import { Pressable, StyleSheet, Text, View } from 'react-native';import { Ionicons } from '@expo/vector-icons';import { colors } from '../../theme/colors';type EmptyStateProps = {  title: string;  message: string;  actionLabel?: string;  onAction?: () => void;};export function EmptyState({ title, message, actionLabel, onAction }: EmptyStateProps) {  return (    <View style={styles.container}>      <Ionicons name="cube-outline" size={48} color={colors.border} />      <Text style={styles.title}>{title}</Text>      <Text style={styles.message}>{message}</Text>      {actionLabel && onAction ? (        <Pressable onPress={onAction} style={styles.actionBtn}>          <Text style={styles.actionText}>{actionLabel}</Text>        </Pressable>      ) : null}    </View>  );}const styles = StyleSheet.create({  container: {    alignItems: 'center',    justifyContent: 'center',    paddingVertical: 40,    paddingHorizontal: 24,  },  title: {    fontSize: 16,    fontWeight: '700',    color: colors.text,    marginTop: 16,    textAlign: 'center',  },  message: {    fontSize: 13,    color: colors.textSecondary,    marginTop: 6,    textAlign: 'center',    lineHeight: 18,  },  actionBtn: {    marginTop: 16,    backgroundColor: colors.primaryStrong,    borderRadius: 10,    paddingHorizontal: 20,    paddingVertical: 10,  },  actionText: {    fontSize: 14,    fontWeight: '700',    color: '#FFFFFF',  },});
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { colors } from '../../theme/colors';
+
+type EmptyStateProps = {
+  title: string;
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+};
+
+export function EmptyState({ title, message, actionLabel, onAction }: EmptyStateProps) {
+  return (
+    <View style={styles.container}>
+      <Ionicons name="cube-outline" size={48} color={colors.border} />
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.message}>{message}</Text>
+      {actionLabel && onAction ? (
+        <Pressable onPress={onAction} style={styles.actionBtn}>
+          <Text style={styles.actionText}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  message: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 6,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  actionBtn: {
+    marginTop: 16,
+    backgroundColor: colors.primaryStrong,
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+});

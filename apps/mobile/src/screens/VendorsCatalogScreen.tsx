@@ -26,6 +26,7 @@ import { SkeletonList } from '../components/ui/Skeleton';
 import { Badge } from '../components/ui/Badge';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { StatCardPremium } from '../components/ui/StatCardPremium';
+import { OptionPickerModal, type PickerOption } from '../components/ui/OptionPickerModal';
 import { colors } from '../theme/colors';
 import { gradients, radii, shadows, spacing } from '../theme/colors';
 
@@ -107,6 +108,18 @@ const PRICE_RANGE_OPTIONS = [
   { value: '$$$$', label: '$$$$ - Luxo' },
 ];
 
+type CategoryPickerMode = 'filter' | 'form' | null;
+
+const CATEGORY_OPTIONS: PickerOption[] = CATEGORIES.map((category) => ({
+  value: category,
+  label: category,
+}));
+
+const CATEGORY_FILTER_OPTIONS: PickerOption[] = [
+  { value: 'todas', label: 'Todas' },
+  ...CATEGORY_OPTIONS,
+];
+
 export function VendorsCatalogScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -119,6 +132,7 @@ export function VendorsCatalogScreen() {
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('todas');
+  const [categoryPickerMode, setCategoryPickerMode] = useState<CategoryPickerMode>(null);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<VendorRecord | null>(null);
@@ -173,6 +187,25 @@ export function VendorsCatalogScreen() {
       );
     });
   }, [sortedVendors, search, categoryFilter]);
+
+  const selectedCategoryFilterLabel = categoryFilter === 'todas' ? 'Todas' : categoryFilter;
+  const categoryPickerOptions = categoryPickerMode === 'filter'
+    ? CATEGORY_FILTER_OPTIONS
+    : CATEGORY_OPTIONS;
+  const selectedCategoryValue = categoryPickerMode === 'filter'
+    ? categoryFilter
+    : form.category;
+
+  function handleCategorySelect(value: string) {
+    if (categoryPickerMode === 'filter') {
+      setCategoryFilter(value);
+      return;
+    }
+
+    if (categoryPickerMode === 'form') {
+      setForm((prev) => ({ ...prev, category: value }));
+    }
+  }
 
   function openCreateModal() {
     setEditingVendor(null);
@@ -441,47 +474,20 @@ export function VendorsCatalogScreen() {
         placeholderTextColor={colors.mutedText}
       />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryRow}
+      <Pressable
+        style={styles.categorySelector}
+        onPress={() => setCategoryPickerMode('filter')}
+        accessibilityRole="button"
+        accessibilityLabel={`Filtrar categoria. Categoria atual: ${selectedCategoryFilterLabel}`}
       >
-        <Pressable
-          style={[
-            styles.categoryPill,
-            categoryFilter === 'todas' && styles.categoryPillActive,
-          ]}
-          onPress={() => setCategoryFilter('todas')}
-        >
-          <Text
-            style={[
-              styles.categoryPillText,
-              categoryFilter === 'todas' && styles.categoryPillTextActive,
-            ]}
-          >
-            Todas
+        <View style={styles.categorySelectorTextGroup}>
+          <Text style={styles.categorySelectorLabel}>Categoria</Text>
+          <Text style={styles.categorySelectorValue} numberOfLines={1}>
+            {selectedCategoryFilterLabel}
           </Text>
-        </Pressable>
-        {CATEGORIES.map((cat) => (
-          <Pressable
-            key={cat}
-            style={[
-              styles.categoryPill,
-              categoryFilter === cat && styles.categoryPillActive,
-            ]}
-            onPress={() => setCategoryFilter(cat)}
-          >
-            <Text
-              style={[
-                styles.categoryPillText,
-                categoryFilter === cat && styles.categoryPillTextActive,
-              ]}
-            >
-              {cat}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+        </View>
+        <Ionicons name="chevron-down" size={20} color={colors.primaryStrong} />
+      </Pressable>
 
               {filtered.length === 0 ? (
           <EmptyState
@@ -516,31 +522,17 @@ export function VendorsCatalogScreen() {
           />
 
           <Text style={styles.fieldLabel}>Categoria</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryRow}
+          <Pressable
+            style={[styles.categorySelector, styles.formCategorySelector]}
+            onPress={() => setCategoryPickerMode('form')}
+            accessibilityRole="button"
+            accessibilityLabel={`Selecionar categoria do fornecedor. Categoria atual: ${form.category}`}
           >
-            {CATEGORIES.map((cat) => (
-              <Pressable
-                key={cat}
-                style={[
-                  styles.categoryPill,
-                  form.category === cat && styles.categoryPillActive,
-                ]}
-                onPress={() => setForm((prev) => ({ ...prev, category: cat }))}
-              >
-                <Text
-                  style={[
-                    styles.categoryPillText,
-                    form.category === cat && styles.categoryPillTextActive,
-                  ]}
-                >
-                  {cat}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+            <Text style={styles.categorySelectorValue} numberOfLines={1}>
+              {form.category}
+            </Text>
+            <Ionicons name="chevron-down" size={20} color={colors.primaryStrong} />
+          </Pressable>
 
           <Text style={styles.fieldLabel}>Telefone</Text>
           <TextInput
@@ -655,6 +647,15 @@ export function VendorsCatalogScreen() {
           </View>
         </ScrollView>
       </Modal>
+
+      <OptionPickerModal
+        visible={categoryPickerMode !== null}
+        title={categoryPickerMode === 'form' ? 'Categoria do fornecedor' : 'Filtrar por categoria'}
+        options={categoryPickerOptions}
+        selectedValue={selectedCategoryValue}
+        onSelect={handleCategorySelect}
+        onClose={() => setCategoryPickerMode(null)}
+      />
     </View>
   );
 }
@@ -727,6 +728,40 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     paddingBottom: 8,
+  },
+  categorySelector: {
+    minHeight: 52,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  formCategorySelector: {
+    marginHorizontal: 0,
+    marginBottom: 0,
+    backgroundColor: colors.surface,
+  },
+  categorySelectorTextGroup: {
+    flex: 1,
+  },
+  categorySelectorLabel: {
+    color: colors.mutedText,
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  categorySelectorValue: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
   },
   categoryPill: {
     minHeight: 34,
