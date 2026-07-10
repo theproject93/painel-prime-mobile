@@ -1,6 +1,13 @@
 import React from 'react';
-import { Pressable, SectionList, StyleSheet, Text } from 'react-native';
-import { Modal } from './Modal';
+import {
+  Modal as RNModal,
+  Pressable,
+  SafeAreaView,
+  SectionList,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { colors } from '../../theme/colors';
 
 export type PickerOption = {
@@ -77,24 +84,77 @@ export function OptionPickerModal({
   };
 
   return (
-    <Modal visible={visible} onClose={onClose} title={title}>
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.value}
-        renderItem={({ item }) => renderOption(item)}
-        renderSectionHeader={({ section }) => section.key ? (
-          <Text style={styles.groupHeader}>{getGroupLabel(section.key)}</Text>
-        ) : null}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      />
-    </Modal>
+    <RNModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <SafeAreaView style={styles.overlay}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.title}>{title}</Text>
+            <Pressable
+              onPress={onClose}
+              style={styles.closeButton}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar seletor"
+            >
+              <Text style={styles.closeButtonText}>Fechar</Text>
+            </Pressable>
+          </View>
+          <SectionList
+            sections={sections}
+            keyExtractor={(item) => item.value}
+            renderItem={({ item }) => renderOption(item)}
+            renderSectionHeader={({ section }) => section.key ? (
+              <Text style={styles.groupHeader}>{getGroupLabel(section.key)}</Text>
+            ) : null}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      </SafeAreaView>
+    </RNModal>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  container: {
+    maxHeight: '80%',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  title: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  closeButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  closeButtonText: {
+    color: colors.primaryStrong,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   scrollView: {
     width: '100%',
   },
