@@ -24,7 +24,7 @@ import { getVisibleSegments, normalizeSingleParam } from '../lib/router';
 import { supabase } from '../lib/supabase';
 import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
 import { colors } from '../theme/colors';
-import { WalkthroughAnchorTarget, useWalkthroughAnchors } from './WalkthroughAnchors';
+import { useWalkthroughAnchors } from './WalkthroughAnchors';
 
 type PlanHint = {
   id: string;
@@ -139,7 +139,7 @@ const BOTTOM_TAB_BAR_HEIGHT = 56;
 const FAB_VERTICAL_GAP = 14;
 const FAB_SIZE = 56;
 const FAB_SIDE_SAFE_MARGIN = 28;
-const FAB_POSITION_STORAGE_PREFIX = 'planejarpro:plan_assistant_fab_position';
+const FAB_POSITION_STORAGE_PREFIX = 'painelprime:plan_assistant_fab_position';
 const PLAN_FACE_IMAGE = require('../../assets/plan-face-real.png');
 const MESSAGE_HISTORY_LIMIT = 8;
 
@@ -1419,19 +1419,13 @@ export function PlanAssistantFloating() {
         </View>
       ) : null}
 
-      <WalkthroughAnchorTarget
-        id="plan_assistant.fab"
-        borderRadius={30}
-        style={[styles.fabAnchor, { left: resolvedFabPosition.x, top: resolvedFabPosition.y }]}
-      >
-        <View {...fabPanResponder.panHandlers} style={styles.fab} collapsable={false}>
+              <View {...fabPanResponder.panHandlers} style={[styles.fab, { position: 'absolute', left: resolvedFabPosition.x, top: resolvedFabPosition.y }]} collapsable={false}>
           {isOpen ? (
             <Ionicons name="close" size={22} color="#FFFFFF" />
           ) : (
             <Image source={PLAN_FACE_IMAGE} style={styles.fabAvatar} resizeMode="cover" />
           )}
         </View>
-      </WalkthroughAnchorTarget>
 
       <Modal visible={isOpen} animationType="fade" transparent onRequestClose={closeChat}>
         <View style={styles.modalRoot}>

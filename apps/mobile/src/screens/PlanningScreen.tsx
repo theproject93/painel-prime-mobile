@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
@@ -197,8 +196,7 @@ export function PlanningScreen() {
 
       {error ? <Text style={styles.err}>{error}</Text> : null}
 
-      <WalkthroughAnchorTarget id="planning.filters" borderRadius={12}>
-        <View style={styles.filtersBlock}>
+              <View style={styles.filtersBlock}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryText}>Total: {stats.total}</Text>
             <Text style={styles.summaryText}>Pendentes: {stats.pending}</Text>
@@ -231,10 +229,8 @@ export function PlanningScreen() {
             </Pressable>
           </View>
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="planning.list" borderRadius={12} style={styles.listWrap}>
-        <FlatList
+              <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
@@ -263,7 +259,6 @@ export function PlanningScreen() {
             ) : null
           }
         />
-      </WalkthroughAnchorTarget>
 
     </View>
   );

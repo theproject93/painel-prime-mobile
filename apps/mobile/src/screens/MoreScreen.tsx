@@ -4,7 +4,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '../components/Screen';
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
@@ -212,8 +211,7 @@ export function MoreScreen() {
 
   return (
     <Screen title="Mais" subtitle="Ferramentas administrativas e conta">
-      <WalkthroughAnchorTarget id="more.navigation" borderRadius={radii.lg}>
-        {sections.map((section, sIdx) => (
+              {sections.map((section, sIdx) => (
           <View key={section.title} style={sIdx > 0 ? styles.sectionGap : undefined}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
             <View style={styles.sectionCard}>
@@ -233,10 +231,8 @@ export function MoreScreen() {
             </View>
           </View>
         ))}
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="more.tools" borderRadius={radii.lg}>
-        <View style={styles.toolsSection}>
+              <View style={styles.toolsSection}>
           <View style={styles.card}>
             <Text style={styles.email}>{user?.email ?? '-'}</Text>
             {loading ? (
@@ -265,14 +261,11 @@ export function MoreScreen() {
             </View>
           </View>
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="more.logout" borderRadius={radii.md}>
-        <Pressable onPress={() => void signOut()} style={styles.logoutButton}>
+              <Pressable onPress={() => void signOut()} style={styles.logoutButton}>
           <Text style={styles.logoutText}>Sair da conta</Text>
         </Pressable>
-      </WalkthroughAnchorTarget>
-    </Screen>
+          </Screen>
   );
 }
 

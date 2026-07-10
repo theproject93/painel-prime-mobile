@@ -3,7 +3,6 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Screen } from '../components/Screen';
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
@@ -133,8 +132,7 @@ export function SuperBillingScreen() {
         </Pressable>
       </View>
 
-      <WalkthroughAnchorTarget id="billing.metrics" borderRadius={12}>
-        <View style={styles.billingTopSection}>
+              <View style={styles.billingTopSection}>
           <View style={styles.metricsRow}>
             <Metric label="Assinantes" value={metrics.totalAssinantes} />
             <Metric label="Ativos" value={metrics.ativos} />
@@ -160,10 +158,8 @@ export function SuperBillingScreen() {
             </ScrollView>
           </View>
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="billing.history" borderRadius={12}>
-        <View style={styles.card}>
+              <View style={styles.card}>
           <Text style={styles.cardTitle}>Pagamentos recentes</Text>
           {payments.slice(0, 40).map((row) => (
             <View key={row.id} style={styles.paymentCard}>
@@ -176,8 +172,7 @@ export function SuperBillingScreen() {
           ))}
           {payments.length === 0 ? <Text style={styles.caption}>Nenhum pagamento encontrado.</Text> : null}
         </View>
-      </WalkthroughAnchorTarget>
-    </Screen>
+          </Screen>
   );
 }
 

@@ -14,7 +14,6 @@ import { useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import {
   deleteStoredFile,
@@ -509,8 +508,7 @@ export function FinanceScreen() {
 
       {error ? <Text style={styles.err}>{error}</Text> : null}
 
-      <WalkthroughAnchorTarget id="finance.analytics" borderRadius={12}>
-        <View style={styles.analyticsSection}>
+              <View style={styles.analyticsSection}>
           <View style={styles.metricsRow}>
             <MetricCard label="Saldo em caixa" value={toBRL(balance)} sub={`Base: ${toBRL(baseBalance)}`} />
             <MetricCard label="Entradas" value={toBRL(settledEntries)} sub={`${entries.length} registros`} />
@@ -534,7 +532,6 @@ export function FinanceScreen() {
             })}
           </View>
         </View>
-      </WalkthroughAnchorTarget>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Categorias de saída</Text>
@@ -569,8 +566,7 @@ export function FinanceScreen() {
         ))}
       </View>
 
-      <WalkthroughAnchorTarget id="finance.tabs_list" borderRadius={12}>
-        <View style={styles.card}>
+              <View style={styles.card}>
           <TextInput
             style={styles.input}
             value={search}
@@ -603,10 +599,8 @@ export function FinanceScreen() {
             </View>
           ))}
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="finance.forms" borderRadius={12}>
-        <View style={styles.formsSection}>
+              <View style={styles.formsSection}>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Nova entrada</Text>
             <TextInput style={styles.input} value={entryForm.title} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, title: value }))} placeholder="Título" />
@@ -660,7 +654,6 @@ export function FinanceScreen() {
             </Pressable>
           </View>
         </View>
-      </WalkthroughAnchorTarget>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Categorias</Text>

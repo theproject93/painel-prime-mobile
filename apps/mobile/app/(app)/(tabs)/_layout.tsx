@@ -5,7 +5,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ModuleWalkthroughOverlay } from '../../../src/components/ModuleWalkthroughOverlay';
+import { ModuleWalkthroughBanner } from '../../../src/components/ModuleWalkthroughOverlay';
 import { PlanAssistantFloating } from '../../../src/components/PlanAssistantFloating';
 import { colors, gradients } from '../../../src/theme/colors';
 
@@ -72,7 +72,7 @@ export default function AppTabsLayout() {
         <Tabs.Screen name="fornecedores" options={{ title: 'Fornec.' }} />
         <Tabs.Screen name="mais" options={{ title: 'Mais' }} />
       </Tabs>
-      <ModuleWalkthroughOverlay />
+      <ModuleWalkthroughBanner />
       <PlanAssistantFloating />
     </View>
   );

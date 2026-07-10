@@ -6,7 +6,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
 import { EventTablesVisualMap } from '../components/EventTablesVisualMap';
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import {
   deleteStoredFile,
@@ -1513,24 +1512,21 @@ export function EventDetailsScreen() {
           ) : null}
         </View>
       )}
-      <WalkthroughAnchorTarget id="event_details.tabs" borderRadius={12}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
           {TABS.map((x) => (
             <Pressable key={x.key} onPress={() => setActiveTab(x.key)} style={[styles.tab, activeTab === x.key && styles.tabOn]}>
               <Text style={[styles.tabText, activeTab === x.key && styles.tabTextOn]}>{x.label}</Text>
             </Pressable>
           ))}
         </ScrollView>
-      </WalkthroughAnchorTarget>
-      {!!error && <Text style={styles.err}>{error}</Text>}
+            {!!error && <Text style={styles.err}>{error}</Text>}
       {loadingTab ? (
         <View style={styles.loadingModule}>
           <ActivityIndicator color={colors.primaryStrong} />
           <Text style={styles.loadingModuleText}>Carregando dados do modulo...</Text>
         </View>
       ) : null}
-      <WalkthroughAnchorTarget id="event_details.content" borderRadius={14}>
-        <View style={styles.moduleContent}>
+              <View style={styles.moduleContent}>
       {activeTab === 'overview' && (
         <View style={styles.overviewStack}>
           {alerts.length > 0 ? (
@@ -2705,8 +2701,7 @@ export function EventDetailsScreen() {
         </Card>
       )}
         </View>
-      </WalkthroughAnchorTarget>
-    </ScrollView>
+          </ScrollView>
   );
 }
 

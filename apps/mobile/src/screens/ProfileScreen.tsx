@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '../components/Screen';
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
@@ -144,8 +143,7 @@ export function ProfileScreen() {
 
   return (
     <Screen title="Perfil" subtitle="Conta, contatos oficiais e assinatura">
-      <WalkthroughAnchorTarget id="profile.identity" borderRadius={14}>
-        <View style={styles.identityStack}>
+              <View style={styles.identityStack}>
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Informações pessoais</Text>
             <Text style={styles.label}>Nome</Text>
@@ -166,10 +164,8 @@ export function ProfileScreen() {
             <TextInput style={styles.input} value={officialInstagram} onChangeText={setOfficialInstagram} placeholder="@perfil" />
           </View>
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="profile.billing" borderRadius={14}>
-        <View style={styles.card}>
+              <View style={styles.card}>
           <Text style={styles.sectionTitle}>Assinatura</Text>
           <Text style={styles.value}>Plano: {billingPlanLabel}</Text>
           <Text style={styles.value}>Status: {billingSub?.status ?? '-'}</Text>
@@ -185,7 +181,6 @@ export function ProfileScreen() {
           </View>
           {billingLoading ? <ActivityIndicator color={colors.primaryStrong} /> : null}
         </View>
-      </WalkthroughAnchorTarget>
 
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
