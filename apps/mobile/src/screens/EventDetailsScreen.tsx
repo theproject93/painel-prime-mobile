@@ -559,7 +559,7 @@ export function EventDetailsScreen() {
         id: `vendor-${row.id}`,
         date,
         dayNumber: toDayNumber(row.created_at),
-        title: 'Fornecedor incluido',
+        title: 'Fornecedor incluído',
         detail: `${row.name || 'Fornecedor'} (${row.category || 'Sem categoria'}) foi adicionado.`,
         kind: 'vendor',
       });
@@ -969,7 +969,7 @@ export function EventDetailsScreen() {
         id: 'rules-tasks',
         title: 'Bloco de execução de tarefas',
         reason: 'Muitas tarefas abertas para o evento.',
-        activity: 'Reuniao de alinhamento da equipe e distribuicao de prioridades',
+        activity: 'Reunião de alinhamento da equipe e distribuição de prioridades',
         time: '08:30',
         assignee: 'Assessoria',
         priority: 'high',

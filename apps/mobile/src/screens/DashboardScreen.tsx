@@ -324,7 +324,7 @@ export function DashboardScreen() {
           eventId: eventItem.id,
           eventName: eventItem.name,
           title: 'Fornecedor buffet não encontrado',
-          description: 'Cadastre buffet para evitar lacuna critica.',
+          description: 'Cadastre buffet para evitar lacuna crítica.',
           score: 95,
           tab: 'vendors',
         });
