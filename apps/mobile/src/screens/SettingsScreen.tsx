@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
 import { Screen } from '../components/Screen';
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
@@ -100,8 +99,7 @@ export function SettingsScreen() {
         <Text style={styles.back}>Voltar</Text>
       </Pressable>
 
-      <WalkthroughAnchorTarget id="settings.toggles" borderRadius={14}>
-        <View style={styles.card}>
+              <View style={styles.card}>
           <Text style={styles.sectionTitle}>Experiencia</Text>
           <ToggleItem
             title="Atualização automática"
@@ -119,15 +117,12 @@ export function SettingsScreen() {
             onToggle={() => void persist({ ...settings, notifications: !settings.notifications })}
           />
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="settings.sync" borderRadius={10}>
-        <View style={styles.syncWrap}>
+              <View style={styles.syncWrap}>
           {saving ? <ActivityIndicator color={colors.primaryStrong} /> : null}
           {message ? <Text style={styles.message}>{message}</Text> : <Text style={styles.syncHint}>As alterações são sincronizadas automaticamente.</Text>}
         </View>
-      </WalkthroughAnchorTarget>
-    </Screen>
+          </Screen>
   );
 }
 

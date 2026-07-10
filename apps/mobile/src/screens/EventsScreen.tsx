@@ -15,7 +15,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import {
   deleteStoredFile,
@@ -385,12 +384,10 @@ export function EventsScreen() {
           <Text style={styles.title}>Eventos</Text>
           <Text style={styles.subtitle}>Acesse e gerencie seus eventos</Text>
         </View>
-        <WalkthroughAnchorTarget id="events.new_button" borderRadius={10}>
-          <Pressable style={styles.newButton} onPress={() => setIsCreateModalOpen(true)}>
+                  <Pressable style={styles.newButton} onPress={() => setIsCreateModalOpen(true)}>
             <Text style={styles.newButtonText}>Novo</Text>
           </Pressable>
-        </WalkthroughAnchorTarget>
-      </View>
+              </View>
 
       {refreshing ? (
         <View style={styles.refreshRow}>
@@ -405,8 +402,7 @@ export function EventsScreen() {
         </View>
       ) : null}
 
-      <WalkthroughAnchorTarget id="events.filters" borderRadius={12}>
-        <View style={styles.filtersWrap}>
+              <View style={styles.filtersWrap}>
           <TextInput
             style={styles.input}
             placeholder="Buscar por nome/local"
@@ -423,10 +419,8 @@ export function EventsScreen() {
             </Pressable>
           </View>
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="events.list" borderRadius={14} style={styles.listWrap}>
-        <FlatList
+              <FlatList
           data={filteredEvents}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
@@ -468,7 +462,6 @@ export function EventsScreen() {
             ) : null
           }
         />
-      </WalkthroughAnchorTarget>
 
       <Modal visible={isCreateModalOpen} transparent animationType="fade">
         <View style={styles.modalBackdrop}>

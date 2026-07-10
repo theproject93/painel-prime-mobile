@@ -3,7 +3,6 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Screen } from '../components/Screen';
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
@@ -199,17 +198,14 @@ export function OperationalHealthScreen() {
       {error ? <Text style={styles.err}>{error}</Text> : null}
       <Text style={styles.caption}>Gerado em: {generatedAtLabel}</Text>
 
-      <WalkthroughAnchorTarget id="op_health.metrics" borderRadius={12}>
-        <View style={styles.metricGrid}>
+              <View style={styles.metricGrid}>
           <Metric label="Eventos" value={payload.summary.total_events} tone="default" />
           <Metric label="Page views" value={payload.summary.page_views} tone="blue" />
           <Metric label="Falhas RPC" value={payload.summary.rpc_errors} tone="amber" />
           <Metric label="Erros front" value={payload.summary.frontend_errors} tone="red" />
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="op_health.details" borderRadius={12}>
-        <View style={styles.detailsStack}>
+              <View style={styles.detailsStack}>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Top erros por tela</Text>
             {payload.top_errors_by_screen.length === 0 ? <Text style={styles.caption}>Sem erros no período.</Text> : null}
@@ -243,8 +239,7 @@ export function OperationalHealthScreen() {
             ))}
           </View>
         </View>
-      </WalkthroughAnchorTarget>
-    </Screen>
+          </Screen>
   );
 }
 

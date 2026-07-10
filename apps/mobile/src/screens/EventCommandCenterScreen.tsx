@@ -14,7 +14,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import {
   deleteStoredFile,
@@ -621,8 +620,7 @@ export function EventCommandCenterScreen() {
             </Pressable>
           </View>
 
-          <WalkthroughAnchorTarget id="event_command.alerts" borderRadius={14}>
-            <View style={styles.card}>
+                      <View style={styles.card}>
               <Text style={styles.cardTitle}>Alertas ativos</Text>
               {computedAlerts.length === 0 ? <Text style={styles.caption}>Sem alertas computados no momento.</Text> : null}
               {computedAlerts.map((alert) => (
@@ -636,10 +634,8 @@ export function EventCommandCenterScreen() {
                 </Text>
               ))}
             </View>
-          </WalkthroughAnchorTarget>
 
-          <WalkthroughAnchorTarget id="event_command.workflow" borderRadius={14}>
-            <View style={styles.card}>
+                      <View style={styles.card}>
               <Text style={styles.cardTitle}>Operação de fornecedores</Text>
               {vendors.length === 0 ? <Text style={styles.caption}>Sem fornecedores cadastrados.</Text> : null}
               {vendors.map((vendor) => {
@@ -668,7 +664,6 @@ export function EventCommandCenterScreen() {
                 );
               })}
             </View>
-          </WalkthroughAnchorTarget>
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>SOS da assessoria</Text>

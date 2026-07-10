@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Badge } from '../components/ui/Badge';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { StatCardPremium } from '../components/ui/StatCardPremium';
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors, gradients, radii, shadows, spacing } from '../theme/colors';
@@ -671,15 +670,13 @@ export function ClientsScreen() {
           <Text style={styles.title}>Clientes</Text>
           <Text style={styles.subtitle}>{clients.length} cliente{clients.length !== 1 ? 's' : ''} no funil</Text>
         </View>
-        <WalkthroughAnchorTarget id="clients.actions" borderRadius={12}>
-          <View style={styles.rowBtns}>
+                  <View style={styles.rowBtns}>
             <Pressable style={styles.btn} onPress={() => setOpenCreate(true)}>
               <Ionicons name="add" size={16} color="#FFFFFF" />
               <Text style={styles.btnText}>Novo</Text>
             </Pressable>
           </View>
-        </WalkthroughAnchorTarget>
-      </View>
+              </View>
 
       {error ? <Text style={styles.err}>{error}</Text> : null}
 
@@ -696,8 +693,7 @@ export function ClientsScreen() {
         <SectionHeader icon="search" title="Funil de vendas" subtitle="Arraste para ver todas as etapas" />
       </View>
 
-      <WalkthroughAnchorTarget id="clients.pipeline" borderRadius={12}>
-      <View style={styles.pipelineSection}>
+            <View style={styles.pipelineSection}>
         <TextInput
           style={styles.input}
           value={search}
@@ -738,11 +734,9 @@ export function ClientsScreen() {
             ))}
           </ScrollView>
         </View>
-      </WalkthroughAnchorTarget>
 
       {selected ? (
-        <WalkthroughAnchorTarget id="clients.detail" borderRadius={12}>
-          <View style={styles.card}>
+                  <View style={styles.card}>
           <Text style={styles.cardTitle}>Cliente selecionado: {selected.name}</Text>
           <Text style={styles.caption}>{selected.email || '-'} | {selected.phone || '-'}</Text>
           <Text style={styles.caption}>Etapa atual: {stageLabel(selected.stage)}</Text>
@@ -876,8 +870,7 @@ export function ClientsScreen() {
             </View>
           ))}
           </View>
-        </WalkthroughAnchorTarget>
-      ) : null}
+              ) : null}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Fila de prioridade</Text>

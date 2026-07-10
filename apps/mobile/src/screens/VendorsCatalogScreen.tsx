@@ -23,7 +23,6 @@ import { Button } from '../components/ui/Button';
 import { Modal, confirmAlert } from '../components/ui/Modal';
 import { EmptyState } from '../components/ui/EmptyState';
 import { SkeletonList } from '../components/ui/Skeleton';
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { Badge } from '../components/ui/Badge';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { StatCardPremium } from '../components/ui/StatCardPremium';
@@ -415,12 +414,10 @@ export function VendorsCatalogScreen() {
           <Text style={styles.title}>Fornecedores</Text>
           <Text style={styles.subtitle}>{filtered.length} fornecedor{filtered.length !== 1 ? 'es' : ''}</Text>
         </View>
-        <WalkthroughAnchorTarget id="vendors.create" borderRadius={12}>
-          <Pressable style={styles.addBtn} onPress={openCreateModal}>
+                  <Pressable style={styles.addBtn} onPress={openCreateModal}>
             <Ionicons name="add" size={20} color="#FFFFFF" />
           </Pressable>
-        </WalkthroughAnchorTarget>
-      </View>
+              </View>
 
       {error ? (
         <View style={styles.errorBanner}>
@@ -486,8 +483,7 @@ export function VendorsCatalogScreen() {
         ))}
       </ScrollView>
 
-      <WalkthroughAnchorTarget id="vendors.list" borderRadius={14} style={styles.listWrapper}>
-        {filtered.length === 0 ? (
+              {filtered.length === 0 ? (
           <EmptyState
             title="Nenhum fornecedor cadastrado"
             message="Cadastre fornecedores no catílogo global para reutilizar em vírios eventos."
@@ -503,7 +499,6 @@ export function VendorsCatalogScreen() {
             showsVerticalScrollIndicator={false}
           />
         )}
-      </WalkthroughAnchorTarget>
 
       <Modal visible={isCreateModalOpen} onClose={closeModal} title={editingVendor ? 'Editar fornecedor' : 'Novo fornecedor'}>
         <ScrollView

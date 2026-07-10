@@ -10,7 +10,6 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Screen } from '../components/Screen';
-import { WalkthroughAnchorTarget } from '../components/WalkthroughAnchors';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
@@ -391,8 +390,7 @@ export function DashboardScreen() {
       {error ? <Text style={styles.err}>{error}</Text> : null}
 
       {/* Pipeline Comercial */}
-      <WalkthroughAnchorTarget id="dashboard.pipeline" borderRadius={14}>
-        <View style={styles.card}>
+              <View style={styles.card}>
           <Text style={styles.pipelineEyebrow}>Pipeline Comercial</Text>
           <View style={styles.pipelineRow}>
             <View style={styles.pipelineStat}>
@@ -409,10 +407,8 @@ export function DashboardScreen() {
             </View>
           </View>
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="dashboard.metrics" borderRadius={16}>
-        <View style={styles.metricsSection}>
+              <View style={styles.metricsSection}>
           <View style={styles.metricsRow}>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>Eventos em andamento</Text>
@@ -440,10 +436,8 @@ export function DashboardScreen() {
             <Text style={styles.metricHint}>Soma das despesas dos eventos ativos.</Text>
           </View>
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="dashboard.pendencies" borderRadius={14}>
-        <View style={styles.card}>
+              <View style={styles.card}>
           <Text style={styles.cardTitle}>Top pendências</Text>
           {topPendencies.length === 0 ? (
             <Text style={styles.cardSub}>Sem pendências críticas agora.</Text>
@@ -465,10 +459,8 @@ export function DashboardScreen() {
             ))
           )}
         </View>
-      </WalkthroughAnchorTarget>
 
-      <WalkthroughAnchorTarget id="dashboard.shortcuts" borderRadius={14}>
-        <View style={styles.shortcutsSection}>
+              <View style={styles.shortcutsSection}>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Atalhos inteligentes</Text>
             <Text style={styles.cardSub}>Ações rápidas da operação.</Text>
@@ -506,7 +498,6 @@ export function DashboardScreen() {
             )}
           </View>
         </View>
-      </WalkthroughAnchorTarget>
 
       <Modal visible={shortcutModal.open} transparent animationType="fade">
         <View style={styles.modalOverlay}>
