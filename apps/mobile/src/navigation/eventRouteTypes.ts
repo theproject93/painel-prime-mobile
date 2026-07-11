@@ -9,6 +9,7 @@ export const EVENT_MODULES = [
   { key: 'guests', label: 'Convidados', group: 'people', icon: 'people-outline' },
   { key: 'invites', label: 'Convites', group: 'people', icon: 'mail-outline' },
   { key: 'portal', label: 'Portal do Cliente', group: 'people', icon: 'person-circle-outline' },
+  { key: 'meetings', label: 'Reuniões', group: 'people', icon: 'videocam-outline' },
   { key: 'presentes', label: 'Presentes', group: 'people', icon: 'gift-outline' },
   { key: 'team', label: 'Equipe', group: 'people', icon: 'people-circle-outline' },
   { key: 'budget', label: 'Orçamento', group: 'finance', icon: 'wallet-outline' },

@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -2917,12 +2917,12 @@ export type Database = {
       }
       event_meetings: {
         Row: {
+          ata_retry_count: number
           created_at: string
           daily_room_name: string | null
           event_id: string
           id: string
           notes: string | null
-          owner_token: string | null
           room_url: string | null
           scheduled_at: string | null
           status: string
@@ -2931,12 +2931,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ata_retry_count?: number
           created_at?: string
           daily_room_name?: string | null
           event_id: string
           id?: string
           notes?: string | null
-          owner_token?: string | null
           room_url?: string | null
           scheduled_at?: string | null
           status?: string
@@ -2945,12 +2945,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ata_retry_count?: number
           created_at?: string
           daily_room_name?: string | null
           event_id?: string
           id?: string
           notes?: string | null
-          owner_token?: string | null
           room_url?: string | null
           scheduled_at?: string | null
           status?: string

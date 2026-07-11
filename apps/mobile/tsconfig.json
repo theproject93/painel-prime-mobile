@@ -3,5 +3,5 @@
   "compilerOptions": {
     "strict": true
   },
-  "exclude": ["dist-web", "dist-android"]
+  "exclude": ["dist-web", "dist-android", "src/**/*_test.ts"]
 }
