@@ -64,6 +64,7 @@ type PlanAssistantApiResponse = {
   meta?: {
     ai_used?: boolean;
     ai_error?: string | null;
+    response_mode?: 'ai' | 'deterministic' | 'fallback';
   };
 };
 
@@ -1337,7 +1338,11 @@ export function PlanAssistantFloating() {
       const actions = getSuggestedActions(data);
       if (!answer) throw new Error('empty_answer');
 
-      if (data.meta && data.meta.ai_used === false) {
+      if (
+        data.meta &&
+        data.meta.ai_used === false &&
+        data.meta.response_mode !== 'deterministic'
+      ) {
         console.warn('plan-assistant-chat returned fallback mode', data.meta.ai_error);
       }
 
