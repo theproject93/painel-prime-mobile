@@ -102,7 +102,7 @@ export function LandingScreen() {
               <Text style={styles.heroHighlight}>não admitem erros.</Text>
             </Text>
             <Text style={styles.heroSub}>
-              CRM, eventos, torre de comando, financeiro e portais públicos no mesmo ecossistema.
+              CRM, eventos, reuniões, financeiro e portais públicos no mesmo ecossistema.
             </Text>
             <View style={styles.metricsRow}>
               {[{ v: 'CRM', l: 'pipeline' }, { v: 'Eventos', l: 'timeline' }, { v: 'Portais', l: 'noivos' }].map((m) => (

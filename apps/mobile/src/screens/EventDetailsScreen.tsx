@@ -115,6 +115,7 @@ type CommandComputedAlert = {
 const CHART_COLORS = ['#D4AF37', '#0EA5E9', '#22C55E', '#F97316', '#A855F7', '#EF4444'];
 
 const TABS = EVENT_MODULES;
+type EventDetailsTab = EventDetailsInitialTab | 'command';
 
 const TABLE_BY_KEY: Record<DataKey, string> = {
   tasks: 'event_tasks',
@@ -129,7 +130,7 @@ const TABLE_BY_KEY: Record<DataKey, string> = {
   tables: 'event_tables',
 };
 
-const TAB_KEYS: Record<EventDetailsInitialTab, DataKey[]> = {
+const TAB_KEYS: Record<EventDetailsTab, DataKey[]> = {
   overview: ['expenses', 'payments', 'tasks', 'guests', 'timeline', 'vendors'],
   command: ['expenses', 'payments', 'tasks', 'guests', 'timeline', 'vendors'],
   history: ['tasks', 'guests', 'timeline', 'vendors', 'documents', 'expenses', 'payments'],
@@ -157,7 +158,7 @@ export function EventDetailsScreen() {
   const eventId = Array.isArray(params.id) ? params.id[0] ?? '' : params.id ?? '';
   const initialTabParam = Array.isArray(params.initialTab) ? params.initialTab[0] : params.initialTab;
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<EventDetailsInitialTab>('overview');
+  const [activeTab, setActiveTab] = useState<EventDetailsTab>('overview');
   const [isModulePickerOpen, setIsModulePickerOpen] = useState(false);
   const activeTabLabel = useMemo(() => TABS.find((x) => x.key === activeTab)?.label || 'Visão Geral', [activeTab]);
   const activeTabIcon = useMemo(() => TABS.find((x) => x.key === activeTab)?.icon || 'grid-outline', [activeTab]);
@@ -357,7 +358,7 @@ export function EventDetailsScreen() {
     setLoaded((s) => ({ ...s, [key]: true }));
   }
 
-  async function loadTab(tab: EventDetailsInitialTab, force = false) {
+  async function loadTab(tab: EventDetailsTab, force = false) {
     const wanted = TAB_KEYS[tab];
     const todo = force ? wanted : wanted.filter((k) => !loaded[k]);
     if (todo.length === 0) return;
@@ -1461,12 +1462,6 @@ export function EventDetailsScreen() {
             </View>
           </View>
           <View style={styles.heroActionRow}>
-            <Pressable
-              style={styles.commandCta}
-              onPress={() => router.push(`/eventos/${eventId}/torre`)}
-            >
-              <Text style={styles.commandCtaText}>Torre de Comando</Text>
-            </Pressable>
             <Pressable style={styles.btnGhost} onPress={() => setEditingBasics((prev) => !prev)}>
               <Text style={styles.smallText}>{editingBasics ? 'Fechar edição' : 'Editar evento'}</Text>
             </Pressable>

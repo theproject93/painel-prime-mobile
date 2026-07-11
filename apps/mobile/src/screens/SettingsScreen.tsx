@@ -1,149 +1,86 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '../components/Screen';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
-
-type AppSettings = {
-  autoRefresh: boolean;
-  compactMode: boolean;
-  notifications: boolean;
-};
-
-const STORAGE_KEY = 'planejar_pro_app_settings_v1';
+import { fontSize, fontWeight, radii, spacing } from '../theme/tokens';
 
 export function SettingsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [settings, setSettings] = useState<AppSettings>({
-    autoRefresh: true,
-    compactMode: false,
-    notifications: true,
-  });
-
-  useEffect(() => {
-    let alive = true;
-    async function load() {
-      setLoading(true);
-      const localRaw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (localRaw && alive) {
-        try {
-          const parsed = JSON.parse(localRaw) as Partial<AppSettings>;
-          setSettings((prev) => ({
-            autoRefresh: parsed.autoRefresh ?? prev.autoRefresh,
-            compactMode: parsed.compactMode ?? prev.compactMode,
-            notifications: parsed.notifications ?? prev.notifications,
-          }));
-        } catch {
-          // ignore parse error
-        }
-      }
-
-      const remoteSettings = ((user?.user_metadata as Record<string, any> | undefined)?.app_settings ?? null) as
-        | Partial<AppSettings>
-        | null;
-      if (remoteSettings && alive) {
-        setSettings((prev) => ({
-          autoRefresh: remoteSettings.autoRefresh ?? prev.autoRefresh,
-          compactMode: remoteSettings.compactMode ?? prev.compactMode,
-          notifications: remoteSettings.notifications ?? prev.notifications,
-        }));
-      }
-      if (alive) setLoading(false);
-    }
-    void load();
-    return () => {
-      alive = false;
-    };
-  }, [user?.id, user?.user_metadata]);
-
-  async function persist(next: AppSettings) {
-    setSettings(next);
-    setSaving(true);
-    setMessage('');
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-
-    const { error } = await supabase.auth.updateUser({
-      data: {
-        ...(user?.user_metadata ?? {}),
-        app_settings: next,
-      },
-    });
-
-    setSaving(false);
-    if (error) {
-      setMessage(`Salvo localmente, mas falhou sincronização na nuvem: ${error.message}`);
-      return;
-    }
-    setMessage('Configurações salvas e sincronizadas.');
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.primaryStrong} />
-      </View>
-    );
-  }
+  const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
-    <Screen title="Configurações" subtitle="Preferências persistidas do aplicativo">
-      <Pressable onPress={() => router.push('/mais')}>
-        <Text style={styles.back}>Voltar</Text>
+    <Screen title="Configurações" subtitle="Segurança, privacidade e informações do aplicativo">
+      <View style={styles.card}>
+        <View style={styles.iconWrap}>
+          <Ionicons name="shield-checkmark-outline" size={22} color={colors.primaryStrong} />
+        </View>
+        <View style={styles.copy}>
+          <Text style={styles.title}>Seus dados protegidos</Text>
+          <Text style={styles.description}>
+            Sua sessão é armazenada com segurança no dispositivo e os dados permanecem vinculados à sua conta.
+          </Text>
+        </View>
+      </View>
+
+      <Pressable
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        onPress={() => router.push('/politica-de-privacidade' as never)}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir política de privacidade"
+      >
+        <Ionicons name="document-text-outline" size={21} color={colors.primaryStrong} />
+        <View style={styles.copy}>
+          <Text style={styles.rowTitle}>Política de privacidade</Text>
+          <Text style={styles.rowDescription}>Saiba como suas informações são utilizadas</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.mutedText} />
       </Pressable>
 
-              <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Experiencia</Text>
-          <ToggleItem
-            title="Atualização automática"
-            value={settings.autoRefresh}
-            onToggle={() => void persist({ ...settings, autoRefresh: !settings.autoRefresh })}
-          />
-          <ToggleItem
-            title="Modo compacto de listas"
-            value={settings.compactMode}
-            onToggle={() => void persist({ ...settings, compactMode: !settings.compactMode })}
-          />
-          <ToggleItem
-            title="Notificações"
-            value={settings.notifications}
-            onToggle={() => void persist({ ...settings, notifications: !settings.notifications })}
-          />
-        </View>
-
-              <View style={styles.syncWrap}>
-          {saving ? <ActivityIndicator color={colors.primaryStrong} /> : null}
-          {message ? <Text style={styles.message}>{message}</Text> : <Text style={styles.syncHint}>As alterações são sincronizadas automaticamente.</Text>}
-        </View>
-          </Screen>
-  );
-}
-
-function ToggleItem({ title, value, onToggle }: { title: string; value: boolean; onToggle: () => void }) {
-  return (
-    <Pressable style={styles.item} onPress={onToggle}>
-      <Text style={styles.itemTitle}>{title}</Text>
-      <Text style={styles.itemValue}>{value ? 'Ativado' : 'Desativado'}</Text>
-    </Pressable>
+      <View style={styles.versionCard}>
+        <Text style={styles.versionBrand}>Painel Prime</Text>
+        <Text style={styles.versionText}>Versão {version}</Text>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
-  back: { color: colors.mutedText, fontSize: 13, fontWeight: '600' },
-  card: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 14, gap: 8 },
-  syncWrap: { minHeight: 32, justifyContent: 'center', gap: 6 },
-  sectionTitle: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  item: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, gap: 4 },
-  itemTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
-  itemValue: { color: colors.mutedText, fontSize: 12, fontWeight: '600' },
-  syncHint: { color: colors.mutedText, fontSize: 12 },
-  message: { color: colors.text, backgroundColor: colors.primarySoft, borderRadius: 8, padding: 8 },
+  card: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    borderRadius: radii.xl,
+    backgroundColor: colors.text,
+    padding: spacing.md,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  copy: { flex: 1, gap: 4 },
+  title: { color: colors.card, fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  description: { color: '#C9CED8', fontSize: fontSize.sm, lineHeight: 20 },
+  row: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  pressed: { opacity: 0.72 },
+  rowTitle: { color: colors.text, fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  rowDescription: { color: colors.mutedText, fontSize: fontSize.xs, lineHeight: 18 },
+  versionCard: { alignItems: 'center', paddingVertical: spacing.xl, gap: 4 },
+  versionBrand: { color: colors.text, fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  versionText: { color: colors.mutedText, fontSize: fontSize.sm },
 });

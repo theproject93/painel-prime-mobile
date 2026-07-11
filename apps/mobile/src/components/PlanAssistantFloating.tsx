@@ -253,7 +253,7 @@ function extractEventTabFromPath(path: string): EventDetailsInitialTab | undefin
   if (normalized.includes('/convites') || normalized.includes('/invites')) return 'invites';
   if (normalized.includes('/historico') || normalized.includes('/history')) return 'history';
   if (normalized.includes('/visao-geral') || normalized.includes('/overview')) return 'overview';
-  if (normalized.includes('/comando') || normalized.includes('/command')) return 'command';
+  if (normalized.includes('/comando') || normalized.includes('/command')) return 'overview';
   return undefined;
 }
 
@@ -283,13 +283,7 @@ function buildRouteContext(
   }
 
   if (root === 'eventos' || root === 'Events') {
-    if ((leaf === '[id]' || leaf === 'EventDetails' || leaf === 'EventCommandCenter') && routeEventId) {
-      if (subLeaf === 'torre' || leaf === 'EventCommandCenter') {
-        return {
-          currentPath: `/dashboard/eventos/${routeEventId}/torre`,
-          currentEventId: routeEventId,
-        };
-      }
+    if ((leaf === '[id]' || leaf === 'EventDetails') && routeEventId) {
       return {
         currentPath: `/dashboard/eventos/${routeEventId}`,
         currentEventId: routeEventId,
@@ -301,9 +295,6 @@ function buildRouteContext(
   if (root === 'mais' || root === 'More') {
     if (leaf === 'perfil' || leaf === 'Profile') {
       return { currentPath: '/dashboard/perfil', currentEventId: null };
-    }
-    if (leaf === 'planejamento' || leaf === 'Planning') {
-      return { currentPath: '/dashboard/planejamento', currentEventId: null };
     }
     if (leaf === 'saude-operacional' || leaf === 'OperationalHealth') {
       return { currentPath: '/dashboard/saude-operacional', currentEventId: null };
@@ -719,11 +710,6 @@ function navigateByCtaPath(
   const eventMatch = path.match(/\/dashboard\/eventos\/([0-9a-f-]{8,})/i);
   if (eventMatch) {
     const eventId = eventMatch[1];
-    if (path.includes('/torre') || path.includes('/command')) {
-      router.push(`/eventos/${eventId}/torre`);
-      return true;
-    }
-
     const initialTab = extractEventTabFromPath(path);
     const search = initialTab ? `?initialTab=${initialTab}` : '';
     router.push(`/eventos/${eventId}${search}`);
@@ -746,7 +732,7 @@ function navigateByCtaPath(
   }
 
   if (path.startsWith('/dashboard/planejamento')) {
-    router.push('/mais/planejamento');
+    router.push('/eventos');
     return true;
   }
 

@@ -13,7 +13,6 @@ export const EVENT_MODULES = [
   { key: 'presentes', label: 'Presentes', group: 'people', icon: 'gift-outline' },
   { key: 'team', label: 'Equipe', group: 'people', icon: 'people-circle-outline' },
   { key: 'budget', label: 'Orçamento', group: 'finance', icon: 'wallet-outline' },
-  { key: 'command', label: 'Torre de Comando', group: 'operation', icon: 'pulse-outline' },
   { key: 'vendors', label: 'Fornecedores', group: 'operation', icon: 'storefront-outline' },
   { key: 'tables', label: 'Mesas', group: 'operation', icon: 'restaurant-outline' },
   { key: 'documents', label: 'Documentos', group: 'files', icon: 'document-text-outline' },

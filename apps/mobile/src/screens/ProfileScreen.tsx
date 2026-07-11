@@ -14,13 +14,35 @@ type BillingSubscription = {
   updated_at: string | null;
 };
 
-const BILLING_OPTIONS = [
-  { id: 'test_1', label: 'Teste PIX/cartao R$ 1' },
-  { id: 'test_2', label: 'Teste PIX/cartao R$ 2' },
+const CUSTOMER_BILLING_OPTIONS = [
   { id: 'essencial', label: 'Plano Essencial' },
   { id: 'profissional', label: 'Plano Profissional' },
   { id: 'elite', label: 'Plano Elite' },
 ] as const;
+
+const TEST_BILLING_OPTIONS = [
+  { id: 'test_1', label: 'Teste PIX/cartão R$ 1' },
+  { id: 'test_2', label: 'Teste PIX/cartão R$ 2' },
+] as const;
+
+const ALL_BILLING_OPTIONS = [...CUSTOMER_BILLING_OPTIONS, ...TEST_BILLING_OPTIONS];
+
+const SUBSCRIPTION_STATUS_LABELS: Record<string, string> = {
+  active: 'Ativa',
+  approved: 'Aprovada',
+  pending: 'Pendente',
+  pending_checkout: 'Aguardando escolha do plano',
+  pending_payment: 'Aguardando pagamento',
+  pending_pix: 'Aguardando pagamento via PIX',
+  cancelled: 'Cancelada',
+  canceled: 'Cancelada',
+  expired: 'Expirada',
+};
+
+function statusLabel(value: string | null | undefined) {
+  if (!value) return '-';
+  return SUBSCRIPTION_STATUS_LABELS[value] ?? value.replaceAll('_', ' ');
+}
 
 function formatCurrency(valueCents: number | null | undefined) {
   if (valueCents == null) return '-';
@@ -28,7 +50,7 @@ function formatCurrency(valueCents: number | null | undefined) {
 }
 
 export function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isSuperAdmin } = useAuth();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [officialWhatsapp, setOfficialWhatsapp] = useState('');
@@ -70,8 +92,12 @@ export function ProfileScreen() {
 
   const billingPlanLabel = useMemo(() => {
     if (!billingSub?.plan_id) return '-';
-    return BILLING_OPTIONS.find((option) => option.id === billingSub.plan_id)?.label ?? billingSub.plan_id;
+    return ALL_BILLING_OPTIONS.find((option) => option.id === billingSub.plan_id)?.label ?? billingSub.plan_id;
   }, [billingSub?.plan_id]);
+
+  const billingOptions = isSuperAdmin
+    ? [...CUSTOMER_BILLING_OPTIONS, ...TEST_BILLING_OPTIONS]
+    : CUSTOMER_BILLING_OPTIONS;
 
   async function saveProfile() {
     setSaving(true);
@@ -168,12 +194,12 @@ export function ProfileScreen() {
               <View style={styles.card}>
           <Text style={styles.sectionTitle}>Assinatura</Text>
           <Text style={styles.value}>Plano: {billingPlanLabel}</Text>
-          <Text style={styles.value}>Status: {billingSub?.status ?? '-'}</Text>
-          <Text style={styles.value}>Ultimo pagamento: {billingSub?.last_payment_status ?? '-'}</Text>
+          <Text style={styles.value}>Status: {statusLabel(billingSub?.status)}</Text>
+          <Text style={styles.value}>Último pagamento: {statusLabel(billingSub?.last_payment_status)}</Text>
           <Text style={styles.value}>Valor: {formatCurrency(billingSub?.amount_cents)}</Text>
           <Text style={styles.caption}>Atualizado: {billingSub?.updated_at ? new Date(billingSub.updated_at).toLocaleString('pt-BR') : '-'}</Text>
           <View style={styles.rowBtns}>
-            {BILLING_OPTIONS.map((option) => (
+            {billingOptions.map((option) => (
               <Pressable key={option.id} style={styles.btnGhost} onPress={() => void openBillingCheckout(option.id)}>
                 <Text style={styles.smallText}>{option.label}</Text>
               </Pressable>
