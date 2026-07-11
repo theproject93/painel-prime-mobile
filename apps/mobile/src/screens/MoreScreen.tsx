@@ -195,7 +195,6 @@ export function MoreScreen() {
     title: 'Ferramentas',
     items: [
       { label: 'Planejamento', icon: 'calendar-outline', route: '/mais/planejamento' },
-      { label: 'Saúde Operacional', icon: 'heart-outline', route: '/mais/saude-operacional' },
     ],
   };
 
@@ -204,6 +203,7 @@ export function MoreScreen() {
     items: [
       { label: 'Assinaturas', icon: 'shield-checkmark-outline', route: '/mais/assinaturas' },
       { label: 'Relatórios', icon: 'bar-chart-outline', route: '/mais/relatorios' },
+      { label: 'Saúde Operacional', icon: 'heart-outline', route: '/mais/saude-operacional' },
     ],
   };
 

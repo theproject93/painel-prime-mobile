@@ -70,7 +70,7 @@ const MODULE_GUIDES: Record<ModuleGuideKey, GuideSpec> = {
   more_home: {
     moduleLabel: 'Mais',
     intro: 'Atalhos administrativos e governança da conta.',
-    tip: 'Acesse Perfil, Planejamento, Saúde Operacional e Configurações.',
+    tip: 'Acesse Perfil, Planejamento e Configurações.',
   },
   planning: {
     moduleLabel: 'Planejamento',
