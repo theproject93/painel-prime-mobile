@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 
 import { EventTablesVisualMap } from '../components/EventTablesVisualMap';
+import { MeetingCenter } from '../features/meetings/MeetingCenter';
 import { useAuth } from '../contexts/AuthContext';
 import {
   deleteStoredFile,
@@ -144,6 +145,7 @@ const TAB_KEYS: Record<EventDetailsInitialTab, DataKey[]> = {
   invites: ['guests'],
   catalog: ['vendors'],
   portal: ['guests'],
+  meetings: [],
   presentes: ['guests'],
   analytics: ['expenses', 'payments'],
 };
@@ -2703,6 +2705,8 @@ export function EventDetailsScreen() {
           </Pressable>
         </Card>
       )}
+
+      {activeTab === 'meetings' && <MeetingCenter eventId={eventId} />}
 
       {activeTab === 'presentes' && (
         <Card title="Intenções de Presentes">
