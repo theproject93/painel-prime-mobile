@@ -84,3 +84,27 @@ Deno.test('landing copy does not advertise a removed authenticated dashboard', a
     throw new Error('walkthrough still advertises removed planning dashboard');
   }
 });
+
+Deno.test('keeps the mobile client journey focused on proposal and signature', async () => {
+  const clients = await read('screens/ClientsScreen.tsx');
+
+  for (const forbidden of [
+    'get_crm_pipeline_forecast',
+    'crm_priority',
+    'generate_crm_followups_for_user',
+    'Forecast por etapa',
+    'Execução do CRM',
+    'Fila de prioridade',
+  ]) {
+    if (clients.includes(forbidden)) {
+      throw new Error(`desktop CRM concern is still loaded on mobile: ${forbidden}`);
+    }
+  }
+
+  if (!clients.includes("functions.invoke('crm-send-budget'")) {
+    throw new Error('mobile budget action is not connected to the canonical backend');
+  }
+  if (!clients.includes('/api/crm/integrations/documenso/create-envelope')) {
+    throw new Error('mobile contract action is not connected to the canonical Documenso flow');
+  }
+});
