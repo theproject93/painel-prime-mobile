@@ -3,13 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "packageManager": "pnpm@10.0.0",
-  "workspaces": [
-    "apps/web"
-  ],
   "scripts": {
-    "dev": "npm run dev --workspace=@painel-prime/web",
-    "dev:all": "turbo run dev --parallel --filter=@painel-prime/web --filter=@painel-prime/mobile",
-    "dev:studio": "npm run dev --workspace=@painel-prime/web",
+    "dev": "turbo run dev --parallel --filter=@painel-prime/web --filter=@painel-prime/mobile",
     "dev:web": "pnpm --filter @painel-prime/web dev",
     "dev:web:doppler": "doppler run -- pnpm dev:web",
     "dev:web:op": "op run --env-file .env.1password -- pnpm dev:web",
@@ -24,7 +19,6 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "build": "turbo run build",
-    "build:studio": "npm run build --workspace=@painel-prime/web",
     "audit:security": "deno run --allow-env --allow-read --allow-write --allow-net scripts/security-audit.ts --baseline scripts/security-audit-baseline.json --json-output reports/security-audit.json --summary-output reports/security-audit-summary.md",
     "security:secrets": "node scripts/security/secrets-audit.mjs",
     "security:secrets:report": "node scripts/security/secrets-audit.mjs --json-output reports/secrets-audit.json",
