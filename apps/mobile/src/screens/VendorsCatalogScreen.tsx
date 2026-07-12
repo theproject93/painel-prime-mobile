@@ -501,7 +501,7 @@ export function VendorsCatalogScreen() {
             data={filtered}
             keyExtractor={(item) => item.id}
             renderItem={renderVendorCard}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 140 }]}
             showsVerticalScrollIndicator={false}
           />
         )}
@@ -864,12 +864,13 @@ const styles = StyleSheet.create({
   },
   contactRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   contactAction: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -882,6 +883,7 @@ const styles = StyleSheet.create({
   },
   vendorActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
@@ -915,6 +917,7 @@ const styles = StyleSheet.create({
   },
   actionGroup: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
   },
   editBtn: {
@@ -922,7 +925,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    minHeight: 44,
+    paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
@@ -934,8 +938,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   deleteBtn: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
