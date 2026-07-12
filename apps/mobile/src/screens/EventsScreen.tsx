@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../contexts/AuthContext';
+import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import {
   deleteStoredFile,
   getPrivateFileDownloadUrl,
@@ -350,11 +351,7 @@ export function EventsScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.centerPage}>
-        <ActivityIndicator color={colors.primaryStrong} size="large" />
-      </View>
-    );
+    return <PrimeLogoLoader label="Organizando seus eventos" />;
   }
 
   return (

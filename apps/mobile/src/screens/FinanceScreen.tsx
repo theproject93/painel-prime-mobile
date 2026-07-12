@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
 import { Screen } from '../components/Screen';
+import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { GradientCard } from '../components/ui/GradientCard';
 import { useAuth } from '../contexts/AuthContext';
@@ -392,12 +393,7 @@ export function FinanceScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.gold600} />
-        <Text style={styles.loadingText}>Organizando seu caixa...</Text>
-      </View>
-    );
+    return <PrimeLogoLoader label="Organizando seu caixa" />;
   }
 
   return (

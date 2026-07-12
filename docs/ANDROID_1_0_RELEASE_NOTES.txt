@@ -1,0 +1,10 @@
+Painel Prime Android 1.0
+
+Uma experiência premium criada para assessoras de eventos.
+
+• Jornada comercial simplificada, do primeiro contato à assinatura.
+• Meu Caixa para controlar entradas e despesas da assessoria.
+• Navegação de eventos mais clara e focada nas tarefas essenciais.
+• Carregamento com a identidade visual Painel Prime.
+• Acesso biométrico após o primeiro login.
+• Melhorias de estabilidade, responsividade e acessibilidade.

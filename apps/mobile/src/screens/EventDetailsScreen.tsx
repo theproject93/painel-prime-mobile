@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 
 import { EventTablesVisualMap } from '../components/EventTablesVisualMap';
+import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { MeetingCenter } from '../features/meetings/MeetingCenter';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -1434,7 +1435,7 @@ export function EventDetailsScreen() {
     });
   }
 
-  if (loadingEvent) return <View style={styles.center}><ActivityIndicator color={colors.primaryStrong} /></View>;
+  if (loadingEvent) return <PrimeLogoLoader label="Abrindo o evento" />;
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 140 }]}>
@@ -1535,8 +1536,7 @@ export function EventDetailsScreen() {
       {!!error && <Text style={styles.err}>{error}</Text>}
       {loadingTab ? (
         <View style={styles.loadingModule}>
-          <ActivityIndicator color={colors.primaryStrong} />
-          <Text style={styles.loadingModuleText}>Carregando dados do modulo...</Text>
+          <PrimeLogoLoader variant="inline" label="Carregando esta área" />
         </View>
       ) : null}
               <View style={styles.moduleContent}>

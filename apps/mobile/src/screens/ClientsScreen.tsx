@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '../components/Screen';
+import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -458,11 +459,7 @@ export function ClientsScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.loadingPage}>
-        <ActivityIndicator color={colors.primaryStrong} size="large" />
-      </View>
-    );
+    return <PrimeLogoLoader label="Organizando seus clientes" />;
   }
 
   return (

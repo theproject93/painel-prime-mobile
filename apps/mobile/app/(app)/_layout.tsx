@@ -1,18 +1,13 @@
 import { Redirect, Slot } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '../../src/contexts/AuthContext';
-import { colors } from '../../src/theme/colors';
+import { PrimeLogoLoader } from '../../src/components/PrimeLogoLoader';
 
 export default function AuthenticatedLayout() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <View style={styles.loadingPage}>
-        <ActivityIndicator color={colors.primaryStrong} size="large" />
-      </View>
-    );
+    return <PrimeLogoLoader variant="fullscreen" label="Protegendo seu espaço" />;
   }
 
   if (!user) {
@@ -21,12 +16,3 @@ export default function AuthenticatedLayout() {
 
   return <Slot />;
 }
-
-const styles = StyleSheet.create({
-  loadingPage: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
