@@ -117,6 +117,9 @@ export function LoginScreen() {
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>E-mail</Text>
           <TextInput
+            testID="edit_text_email"
+            nativeID="edit_text_email"
+            accessibilityLabel="Campo de e-mail"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -131,6 +134,9 @@ export function LoginScreen() {
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Senha</Text>
           <TextInput
+            testID="edit_text_password"
+            nativeID="edit_text_password"
+            accessibilityLabel="Campo de senha"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -151,6 +157,9 @@ export function LoginScreen() {
         ) : null}
 
         <Pressable
+          testID="btn_login"
+          nativeID="btn_login"
+          accessibilityLabel="Entrar na Plataforma"
           onPress={() => void handleLogin()}
           disabled={submitting}
           style={({ pressed }) => [
