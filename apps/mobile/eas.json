@@ -1,6 +1,10 @@
 {
+  "cli": {
+    "appVersionSource": "local"
+  },
   "build": {
-    "preview": {
+    "release-apk": {
+      "distribution": "internal",
       "android": {
         "buildType": "apk"
       }

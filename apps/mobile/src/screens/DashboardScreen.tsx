@@ -10,6 +10,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Screen } from '../components/Screen';
+import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
@@ -378,11 +379,7 @@ export function DashboardScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.primaryStrong} />
-      </View>
-    );
+    return <PrimeLogoLoader label="Preparando seu dia" />;
   }
 
   return (

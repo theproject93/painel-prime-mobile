@@ -1,18 +1,13 @@
 import React from 'react';
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '../src/contexts/AuthContext';
-import { colors } from '../src/theme/colors';
+import { PrimeLogoLoader } from '../src/components/PrimeLogoLoader';
 
 export default function RootIndex() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <View style={styles.loadingPage}>
-        <ActivityIndicator color={colors.primaryStrong} size="large" />
-      </View>
-    );
+    return <PrimeLogoLoader variant="fullscreen" label="Abrindo o Painel Prime" />;
   }
 
   if (user) {
@@ -21,13 +16,4 @@ export default function RootIndex() {
 
   return <Redirect href="/landing" />;
 }
-
-const styles = StyleSheet.create({
-  loadingPage: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
 

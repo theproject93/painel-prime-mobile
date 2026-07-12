@@ -17,6 +17,7 @@ import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
 
 import { supabase } from '../lib/supabase';
+import { withTimeout } from '../features/events/eventPresentation';
 import { colors } from '../theme/colors';
 
 type TableRow = {
@@ -181,6 +182,8 @@ export function EventTablesVisualMap({
   const fixturesRef = useRef(fixtures);
 
   const [loadingFixtures, setLoadingFixtures] = useState(false);
+  const [fixtureError, setFixtureError] = useState('');
+  const [fixtureLoadAttempt, setFixtureLoadAttempt] = useState(0);
   const [savingFixtureLabel, setSavingFixtureLabel] = useState(false);
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [fixtureLabelDraft, setFixtureLabelDraft] = useState('');
@@ -220,73 +223,77 @@ export function EventTablesVisualMap({
     let alive = true;
     async function loadFixtures() {
       setLoadingFixtures(true);
-      const fullRes = await supabase
-        .from('event_map_fixtures')
-        .select('id,type,x,y,w,h,custom_label')
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: true });
+      setFixtureError('');
+      try {
+        const fullRes = await withTimeout(
+          supabase
+            .from('event_map_fixtures')
+            .select('id,type,x,y,w,h,custom_label')
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: true }),
+          12000,
+        );
 
-      if (!fullRes.error) {
+        if (!fullRes.error) {
+          if (!alive) return;
+          setHasCustomLabelColumn(true);
+          const rows = (fullRes.data ?? [])
+            .map((row) => {
+              const type = String(row.type ?? '');
+              if (!isFixtureType(type)) return null;
+              return {
+                id: String(row.id), type,
+                x: toNumber(row.x, 40), y: toNumber(row.y, 40),
+                w: toNumber(row.w, FIXTURE_LIBRARY[type].w),
+                h: toNumber(row.h, FIXTURE_LIBRARY[type].h),
+                custom_label: typeof row.custom_label === 'string' ? row.custom_label : null,
+              } as FixtureItem;
+            })
+            .filter((row): row is FixtureItem => row !== null);
+          setFixtures(rows);
+          return;
+        }
+
+        const fallbackRes = await withTimeout(
+          supabase
+            .from('event_map_fixtures')
+            .select('id,type,x,y,w,h')
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: true }),
+          12000,
+        );
+
         if (!alive) return;
-        setHasCustomLabelColumn(true);
-        const rows = (fullRes.data ?? [])
+        if (fallbackRes.error) throw fallbackRes.error;
+
+        setHasCustomLabelColumn(false);
+        const rows = (fallbackRes.data ?? [])
           .map((row) => {
             const type = String(row.type ?? '');
             if (!isFixtureType(type)) return null;
             return {
-              id: String(row.id),
-              type,
-              x: toNumber(row.x, 40),
-              y: toNumber(row.y, 40),
+              id: String(row.id), type,
+              x: toNumber(row.x, 40), y: toNumber(row.y, 40),
               w: toNumber(row.w, FIXTURE_LIBRARY[type].w),
-              h: toNumber(row.h, FIXTURE_LIBRARY[type].h),
-              custom_label:
-                typeof row.custom_label === 'string' ? row.custom_label : null,
+              h: toNumber(row.h, FIXTURE_LIBRARY[type].h), custom_label: null,
             } as FixtureItem;
           })
           .filter((row): row is FixtureItem => row !== null);
         setFixtures(rows);
-        setLoadingFixtures(false);
-        return;
+      } catch {
+        if (!alive) return;
+        const message = 'Não foi possível carregar o mapa agora.';
+        setFixtureError(message);
+        onError(message);
+      } finally {
+        if (alive) setLoadingFixtures(false);
       }
-
-      const fallbackRes = await supabase
-        .from('event_map_fixtures')
-        .select('id,type,x,y,w,h')
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: true });
-
-      if (!alive) return;
-      if (fallbackRes.error) {
-        onError(fallbackRes.error.message);
-        setLoadingFixtures(false);
-        return;
-      }
-
-      setHasCustomLabelColumn(false);
-      const rows = (fallbackRes.data ?? [])
-        .map((row) => {
-          const type = String(row.type ?? '');
-          if (!isFixtureType(type)) return null;
-          return {
-            id: String(row.id),
-            type,
-            x: toNumber(row.x, 40),
-            y: toNumber(row.y, 40),
-            w: toNumber(row.w, FIXTURE_LIBRARY[type].w),
-            h: toNumber(row.h, FIXTURE_LIBRARY[type].h),
-            custom_label: null,
-          } as FixtureItem;
-        })
-        .filter((row): row is FixtureItem => row !== null);
-      setFixtures(rows);
-      setLoadingFixtures(false);
     }
     void loadFixtures();
     return () => {
       alive = false;
     };
-  }, [eventId, onError]);
+  }, [eventId, fixtureLoadAttempt, onError]);
 
   const occupancyByTable = useMemo(() => {
     const map = new Map<string, number>();
@@ -676,10 +683,11 @@ export function EventTablesVisualMap({
     }
   }
 
-  const mapSurface = (
-    <View style={styles.mapFrame} ref={mapCaptureRef} collapsable={false}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+  function renderMapSurface(captureForExport = false) {
+    return (
+    <View style={styles.mapFrame} ref={captureForExport ? mapCaptureRef : undefined} collapsable={false}>
+      <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}>
+        <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
           <View style={styles.gridWrap}>
             <View style={styles.gridUnderlay}>
               {Array.from({ length: Math.floor(MAP_WIDTH / GRID) }).map((_, idx) => (
@@ -769,7 +777,8 @@ export function EventTablesVisualMap({
         </ScrollView>
       </ScrollView>
     </View>
-  );
+    );
+  }
 
   return (
     <View style={styles.card}>
@@ -844,8 +853,15 @@ export function EventTablesVisualMap({
           <ActivityIndicator color={colors.primaryStrong} />
           <Text style={styles.caption}>Carregando mapa...</Text>
         </View>
+      ) : fixtureError ? (
+        <View style={styles.loadingWrap}>
+          <Text style={styles.caption}>{fixtureError}</Text>
+          <Pressable style={styles.primaryBtn} onPress={() => setFixtureLoadAttempt((value) => value + 1)}>
+            <Text style={styles.primaryBtnText}>Tentar novamente</Text>
+          </Pressable>
+        </View>
       ) : (
-        mapSurface
+        !isFullscreen ? renderMapSurface(true) : null
       )}
 
       <View style={styles.actionsRow}>
@@ -862,7 +878,7 @@ export function EventTablesVisualMap({
               <Text style={styles.ghostBtnText}>Fechar</Text>
             </Pressable>
           </View>
-          {mapSurface}
+          {renderMapSurface(false)}
         </View>
       </Modal>
     </View>

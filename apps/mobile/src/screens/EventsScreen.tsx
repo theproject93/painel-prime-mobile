@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -20,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../contexts/AuthContext';
+import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import {
   deleteStoredFile,
   getPrivateFileDownloadUrl,
@@ -28,6 +28,7 @@ import {
 } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
+import { eventStatusLabel } from '../features/events/eventPresentation';
 
 type EventItem = {
   id: string;
@@ -349,37 +350,8 @@ export function EventsScreen() {
     }
   }
 
-  function confirmDeleteFiltered() {
-    Alert.alert('Confirmar exclusao', 'Excluir eventos filtrados (soft delete)?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            const ids = filteredEvents.map((item) => item.id);
-            if (ids.length === 0) return;
-            const { error: deleteError } = await supabase
-              .from('events')
-              .update({ status: 'deleted' })
-              .in('id', ids);
-            if (deleteError) {
-              setError(deleteError.message);
-              return;
-            }
-            await fetchEventsReset({ blocking: false, force: true });
-          })();
-        },
-      },
-    ]);
-  }
-
   if (loading) {
-    return (
-      <View style={styles.centerPage}>
-        <ActivityIndicator color={colors.primaryStrong} size="large" />
-      </View>
-    );
+    return <PrimeLogoLoader label="Organizando seus eventos" />;
   }
 
   return (
@@ -418,10 +390,7 @@ export function EventsScreen() {
           <View style={styles.typeRow}>
             <Pill label="Todos" selected={statusFilter === 'all'} onPress={() => setStatusFilter('all')} />
             <Pill label="Ativos" selected={statusFilter === 'active'} onPress={() => setStatusFilter('active')} />
-            <Pill label="Concluidos" selected={statusFilter === 'completed'} onPress={() => setStatusFilter('completed')} />
-            <Pressable style={styles.dangerPill} onPress={confirmDeleteFiltered}>
-              <Text style={styles.dangerPillText}>Excluir filtrados</Text>
-            </Pressable>
+            <Pill label="Concluídos" selected={statusFilter === 'completed'} onPress={() => setStatusFilter('completed')} />
           </View>
         </View>
 
@@ -446,7 +415,7 @@ export function EventsScreen() {
               <Text style={styles.eventMeta}>
                 {new Date(item.event_date).toLocaleDateString('pt-BR')} | {item.location}
               </Text>
-              <Text style={styles.eventStatus}>{item.status ?? 'active'}</Text>
+              <Text style={styles.eventStatus}>{eventStatusLabel(item.status)}</Text>
             </Pressable>
           )}
           ListEmptyComponent={

@@ -1,42 +1,48 @@
-name: Build Android Preview (EAS Local)
+name: Build Android Release
+
 on:
   push:
-    branches: [ main ]
+    tags:
+      - "android-v*"
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 2. Setup Java
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          distribution: zulu
+          java-version: "17"
 
-      - name: 3. Setup pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
-      - name: 4. Setup Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
+          node-version: "20"
+          cache: pnpm
 
-      - name: 5. Install dependencies
-        run: pnpm install --force
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: 6. Validate (fail-fast)
+      - name: Validate release source
         run: pnpm --filter @painel-prime/mobile run validate
 
-      - name: 7. Setup EAS CLI
-        run: npm install -g eas-cli
+      - name: Setup EAS CLI
+        run: npm install --global eas-cli@20.5.1
 
-      - name: 8. Build APK Local no Runner
-        run: |
-          cd apps/mobile
-          eas build --platform android --profile preview --local --output=../../painel-prime-preview.apk
+      - name: Build official APK
+        working-directory: apps/mobile
+        run: eas build --platform android --profile release-apk --local --non-interactive --output=../../painel-prime-android-1.0.0-build4.apk
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -47,16 +53,31 @@ jobs:
           EXPO_PUBLIC_BASE_INVITE_URL: ${{ secrets.EXPO_PUBLIC_BASE_INVITE_URL }}
           EXPO_PUBLIC_BASE_NOIVOS_URL: ${{ secrets.EXPO_PUBLIC_BASE_NOIVOS_URL }}
 
-      - name: 9. Upload APK Artifact
+      - name: Verify APK signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="painel-prime-android-1.0.0-build4.apk"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          test -f "$APK"
+          "$APKSIGNER" verify --print-certs "$APK" | tee apk-signature.txt
+          grep -qi "bf524e07f7cb2457aa8cd183aa38b8454f2addd6a6e229ecf858778965bec82b" apk-signature.txt
+          sha256sum "$APK" | tee painel-prime-android-1.0.0-build4.sha256
+
+      - name: Upload official APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: painel-prime-apk
-          path: painel-prime-preview.apk
+          name: painel-prime-android-1.0.0-build4
+          path: |
+            painel-prime-android-1.0.0-build4.apk
+            painel-prime-android-1.0.0-build4.sha256
+          if-no-files-found: error
 
-      - name: 10. Upload to Firebase App Distribution
-        uses: w9jds/firebase-action@master
-        with:
-          args: appdistribution:distribute painel-prime-preview.apk --app ${{ secrets.FIREBASE_APP_ID }} --groups "testers"
+      - name: Publish to Firebase App Distribution
+        run: |
+          npx --yes firebase-tools@15.23.0 appdistribution:distribute painel-prime-android-1.0.0-build4.apk \
+            --app "${{ secrets.FIREBASE_APP_ID }}" \
+            --groups "testers" \
+            --release-notes-file docs/ANDROID_1_0_RELEASE_NOTES.txt
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-

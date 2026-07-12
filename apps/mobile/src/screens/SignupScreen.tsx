@@ -20,7 +20,7 @@ import { colors } from '../theme/colors';
 
 const plans = [
   { id: 'essencial', name: 'Essencial', price: 'R$ 39/mes', desc: 'CRM + Eventos + Convites + Portais' },
-  { id: 'profissional', name: 'Profissional', price: 'R$ 59/mes', desc: 'Tudo do Essencial + Torre de Comando + Financeiro completo' },
+  { id: 'profissional', name: 'Profissional', price: 'R$ 59/mês', desc: 'Tudo do Essencial + reuniões e financeiro completo' },
   { id: 'elite', name: 'Elite', price: 'R$ 89/mes', desc: 'Tudo + IA comercial + automações avançadas + Prioridade máxima' },
 ] as const;
 

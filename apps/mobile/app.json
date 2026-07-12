@@ -2,7 +2,7 @@
   "expo": {
     "name": "Painel Prime",
     "slug": "lucas-ferreira",
-    "version": "1.0.2",
+    "version": "1.0.0",
     "scheme": "painelprime",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,6 +24,12 @@
     },
     "android": {
       "package": "br.com.painelprime.app",
+      "versionCode": 4,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F1115"
@@ -67,6 +73,12 @@
       "expo-asset",
       "expo-router",
       "expo-web-browser",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permita que o Painel Prime use o Face ID para proteger seu acesso."
+        }
+      ],
       ["@sentry/react-native/expo", {
         "url": "https://sentry.io/",
         "project": "painel-prime-mobile",

@@ -20,11 +20,9 @@ type ModuleGuideKey =
   | 'dashboard'
   | 'events_list'
   | 'event_details'
-  | 'event_command'
   | 'clients'
   | 'finance'
   | 'more_home'
-  | 'planning'
   | 'operational_health'
   | 'profile'
   | 'settings'
@@ -52,11 +50,6 @@ const MODULE_GUIDES: Record<ModuleGuideKey, GuideSpec> = {
     intro: 'Este contexto concentra toda a operação de um evento específico.',
     tip: 'Navegue pelas abas: cronograma, convidados, fornecedores, financeiro.',
   },
-  event_command: {
-    moduleLabel: 'Torre',
-    intro: 'Painel de comando em tempo real para o dia do evento.',
-    tip: 'Monitore alertas e SLA; atualize status com rastreabilidade.',
-  },
   clients: {
     moduleLabel: 'Clientes',
     intro: 'CRM comercial com funil, prioridade, follow-up e documentação.',
@@ -69,13 +62,8 @@ const MODULE_GUIDES: Record<ModuleGuideKey, GuideSpec> = {
   },
   more_home: {
     moduleLabel: 'Mais',
-    intro: 'Atalhos administrativos e governança da conta.',
-    tip: 'Acesse Perfil, Planejamento e Configurações.',
-  },
-  planning: {
-    moduleLabel: 'Planejamento',
-    intro: 'Visão transversal das tarefas de todos os eventos ativos.',
-    tip: 'Foque no que vence antes e tem maior impacto operacional.',
+    intro: 'Sua conta, segurança e preferências ficam reunidas aqui.',
+    tip: 'Acesse Perfil ou Configurações quando precisar.',
   },
   operational_health: {
     moduleLabel: 'Saúde Operacional',
@@ -114,14 +102,11 @@ function deriveModuleGuideKey(segments: readonly string[]): ModuleGuideKey | nul
   if (root === 'financeiro' || root === 'Finance') return 'finance';
 
   if (root === 'eventos' || root === 'Events') {
-    if (leaf === '[id]' && subLeaf === 'torre') return 'event_command';
     if (leaf === '[id]' || leaf === 'EventDetails') return 'event_details';
-    if (leaf === 'EventCommandCenter') return 'event_command';
     return 'events_list';
   }
 
   if (root === 'mais' || root === 'More') {
-    if (leaf === 'planejamento' || leaf === 'Planning') return 'planning';
     if (leaf === 'saude-operacional' || leaf === 'OperationalHealth') return 'operational_health';
     if (leaf === 'perfil' || leaf === 'Profile') return 'profile';
     if (leaf === 'configuracoes' || leaf === 'Settings') return 'settings';
