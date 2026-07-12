@@ -1,8 +1,13 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,11 +15,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 
+import { Screen } from '../components/Screen';
+import { EmptyState } from '../components/ui/EmptyState';
+import { GradientCard } from '../components/ui/GradientCard';
 import { useAuth } from '../contexts/AuthContext';
+import { parseBRLInput, shouldShowEmptyAnalytics } from '../features/finance/financePresentation';
 import {
   deleteStoredFile,
   getPrivateFileDownloadUrl,
@@ -22,9 +30,10 @@ import {
   uploadPrivateAsset,
 } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
-import { colors } from '../theme/colors';
+import { colors, radii, shadows, spacing } from '../theme/colors';
 
 type FinanceStatus = 'pendente' | 'confirmado' | 'pago' | 'parcelado' | 'previsto';
+type MovementKind = 'entrada' | 'despesa';
 
 type FinanceEntry = {
   id: string;
@@ -58,10 +67,7 @@ type FinanceExpense = {
   proof_url: string | null;
   notes: string | null;
   created_at?: string | null;
-  user_finance_categories?: {
-    name: string;
-    color: string | null;
-  } | null;
+  user_finance_categories?: { name: string; color: string | null } | null;
 };
 
 type FinanceCategory = {
@@ -72,25 +78,54 @@ type FinanceCategory = {
   color: string | null;
 };
 
-const RECEIVED_STATUSES = new Set<FinanceStatus>(['confirmado', 'pago', 'parcelado']);
-const CASH_OUT_STATUSES = new Set<FinanceStatus>(['confirmado', 'pago', 'parcelado']);
+const SETTLED_STATUSES = new Set<FinanceStatus>(['confirmado', 'pago', 'parcelado']);
 
 function toBRL(value: number) {
   return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function parseDate(value: string | null | undefined) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+function displayDate(value: string | null | undefined) {
+  if (!value) return 'Sem data definida';
+  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return 'Sem data definida';
+  return date.toLocaleDateString('pt-BR');
 }
 
-function monthKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+function friendlyFinanceError(_message?: string | null) {
+  return 'Não foi possível concluir agora. Confira sua conexão e tente novamente.';
 }
 
-function monthLabel(date: Date) {
-  return date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+function CashDonut({ entries, expenses }: { entries: number; expenses: number }) {
+  const size = 116;
+  const stroke = 13;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const total = entries + expenses;
+  const entriesRatio = total > 0 ? entries / total : 0;
+
+  return (
+    <View accessible accessibilityLabel={`Entradas ${toBRL(entries)}. Despesas ${toBRL(expenses)}.`}>
+      <Svg width={size} height={size} accessibilityElementsHidden>
+        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={colors.surfaceSubtle} strokeWidth={stroke} fill="none" />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={colors.gold600}
+          strokeWidth={stroke}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${circumference * entriesRatio} ${circumference}`}
+          rotation="-90"
+          origin={`${size / 2}, ${size / 2}`}
+        />
+      </Svg>
+      <View pointerEvents="none" style={styles.donutCenter}>
+        <Text style={styles.donutCaption}>Saldo</Text>
+        <Ionicons name="wallet-outline" size={24} color={colors.gold700} />
+      </View>
+    </View>
+  );
 }
 
 export function FinanceScreen() {
@@ -99,42 +134,27 @@ export function FinanceScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
   const [baseBalance, setBaseBalance] = useState(0);
   const [entries, setEntries] = useState<FinanceEntry[]>([]);
   const [expenses, setExpenses] = useState<FinanceExpense[]>([]);
   const [categories, setCategories] = useState<FinanceCategory[]>([]);
-
-  const [tab, setTab] = useState<'entradas' | 'saidas'>('saidas');
+  const [tab, setTab] = useState<MovementKind>('despesa');
   const [search, setSearch] = useState('');
+  const [movementOpen, setMovementOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
 
   const [entryForm, setEntryForm] = useState({
-    title: '',
-    client_name: '',
-    amount: '',
-    status: 'confirmado' as FinanceStatus,
-    date: '',
-    payment_method: '',
-    notes: '',
+    title: '', client_name: '', amount: '', status: 'confirmado' as FinanceStatus,
+    date: '', payment_method: '', notes: '',
   });
   const [expenseForm, setExpenseForm] = useState({
-    title: '',
-    amount: '',
-    status: 'pendente' as FinanceStatus,
-    date: '',
-    category_id: '',
-    team_member_name: '',
-    payment_method: '',
-    notes: '',
+    title: '', amount: '', status: 'pago' as FinanceStatus, date: '', category_id: '',
+    team_member_name: '', payment_method: '', notes: '',
   });
-
   const [entryProof, setEntryProof] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [expenseProof, setExpenseProof] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
-
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryColor, setNewCategoryColor] = useState('#D4AF37');
   const [newCategoryType, setNewCategoryType] = useState<'entrada' | 'saida'>('saida');
-
   const [openingProofId, setOpeningProofId] = useState<string | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [cashInput, setCashInput] = useState('0');
@@ -147,175 +167,84 @@ export function FinanceScreen() {
     setLoading(true);
     setError('');
 
-    const [onboardingRes, balanceRes, entriesRes, expensesRes, categoriesRes] = await Promise.all([
-      supabase.from('user_finance_onboarding').select('completed_at').eq('user_id', user.id).maybeSingle(),
-      supabase.from('user_finance_balance').select('base_balance').eq('user_id', user.id).maybeSingle(),
-      supabase
-        .from('user_finance_entries')
-        .select('id,user_id,client_name,title,amount,status,received_at,expected_at,payment_method,proof_file_id,proof_url,notes,created_at')
-        .eq('user_id', user.id)
-        .order('received_at', { ascending: false, nullsFirst: false }),
-      supabase
-        .from('user_finance_expenses')
-        .select('id,user_id,title,amount,status,paid_at,expected_at,category_id,category_label,team_member_name,payment_method,proof_file_id,proof_url,notes,created_at,user_finance_categories(name,color)')
-        .eq('user_id', user.id)
-        .order('paid_at', { ascending: false, nullsFirst: false }),
-      supabase.from('user_finance_categories').select('id,user_id,name,type,color').eq('user_id', user.id),
-    ]);
+    try {
+      const [onboardingRes, balanceRes, entriesRes, expensesRes, categoriesRes] = await Promise.all([
+        supabase.from('user_finance_onboarding').select('completed_at').eq('user_id', user.id).maybeSingle(),
+        supabase.from('user_finance_balance').select('base_balance').eq('user_id', user.id).maybeSingle(),
+        supabase
+          .from('user_finance_entries')
+          .select('id,user_id,client_name,title,amount,status,received_at,expected_at,payment_method,proof_file_id,proof_url,notes,created_at')
+          .eq('user_id', user.id)
+          .order('received_at', { ascending: false, nullsFirst: false }),
+        supabase
+          .from('user_finance_expenses')
+          .select('id,user_id,title,amount,status,paid_at,expected_at,category_id,category_label,team_member_name,payment_method,proof_file_id,proof_url,notes,created_at,user_finance_categories(name,color)')
+          .eq('user_id', user.id)
+          .order('paid_at', { ascending: false, nullsFirst: false }),
+        supabase.from('user_finance_categories').select('id,user_id,name,type,color').eq('user_id', user.id),
+      ]);
 
-    if (entriesRes.error || expensesRes.error || categoriesRes.error || balanceRes.error || onboardingRes.error) {
-      setError(
-        entriesRes.error?.message ||
-          expensesRes.error?.message ||
-          categoriesRes.error?.message ||
-          balanceRes.error?.message ||
-          onboardingRes.error?.message ||
-          'Falha ao carregar financeiro.',
+      const requestError = entriesRes.error || expensesRes.error || categoriesRes.error || balanceRes.error || onboardingRes.error;
+      if (requestError) throw requestError;
+
+      setEntries((entriesRes.data ?? []) as FinanceEntry[]);
+      setExpenses(
+        ((expensesRes.data ?? []) as any[]).map((row) => ({
+          ...row,
+          user_finance_categories: Array.isArray(row.user_finance_categories)
+            ? row.user_finance_categories[0] ?? null
+            : row.user_finance_categories ?? null,
+        })) as FinanceExpense[],
       );
+      setCategories((categoriesRes.data ?? []) as FinanceCategory[]);
+      setBaseBalance(Number(balanceRes.data?.base_balance ?? 0));
+      setCashInput(String(Number(balanceRes.data?.base_balance ?? 0)));
+      setOnboardingOpen(!onboardingRes.data?.completed_at);
+    } catch (loadError: any) {
+      setError(friendlyFinanceError(loadError?.message));
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setEntries((entriesRes.data ?? []) as FinanceEntry[]);
-    setExpenses(
-      ((expensesRes.data ?? []) as any[]).map((row) => ({
-        ...row,
-        user_finance_categories: Array.isArray(row.user_finance_categories)
-          ? row.user_finance_categories[0] ?? null
-          : row.user_finance_categories ?? null,
-      })) as FinanceExpense[],
-    );
-    setCategories((categoriesRes.data ?? []) as FinanceCategory[]);
-    setBaseBalance(Number(balanceRes.data?.base_balance ?? 0));
-
-    const hasOnboarding = Boolean(onboardingRes.data?.completed_at);
-    setCashInput(String(Number(balanceRes.data?.base_balance ?? 0)));
-    setOnboardingOpen(!hasOnboarding);
-
-    setLoading(false);
   }, [user]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void loadData();
-    }, [loadData]),
-  );
+  useFocusEffect(useCallback(() => void loadData(), [loadData]));
 
   const settledEntries = useMemo(
-    () => entries.filter((row) => RECEIVED_STATUSES.has(row.status)).reduce((sum, row) => sum + Number(row.amount || 0), 0),
+    () => entries.filter((row) => SETTLED_STATUSES.has(row.status)).reduce((sum, row) => sum + Number(row.amount || 0), 0),
     [entries],
   );
   const settledExpenses = useMemo(
-    () => expenses.filter((row) => CASH_OUT_STATUSES.has(row.status)).reduce((sum, row) => sum + Number(row.amount || 0), 0),
+    () => expenses.filter((row) => SETTLED_STATUSES.has(row.status)).reduce((sum, row) => sum + Number(row.amount || 0), 0),
     [expenses],
   );
   const balance = baseBalance + settledEntries - settledExpenses;
+  const emptyAnalytics = shouldShowEmptyAnalytics(settledEntries, settledExpenses);
 
   const listData = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (tab === 'entradas') {
-      return entries.filter((row) => {
-        if (!term) return true;
-        return `${row.title} ${row.client_name ?? ''}`.toLowerCase().includes(term);
-      });
-    }
-    return expenses.filter((row) => {
+    const source = tab === 'entrada' ? entries : expenses;
+    return source.filter((row) => {
       if (!term) return true;
-      return `${row.title} ${row.category_label ?? ''}`.toLowerCase().includes(term);
+      const context = 'client_name' in row ? row.client_name : row.category_label;
+      return `${row.title} ${context ?? ''}`.toLowerCase().includes(term);
     });
   }, [entries, expenses, search, tab]);
 
-  const cashflowSeries = useMemo(() => {
-    const now = new Date();
-    const months = Array.from({ length: 6 }, (_, idx) => {
-      const date = new Date(now.getFullYear(), now.getMonth() - (5 - idx), 1);
-      return {
-        key: monthKey(date),
-        name: monthLabel(date),
-        entradas: 0,
-        saidas: 0,
-        saldo: 0,
-      };
-    });
-    const monthIndex = new Map(months.map((row, idx) => [row.key, idx]));
-
-    entries.forEach((entry) => {
-      const date = parseDate(entry.received_at ?? entry.expected_at);
-      if (!date) return;
-      const idx = monthIndex.get(monthKey(date));
-      if (idx === undefined) return;
-      months[idx].entradas += Number(entry.amount || 0);
-    });
-
-    expenses.forEach((expense) => {
-      const date = parseDate(expense.paid_at ?? expense.expected_at);
-      if (!date) return;
-      const idx = monthIndex.get(monthKey(date));
-      if (idx === undefined) return;
-      months[idx].saidas += Number(expense.amount || 0);
-    });
-
-    months.forEach((row) => {
-      row.saldo = row.entradas - row.saidas;
-    });
-
-    return months;
-  }, [entries, expenses]);
-
-  const categorySplit = useMemo(() => {
-    const map = new Map<string, number>();
-    expenses.forEach((expense) => {
-      const label = expense.category_label || expense.user_finance_categories?.name || 'Outros';
-      map.set(label, (map.get(label) ?? 0) + Number(expense.amount || 0));
-    });
-    const total = Array.from(map.values()).reduce((sum, value) => sum + value, 0);
-    return Array.from(map.entries())
-      .map(([name, value]) => ({ name, value, pct: total > 0 ? Math.round((value / total) * 100) : 0 }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
-  }, [expenses]);
-
-  const teamRanking = useMemo(() => {
-    const map = new Map<string, { name: string; total: number; items: number }>();
-    expenses.forEach((row) => {
-      const name = row.team_member_name?.trim() || 'Sem responsavel';
-      const current = map.get(name) ?? { name, total: 0, items: 0 };
-      current.total += Number(row.amount || 0);
-      current.items += 1;
-      map.set(name, current);
-    });
-    return Array.from(map.values())
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 6);
-  }, [expenses]);
-
-  const insights = useMemo(() => {
-    const expectedIn = entries
-      .filter((row) => row.status === 'pendente' || row.status === 'previsto')
-      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
-    const expectedOut = expenses
-      .filter((row) => row.status === 'pendente' || row.status === 'previsto')
-      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
-    const nextStatus =
-      expectedIn >= expectedOut
-        ? 'Fluxo previsto positivo para os próximos dias.'
-        : 'Atenção: saídas previstas estão acima das entradas previstas.';
-    return [
-      `Entradas previstas: ${toBRL(expectedIn)} | Saídas previstas: ${toBRL(expectedOut)}.`,
-      nextStatus,
-      `Categorias ativas: ${categories.length}.`,
-    ];
-  }, [categories.length, entries, expenses]);
+  function openMovement(kind: MovementKind) {
+    setTab(kind);
+    setError('');
+    setMovementOpen(true);
+  }
 
   async function saveOnboardingCash() {
     if (!user) return;
-    const value = Number(cashInput.replace(',', '.')) || 0;
+    const value = parseBRLInput(cashInput);
     const [balanceRes, onboardingRes] = await Promise.all([
       supabase.from('user_finance_balance').upsert({ user_id: user.id, base_balance: value, updated_at: new Date().toISOString() }),
       supabase.from('user_finance_onboarding').upsert({ user_id: user.id, completed_at: new Date().toISOString() }),
     ]);
     if (balanceRes.error || onboardingRes.error) {
-      setError(balanceRes.error?.message || onboardingRes.error?.message || 'Falha ao salvar onboarding.');
+      setError(friendlyFinanceError());
       return;
     }
     setOnboardingOpen(false);
@@ -328,10 +257,10 @@ export function FinanceScreen() {
       user_id: user.id,
       name: newCategoryName.trim(),
       type: newCategoryType,
-      color: newCategoryColor.trim() || null,
+      color: colors.gold600,
     });
     if (insertError) {
-      setError(insertError.message);
+      setError(friendlyFinanceError(insertError.message));
       return;
     }
     setNewCategoryName('');
@@ -362,19 +291,18 @@ export function FinanceScreen() {
   }
 
   async function createEntry() {
-    if (!user || saving || !entryForm.title.trim()) return;
-    const amount = Number(entryForm.amount.replace(',', '.')) || 0;
+    if (!user || saving || !entryForm.title.trim() || parseBRLInput(entryForm.amount) <= 0) return;
     setSaving(true);
     let proofFileId: string | null = null;
     try {
       const upload = entryProof ? await uploadProof(entryProof, 'entries') : null;
       proofFileId = upload?.fileId ?? null;
-      const isPlanned = entryForm.status === 'pendente' || entryForm.status === 'previsto';
-      const payload = {
+      const isPlanned = entryForm.status === 'previsto';
+      const { data, error: insertError } = await supabase.from('user_finance_entries').insert({
         user_id: user.id,
         title: entryForm.title.trim(),
         client_name: entryForm.client_name.trim() || null,
-        amount,
+        amount: parseBRLInput(entryForm.amount),
         status: entryForm.status,
         received_at: isPlanned ? null : entryForm.date || null,
         expected_at: isPlanned ? entryForm.date || null : null,
@@ -382,46 +310,33 @@ export function FinanceScreen() {
         notes: entryForm.notes.trim() || null,
         proof_url: null,
         proof_file_id: proofFileId,
-      };
-      const { data, error: insertError } = await supabase
-        .from('user_finance_entries')
-        .insert(payload)
-        .select('id')
-        .maybeSingle();
-      if (insertError) throw new Error(insertError.message);
-      if (proofFileId && data?.id) {
-        void linkStoredFile(proofFileId, data.id).catch(() => {
-          // Best effort only.
-        });
-      }
+      }).select('id').maybeSingle();
+      if (insertError) throw insertError;
+      if (proofFileId && data?.id) void linkStoredFile(proofFileId, data.id).catch(() => undefined);
       setEntryForm({ title: '', client_name: '', amount: '', status: 'confirmado', date: '', payment_method: '', notes: '' });
       setEntryProof(null);
+      setMovementOpen(false);
       await loadData();
     } catch (createError: any) {
-      if (proofFileId) {
-        void deleteStoredFile(proofFileId).catch(() => {
-          // Best effort only.
-        });
-      }
-      setError(createError?.message ?? 'Não foi possível salvar a entrada.');
+      if (proofFileId) void deleteStoredFile(proofFileId).catch(() => undefined);
+      setError(friendlyFinanceError(createError?.message));
     } finally {
       setSaving(false);
     }
   }
 
   async function createExpense() {
-    if (!user || saving || !expenseForm.title.trim()) return;
-    const amount = Number(expenseForm.amount.replace(',', '.')) || 0;
+    if (!user || saving || !expenseForm.title.trim() || parseBRLInput(expenseForm.amount) <= 0) return;
     setSaving(true);
     let proofFileId: string | null = null;
     try {
       const upload = expenseProof ? await uploadProof(expenseProof, 'expenses') : null;
       proofFileId = upload?.fileId ?? null;
-      const isPlanned = expenseForm.status === 'pendente' || expenseForm.status === 'previsto';
-      const payload = {
+      const isPlanned = expenseForm.status === 'previsto';
+      const { data, error: insertError } = await supabase.from('user_finance_expenses').insert({
         user_id: user.id,
         title: expenseForm.title.trim(),
-        amount,
+        amount: parseBRLInput(expenseForm.amount),
         status: expenseForm.status,
         paid_at: isPlanned ? null : expenseForm.date || null,
         expected_at: isPlanned ? expenseForm.date || null : null,
@@ -431,28 +346,16 @@ export function FinanceScreen() {
         notes: expenseForm.notes.trim() || null,
         proof_url: null,
         proof_file_id: proofFileId,
-      };
-      const { data, error: insertError } = await supabase
-        .from('user_finance_expenses')
-        .insert(payload)
-        .select('id')
-        .maybeSingle();
-      if (insertError) throw new Error(insertError.message);
-      if (proofFileId && data?.id) {
-        void linkStoredFile(proofFileId, data.id).catch(() => {
-          // Best effort only.
-        });
-      }
-      setExpenseForm({ title: '', amount: '', status: 'pendente', date: '', category_id: '', team_member_name: '', payment_method: '', notes: '' });
+      }).select('id').maybeSingle();
+      if (insertError) throw insertError;
+      if (proofFileId && data?.id) void linkStoredFile(proofFileId, data.id).catch(() => undefined);
+      setExpenseForm({ title: '', amount: '', status: 'pago', date: '', category_id: '', team_member_name: '', payment_method: '', notes: '' });
       setExpenseProof(null);
+      setMovementOpen(false);
       await loadData();
     } catch (createError: any) {
-      if (proofFileId) {
-        void deleteStoredFile(proofFileId).catch(() => {
-          // Best effort only.
-        });
-      }
-      setError(createError?.message ?? 'Não foi possível salvar a saída.');
+      if (proofFileId) void deleteStoredFile(proofFileId).catch(() => undefined);
+      setError(friendlyFinanceError(createError?.message));
     } finally {
       setSaving(false);
     }
@@ -462,27 +365,24 @@ export function FinanceScreen() {
     setOpeningProofId(id);
     try {
       if (proofFileId) {
-        const signedUrl = await getPrivateFileDownloadUrl(proofFileId);
-        await Linking.openURL(signedUrl);
+        await Linking.openURL(await getPrivateFileDownloadUrl(proofFileId));
         return;
       }
-
-      if (!proofUrl) {
-        throw new Error('Sem comprovante');
-      }
-
-      let objectPath = proofUrl;
+      if (!proofUrl) throw new Error('missing_proof');
       if (proofUrl.startsWith('http')) {
         const parsed = new URL(proofUrl);
-        const match = parsed.pathname.split('/finance-proofs/')[1];
-        objectPath = match ?? '';
-      }
-      if (!objectPath) {
-        await Linking.openURL(proofUrl);
+        const objectPath = parsed.pathname.split('/finance-proofs/')[1];
+        if (!objectPath) {
+          await Linking.openURL(proofUrl);
+          return;
+        }
+        const { data, error: signedError } = await supabase.storage.from('finance-proofs').createSignedUrl(objectPath, 300);
+        if (signedError || !data?.signedUrl) throw signedError ?? new Error('missing_url');
+        await Linking.openURL(data.signedUrl);
         return;
       }
-      const { data, error: signedError } = await supabase.storage.from('finance-proofs').createSignedUrl(objectPath, 300);
-      if (signedError || !data?.signedUrl) throw new Error(signedError?.message ?? 'Sem URL assinada');
+      const { data, error: signedError } = await supabase.storage.from('finance-proofs').createSignedUrl(proofUrl, 300);
+      if (signedError || !data?.signedUrl) throw signedError ?? new Error('missing_url');
       await Linking.openURL(data.signedUrl);
     } catch {
       setError('Não foi possível abrir o comprovante.');
@@ -494,252 +394,418 @@ export function FinanceScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={colors.primaryStrong} />
+        <ActivityIndicator color={colors.gold600} />
+        <Text style={styles.loadingText}>Organizando seu caixa...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 140 }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Financeiro</Text>
-        <Text style={styles.subtitle}>Onboarding, caixa, comprovantes e análise</Text>
-      </View>
-
-      {error ? <Text style={styles.err}>{error}</Text> : null}
-
-              <View style={styles.analyticsSection}>
-          <View style={styles.metricsRow}>
-            <MetricCard label="Saldo em caixa" value={toBRL(balance)} sub={`Base: ${toBRL(baseBalance)}`} />
-            <MetricCard label="Entradas" value={toBRL(settledEntries)} sub={`${entries.length} registros`} />
-            <MetricCard label="Saídas" value={toBRL(settledExpenses)} sub={`${expenses.length} registros`} />
+    <>
+      <Screen title="Meu caixa" subtitle="Entradas e despesas da sua assessoria">
+        {error ? (
+          <View style={styles.errorCard}>
+            <Ionicons name="alert-circle-outline" size={18} color={colors.dangerText} />
+            <Text style={styles.errorText}>{error}</Text>
           </View>
+        ) : null}
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Fluxo de caixa (6 meses)</Text>
-            {cashflowSeries.map((row) => {
-              const max = Math.max(...cashflowSeries.map((item) => Math.max(item.entradas, item.saidas)), 1);
-              return (
-                <View key={row.key} style={styles.chartRow}>
-                  <Text style={styles.chartLabel}>{row.name}</Text>
-                  <View style={styles.chartBars}>
-                    <View style={[styles.chartBarIn, { width: `${Math.round((row.entradas / max) * 100)}%` }]} />
-                    <View style={[styles.chartBarOut, { width: `${Math.round((row.saidas / max) * 100)}%` }]} />
-                  </View>
-                  <Text style={styles.chartValue}>{toBRL(row.saldo)}</Text>
-                </View>
-              );
-            })}
+        <GradientCard gradient="gold" gradientPosition="background" style={styles.hero}>
+          <View style={styles.heroTop}>
+            <View>
+              <Text style={styles.heroEyebrow}>SALDO DA SUA ASSESSORIA</Text>
+              <Text style={styles.heroValue}>{toBRL(balance)}</Text>
+            </View>
+            <View style={styles.walletIcon}>
+              <Ionicons name="wallet" size={24} color={colors.ink950} />
+            </View>
           </View>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Ionicons name="arrow-down-circle" size={18} color={colors.success600} />
+              <View>
+                <Text style={styles.summaryLabel}>Entradas</Text>
+                <Text style={styles.summaryValue}>{toBRL(settledEntries)}</Text>
+              </View>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Ionicons name="arrow-up-circle" size={18} color={colors.dangerText} />
+              <View>
+                <Text style={styles.summaryLabel}>Despesas</Text>
+                <Text style={styles.summaryValue}>{toBRL(settledExpenses)}</Text>
+              </View>
+            </View>
+          </View>
+        </GradientCard>
+
+        <View style={styles.actionsRow}>
+          <Pressable style={styles.primaryAction} onPress={() => openMovement(tab)} accessibilityRole="button">
+            <Ionicons name="add" size={22} color="#FFFFFF" />
+            <Text style={styles.primaryActionText}>Novo lançamento</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryAction} onPress={() => setCategoriesOpen(true)} accessibilityRole="button">
+            <Ionicons name="pricetags-outline" size={20} color={colors.gold700} />
+          </Pressable>
         </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Categorias de saída</Text>
-        {categorySplit.length === 0 ? <Text style={styles.caption}>Sem despesas suficientes para o gráfico.</Text> : null}
-        {categorySplit.map((row) => (
-          <View key={row.name} style={styles.chartRow}>
-            <Text style={styles.chartLabel}>{row.name}</Text>
-            <View style={styles.chartBars}>
-              <View style={[styles.chartBarGold, { width: `${Math.max(8, row.pct)}%` }]} />
-            </View>
-            <Text style={styles.chartValue}>{row.pct}%</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Ranking e insights</Text>
-        {teamRanking.length === 0 ? <Text style={styles.caption}>Sem dados suficientes para ranking.</Text> : null}
-        {teamRanking.map((row, index) => (
-          <View key={row.name} style={styles.itemRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle}>{index + 1}. {row.name}</Text>
-              <Text style={styles.caption}>{row.items} despesas</Text>
-            </View>
-            <Text style={styles.itemValue}>{toBRL(row.total)}</Text>
-          </View>
-        ))}
-        {insights.map((text, index) => (
-          <Text key={`insight-${index}`} style={styles.caption}>
-            - {text}
-          </Text>
-        ))}
-      </View>
-
-              <View style={styles.card}>
-          <TextInput
-            style={styles.input}
-            value={search}
-            onChangeText={setSearch}
-            placeholder={tab === 'entradas' ? 'Buscar entrada' : 'Buscar despesa'}
-            placeholderTextColor={colors.mutedText}
-          />
-          <View style={styles.rowBtns}>
-            <Pressable style={[styles.btnGhost, tab === 'entradas' && styles.btnTabOn]} onPress={() => setTab('entradas')}>
-              <Text style={styles.smallText}>Entradas</Text>
-            </Pressable>
-            <Pressable style={[styles.btnGhost, tab === 'saidas' && styles.btnTabOn]} onPress={() => setTab('saidas')}>
-              <Text style={styles.smallText}>Saidas</Text>
-            </Pressable>
-          </View>
-
-          {listData.length === 0 ? <Text style={styles.caption}>Nenhum registro encontrado.</Text> : null}
-          {listData.map((row: any) => (
-            <View key={row.id} style={styles.itemRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemTitle}>{row.title}</Text>
-                <Text style={styles.caption}>{row.status || '-'} | {(row.received_at || row.expected_at || row.paid_at || '').slice(0, 10) || 'sem data'}</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Visão do caixa</Text>
+          {emptyAnalytics ? (
+            <EmptyState
+              title="Seu caixa começa aqui"
+              message="Adicione a primeira entrada ou despesa para acompanhar a distribuição."
+              actionLabel="Adicionar lançamento"
+              onAction={() => openMovement(tab)}
+            />
+          ) : (
+            <View style={styles.chartContent}>
+              <CashDonut entries={settledEntries} expenses={settledExpenses} />
+              <View style={styles.legend}>
+                <View style={styles.legendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.gold600 }]} />
+                  <Text style={styles.legendLabel}>Entradas</Text>
+                  <Text style={styles.legendValue}>{toBRL(settledEntries)}</Text>
+                </View>
+                <View style={styles.legendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.surfaceSubtle }]} />
+                  <Text style={styles.legendLabel}>Despesas</Text>
+                  <Text style={styles.legendValue}>{toBRL(settledExpenses)}</Text>
+                </View>
               </View>
-              <Text style={styles.itemValue}>{toBRL(Number(row.amount || 0))}</Text>
-              {row.proof_file_id || row.proof_url ? (
-                <Pressable style={styles.btnGhost} onPress={() => void openProof(row.proof_file_id ?? null, row.proof_url ?? null, String(row.id))}>
-                  <Text style={styles.smallText}>{openingProofId === row.id ? 'Abrindo...' : 'Comprovante'}</Text>
-                </Pressable>
-              ) : null}
             </View>
+          )}
+        </View>
+
+        <View style={styles.segmented}>
+          {(['entrada', 'despesa'] as MovementKind[]).map((kind) => (
+            <Pressable
+              key={kind}
+              style={[styles.segment, tab === kind && styles.segmentActive]}
+              onPress={() => setTab(kind)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === kind }}
+            >
+              <Text style={[styles.segmentText, tab === kind && styles.segmentTextActive]}>
+                {kind === 'entrada' ? 'Entradas' : 'Despesas'}
+              </Text>
+            </Pressable>
           ))}
         </View>
 
-              <View style={styles.formsSection}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Nova entrada</Text>
-            <TextInput style={styles.input} value={entryForm.title} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, title: value }))} placeholder="Título" />
-            <TextInput style={styles.input} value={entryForm.client_name} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, client_name: value }))} placeholder="Cliente" />
-            <TextInput style={styles.input} value={entryForm.amount} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, amount: value }))} placeholder="Valor" keyboardType="numeric" />
-            <TextInput style={styles.input} value={entryForm.date} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, date: value }))} placeholder="Data (YYYY-MM-DD)" />
-            <TextInput style={styles.input} value={entryForm.payment_method} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, payment_method: value }))} placeholder="Metodo de pagamento" />
-            <TextInput style={[styles.input, styles.area]} value={entryForm.notes} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, notes: value }))} placeholder="Notas" multiline />
-            <View style={styles.rowBtns}>
-              {(['pendente', 'confirmado', 'pago', 'parcelado', 'previsto'] as FinanceStatus[]).map((status) => (
-                <Pressable key={status} style={[styles.btnGhost, entryForm.status === status && styles.btnTabOn]} onPress={() => setEntryForm((prev) => ({ ...prev, status }))}>
-                  <Text style={styles.smallText}>{status}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <Pressable style={styles.btnGhost} onPress={() => void pickProof('entry')}>
-              <Text style={styles.smallText}>{entryProof ? `Arquivo: ${entryProof.name}` : 'Selecionar comprovante'}</Text>
-            </Pressable>
-            <Pressable style={styles.btn} onPress={() => void createEntry()}>
-              <Text style={styles.btnText}>{saving ? 'Salvando...' : 'Salvar entrada'}</Text>
-            </Pressable>
-          </View>
+        <TextInput
+          style={styles.searchInput}
+          value={search}
+          onChangeText={setSearch}
+          placeholder={tab === 'entrada' ? 'Buscar entrada' : 'Buscar despesa'}
+          placeholderTextColor={colors.mutedText}
+          accessibilityLabel={tab === 'entrada' ? 'Buscar entrada' : 'Buscar despesa'}
+        />
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Nova despesa</Text>
-            <TextInput style={styles.input} value={expenseForm.title} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, title: value }))} placeholder="Título" />
-            <TextInput style={styles.input} value={expenseForm.amount} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, amount: value }))} placeholder="Valor" keyboardType="numeric" />
-            <TextInput style={styles.input} value={expenseForm.date} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, date: value }))} placeholder="Data (YYYY-MM-DD)" />
-            <TextInput style={styles.input} value={expenseForm.team_member_name} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, team_member_name: value }))} placeholder="Responsavel" />
-            <TextInput style={styles.input} value={expenseForm.payment_method} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, payment_method: value }))} placeholder="Metodo de pagamento" />
-            <TextInput style={[styles.input, styles.area]} value={expenseForm.notes} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, notes: value }))} placeholder="Notas" multiline />
-            <View style={styles.rowBtns}>
-              {categories.filter((row) => row.type === 'saida').slice(0, 8).map((category) => (
-                <Pressable key={category.id} style={[styles.btnGhost, expenseForm.category_id === category.id && styles.btnTabOn]} onPress={() => setExpenseForm((prev) => ({ ...prev, category_id: category.id }))}>
-                  <Text style={styles.smallText}>{category.name}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <View style={styles.rowBtns}>
-              {(['pendente', 'confirmado', 'pago', 'parcelado', 'previsto'] as FinanceStatus[]).map((status) => (
-                <Pressable key={status} style={[styles.btnGhost, expenseForm.status === status && styles.btnTabOn]} onPress={() => setExpenseForm((prev) => ({ ...prev, status }))}>
-                  <Text style={styles.smallText}>{status}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <Pressable style={styles.btnGhost} onPress={() => void pickProof('expense')}>
-              <Text style={styles.smallText}>{expenseProof ? `Arquivo: ${expenseProof.name}` : 'Selecionar comprovante'}</Text>
-            </Pressable>
-            <Pressable style={styles.btn} onPress={() => void createExpense()}>
-              <Text style={styles.btnText}>{saving ? 'Salvando...' : 'Salvar despesa'}</Text>
-            </Pressable>
-          </View>
+        <View style={styles.movementsHeader}>
+          <Text style={styles.sectionTitle}>{tab === 'entrada' ? 'Entradas recentes' : 'Despesas recentes'}</Text>
+          <Text style={styles.countText}>{listData.length}</Text>
         </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Categorias</Text>
-        <TextInput style={styles.input} value={newCategoryName} onChangeText={setNewCategoryName} placeholder="Nome da categoria" />
-        <TextInput style={styles.input} value={newCategoryColor} onChangeText={setNewCategoryColor} placeholder="Cor (#D4AF37)" />
-        <View style={styles.rowBtns}>
-          <Pressable style={[styles.btnGhost, newCategoryType === 'entrada' && styles.btnTabOn]} onPress={() => setNewCategoryType('entrada')}>
-            <Text style={styles.smallText}>Entrada</Text>
-          </Pressable>
-          <Pressable style={[styles.btnGhost, newCategoryType === 'saida' && styles.btnTabOn]} onPress={() => setNewCategoryType('saida')}>
-            <Text style={styles.smallText}>Saida</Text>
-          </Pressable>
-          <Pressable style={styles.btn} onPress={() => void createCategory()}>
-            <Text style={styles.btnText}>Adicionar categoria</Text>
-          </Pressable>
-        </View>
-        {categories.map((category) => (
-          <Text key={category.id} style={styles.caption}>- {category.name} ({category.type})</Text>
-        ))}
-      </View>
+        {listData.length === 0 ? (
+          <View style={styles.card}>
+            <EmptyState
+              title={tab === 'entrada' ? 'Nenhuma entrada ainda' : 'Nenhuma despesa ainda'}
+              message="Registre seus movimentos para manter o caixa da assessoria sempre claro."
+              actionLabel="Novo lançamento"
+              onAction={() => openMovement(tab)}
+            />
+          </View>
+        ) : (
+          listData.map((row) => {
+            const isEntry = 'received_at' in row;
+            const confirmed = SETTLED_STATUSES.has(row.status);
+            const date = isEntry ? row.received_at ?? row.expected_at : row.paid_at ?? row.expected_at;
+            const context = isEntry
+              ? row.client_name
+              : row.category_label || row.user_finance_categories?.name;
+            return (
+              <View key={row.id} style={styles.movementCard}>
+                <View style={[styles.movementIcon, isEntry ? styles.inIcon : styles.outIcon]}>
+                  <Ionicons name={isEntry ? 'arrow-down' : 'arrow-up'} size={18} color={isEntry ? colors.success600 : colors.dangerText} />
+                </View>
+                <View style={styles.movementBody}>
+                  <Text style={styles.movementTitle} numberOfLines={1}>{row.title}</Text>
+                  <Text style={styles.movementMeta} numberOfLines={1}>{context || displayDate(date)}</Text>
+                  <Text style={[styles.statusText, confirmed ? styles.statusConfirmed : styles.statusPlanned]}>
+                    {isEntry ? (confirmed ? 'Recebida' : 'Prevista') : (confirmed ? 'Paga' : 'Prevista')}
+                    {' · '}{displayDate(date)}
+                  </Text>
+                </View>
+                <View style={styles.movementRight}>
+                  <Text style={[styles.amountText, isEntry ? styles.amountIn : styles.amountOut]}>
+                    {isEntry ? '+' : '−'} {toBRL(Number(row.amount || 0))}
+                  </Text>
+                  {row.proof_file_id || row.proof_url ? (
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => void openProof(row.proof_file_id, row.proof_url, String(row.id))}
+                      accessibilityRole="button"
+                      accessibilityLabel="Abrir comprovante"
+                    >
+                      {openingProofId === row.id
+                        ? <ActivityIndicator size="small" color={colors.gold700} />
+                        : <Ionicons name="document-attach-outline" size={20} color={colors.gold700} />}
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })
+        )}
+      </Screen>
 
-      <Modal visible={onboardingOpen} transparent animationType="fade">
-        <View style={styles.backdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Onboarding financeiro</Text>
-            <Text style={styles.caption}>Defina seu saldo base para iniciar o painel.</Text>
-            <TextInput style={styles.input} value={cashInput} onChangeText={setCashInput} placeholder="Saldo inicial" keyboardType="numeric" />
-            <View style={styles.rowBtns}>
-              <Pressable style={styles.btn} onPress={() => void saveOnboardingCash()}>
-                <Text style={styles.btnText}>Salvar e continuar</Text>
+      <Modal visible={movementOpen} transparent animationType="slide" onRequestClose={() => setMovementOpen(false)}>
+        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={styles.modalDismissArea} onPress={() => setMovementOpen(false)} accessibilityLabel="Fechar" />
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <View>
+                <Text style={styles.sheetTitle}>Novo lançamento</Text>
+                <Text style={styles.sheetSubtitle}>Movimento do caixa da sua assessoria</Text>
+              </View>
+              <Pressable hitSlop={10} onPress={() => setMovementOpen(false)} accessibilityRole="button" accessibilityLabel="Fechar lançamento">
+                <Ionicons name="close" size={26} color={colors.textSecondary} />
               </Pressable>
             </View>
+            <View style={styles.segmented}>
+              {(['entrada', 'despesa'] as MovementKind[]).map((kind) => (
+                <Pressable key={kind} style={[styles.segment, tab === kind && styles.segmentActive]} onPress={() => setTab(kind)}>
+                  <Text style={[styles.segmentText, tab === kind && styles.segmentTextActive]}>{kind === 'entrada' ? 'Entrada' : 'Despesa'}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.formContent}>
+              {tab === 'entrada' ? (
+                <>
+                  <Field label="Descrição" value={entryForm.title} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, title: value }))} placeholder="Ex.: Sinal do casamento" />
+                  <Field label="Cliente (opcional)" value={entryForm.client_name} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, client_name: value }))} placeholder="Nome do cliente" />
+                  <Field label="Valor" value={entryForm.amount} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, amount: value }))} placeholder="R$ 0,00" keyboardType="decimal-pad" />
+                  <StatusChoice
+                    first="Recebida"
+                    second="Prevista"
+                    selected={entryForm.status === 'previsto' ? 'second' : 'first'}
+                    onSelect={(choice) => setEntryForm((prev) => ({ ...prev, status: choice === 'first' ? 'confirmado' : 'previsto' }))}
+                  />
+                  <Field label={entryForm.status === 'previsto' ? 'Data prevista' : 'Data do recebimento'} value={entryForm.date} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, date: value }))} placeholder="AAAA-MM-DD" />
+                  <Field label="Forma de pagamento (opcional)" value={entryForm.payment_method} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, payment_method: value }))} placeholder="PIX, cartão, transferência..." />
+                  <Field label="Observação (opcional)" value={entryForm.notes} onChangeText={(value) => setEntryForm((prev) => ({ ...prev, notes: value }))} placeholder="Informações importantes" multiline />
+                  <AttachmentButton asset={entryProof} onPress={() => void pickProof('entry')} />
+                </>
+              ) : (
+                <>
+                  <Field label="Descrição" value={expenseForm.title} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, title: value }))} placeholder="Ex.: Material de escritório" />
+                  <Field label="Valor" value={expenseForm.amount} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, amount: value }))} placeholder="R$ 0,00" keyboardType="decimal-pad" />
+                  <StatusChoice
+                    first="Paga"
+                    second="Prevista"
+                    selected={expenseForm.status === 'previsto' ? 'second' : 'first'}
+                    onSelect={(choice) => setExpenseForm((prev) => ({ ...prev, status: choice === 'first' ? 'pago' : 'previsto' }))}
+                  />
+                  <Field label={expenseForm.status === 'previsto' ? 'Data prevista' : 'Data do pagamento'} value={expenseForm.date} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, date: value }))} placeholder="AAAA-MM-DD" />
+                  {categories.filter((row) => row.type === 'saida').length ? (
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Categoria (opcional)</Text>
+                      <View style={styles.chips}>
+                        {categories.filter((row) => row.type === 'saida').map((category) => (
+                          <Pressable
+                            key={category.id}
+                            style={[styles.chip, expenseForm.category_id === category.id && styles.chipActive]}
+                            onPress={() => setExpenseForm((prev) => ({ ...prev, category_id: category.id }))}
+                          >
+                            <Text style={[styles.chipText, expenseForm.category_id === category.id && styles.chipTextActive]}>{category.name}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  ) : null}
+                  <Field label="Responsável (opcional)" value={expenseForm.team_member_name} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, team_member_name: value }))} placeholder="Quem realizou o pagamento" />
+                  <Field label="Forma de pagamento (opcional)" value={expenseForm.payment_method} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, payment_method: value }))} placeholder="PIX, cartão, transferência..." />
+                  <Field label="Observação (opcional)" value={expenseForm.notes} onChangeText={(value) => setExpenseForm((prev) => ({ ...prev, notes: value }))} placeholder="Informações importantes" multiline />
+                  <AttachmentButton asset={expenseProof} onPress={() => void pickProof('expense')} />
+                </>
+              )}
+              <Pressable
+                style={[styles.saveButton, saving && styles.disabled]}
+                disabled={saving}
+                onPress={() => void (tab === 'entrada' ? createEntry() : createExpense())}
+              >
+                {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Salvar {tab}</Text>}
+              </Pressable>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={categoriesOpen} transparent animationType="slide" onRequestClose={() => setCategoriesOpen(false)}>
+        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={styles.modalDismissArea} onPress={() => setCategoriesOpen(false)} />
+          <View style={[styles.sheet, styles.categorySheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <View>
+                <Text style={styles.sheetTitle}>Categorias</Text>
+                <Text style={styles.sheetSubtitle}>Organize seus lançamentos</Text>
+              </View>
+              <Pressable hitSlop={10} onPress={() => setCategoriesOpen(false)}><Ionicons name="close" size={26} color={colors.textSecondary} /></Pressable>
+            </View>
+            <Field label="Nova categoria" value={newCategoryName} onChangeText={setNewCategoryName} placeholder="Ex.: Transporte" />
+            <View style={styles.segmented}>
+              <Pressable style={[styles.segment, newCategoryType === 'entrada' && styles.segmentActive]} onPress={() => setNewCategoryType('entrada')}><Text style={[styles.segmentText, newCategoryType === 'entrada' && styles.segmentTextActive]}>Entrada</Text></Pressable>
+              <Pressable style={[styles.segment, newCategoryType === 'saida' && styles.segmentActive]} onPress={() => setNewCategoryType('saida')}><Text style={[styles.segmentText, newCategoryType === 'saida' && styles.segmentTextActive]}>Despesa</Text></Pressable>
+            </View>
+            <Pressable style={styles.saveButton} onPress={() => void createCategory()}><Text style={styles.saveButtonText}>Adicionar categoria</Text></Pressable>
+            <ScrollView style={styles.categoryList}>
+              {categories.map((category) => (
+                <View key={category.id} style={styles.categoryRow}>
+                  <View style={[styles.categoryDot, { backgroundColor: category.color || colors.gold600 }]} />
+                  <Text style={styles.categoryName}>{category.name}</Text>
+                  <Text style={styles.categoryType}>{category.type === 'entrada' ? 'Entrada' : 'Despesa'}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={onboardingOpen} transparent animationType="fade">
+        <View style={styles.onboardingBackdrop}>
+          <View style={styles.onboardingCard}>
+            <View style={styles.onboardingIcon}><Ionicons name="wallet-outline" size={30} color={colors.gold700} /></View>
+            <Text style={styles.sheetTitle}>Configure seu caixa</Text>
+            <Text style={styles.onboardingText}>Informe quanto sua assessoria tem disponível hoje. Você poderá lançar entradas e despesas em seguida.</Text>
+            <Field label="Saldo inicial" value={cashInput} onChangeText={setCashInput} placeholder="R$ 0,00" keyboardType="decimal-pad" />
+            <Pressable style={styles.saveButton} onPress={() => void saveOnboardingCash()}><Text style={styles.saveButtonText}>Começar meu caixa</Text></Pressable>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </>
   );
 }
 
-function MetricCard({ label, value, sub }: { label: string; value: string; sub: string }) {
+function Field({ label, multiline, ...props }: { label: string; multiline?: boolean } & React.ComponentProps<typeof TextInput>) {
   return (
-    <View style={styles.metricCard}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricSub}>{sub}</Text>
+    <View style={styles.fieldGroup}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        {...props}
+        multiline={multiline}
+        placeholderTextColor={colors.mutedText}
+        style={[styles.input, multiline && styles.textarea]}
+      />
     </View>
   );
 }
 
+function StatusChoice({ first, second, selected, onSelect }: { first: string; second: string; selected: 'first' | 'second'; onSelect: (value: 'first' | 'second') => void }) {
+  return (
+    <View style={styles.fieldGroup}>
+      <Text style={styles.fieldLabel}>Situação</Text>
+      <View style={styles.segmented}>
+        <Pressable style={[styles.segment, selected === 'first' && styles.segmentActive]} onPress={() => onSelect('first')}><Text style={[styles.segmentText, selected === 'first' && styles.segmentTextActive]}>{first}</Text></Pressable>
+        <Pressable style={[styles.segment, selected === 'second' && styles.segmentActive]} onPress={() => onSelect('second')}><Text style={[styles.segmentText, selected === 'second' && styles.segmentTextActive]}>{second}</Text></Pressable>
+      </View>
+    </View>
+  );
+}
+
+function AttachmentButton({ asset, onPress }: { asset: DocumentPicker.DocumentPickerAsset | null; onPress: () => void }) {
+  return (
+    <Pressable style={styles.attachmentButton} onPress={onPress}>
+      <Ionicons name="attach" size={20} color={colors.gold700} />
+      <Text style={styles.attachmentText} numberOfLines={1}>{asset ? asset.name : 'Adicionar comprovante (opcional)'}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16, gap: 10, paddingBottom: 28 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
-  header: { gap: 2 },
-  title: { color: colors.text, fontSize: 26, fontWeight: '700' },
-  subtitle: { color: colors.mutedText, fontSize: 13 },
-  err: { color: colors.dangerText, backgroundColor: colors.dangerBg, borderRadius: 8, padding: 8 },
-  analyticsSection: { gap: 14 },
-  card: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, gap: 8 },
-  cardTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  caption: { color: colors.mutedText, fontSize: 12 },
-  rowBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, color: colors.text, backgroundColor: colors.card },
-  area: { minHeight: 84, textAlignVertical: 'top' },
-  btn: { minHeight: 38, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  btnText: { color: colors.primaryTextOn, fontSize: 12, fontWeight: '700' },
-  btnGhost: { minHeight: 36, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.card },
-  btnTabOn: { borderColor: colors.primaryStrong, backgroundColor: colors.primarySoft },
-  smallText: { color: colors.text, fontSize: 12, fontWeight: '600' },
-  metricsRow: { flexDirection: 'row', gap: 8 },
-  metricCard: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.card, padding: 10, gap: 3 },
-  metricLabel: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
-  metricValue: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  metricSub: { color: colors.mutedText, fontSize: 11 },
-  formsSection: { gap: 14 },
-  chartRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  chartLabel: { width: 40, color: colors.text, fontSize: 11, fontWeight: '600' },
-  chartBars: { flex: 1, gap: 4 },
-  chartBarIn: { height: 6, borderRadius: 999, backgroundColor: '#16A34A' },
-  chartBarOut: { height: 6, borderRadius: 999, backgroundColor: '#DC2626' },
-  chartBarGold: { height: 8, borderRadius: 999, backgroundColor: '#D4AF37' },
-  chartValue: { width: 86, textAlign: 'right', color: colors.mutedText, fontSize: 11 },
-  itemRow: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  itemTitle: { color: colors.text, fontSize: 13, fontWeight: '700' },
-  itemValue: { color: colors.primaryStrong, fontSize: 12, fontWeight: '700' },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', padding: 16, justifyContent: 'center' },
-  modalCard: { backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 12, gap: 8 },
-  modalTitle: { color: colors.text, fontSize: 18, fontWeight: '700' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, backgroundColor: colors.background },
+  loadingText: { color: colors.textSecondary, fontSize: 14 },
+  errorCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radii.md, padding: spacing.md, backgroundColor: colors.dangerBg },
+  errorText: { flex: 1, color: colors.dangerText, fontSize: 13, lineHeight: 18 },
+  hero: { padding: spacing.lg, gap: spacing.lg },
+  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroEyebrow: { color: colors.ink950, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  heroValue: { color: colors.ink950, fontSize: 29, fontWeight: '800', marginTop: spacing.xs },
+  walletIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.48)' },
+  summaryRow: { flexDirection: 'row', borderRadius: radii.md, padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.52)' },
+  summaryItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  summaryDivider: { width: 1, marginHorizontal: spacing.sm, backgroundColor: 'rgba(15,17,21,0.12)' },
+  summaryLabel: { color: colors.textSecondary, fontSize: 11 },
+  summaryValue: { color: colors.ink950, fontSize: 13, fontWeight: '700' },
+  actionsRow: { flexDirection: 'row', gap: spacing.sm },
+  primaryAction: { flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderRadius: radii.md, backgroundColor: colors.ink950, ...shadows.card },
+  primaryActionText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  secondaryAction: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radii.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  card: { borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, backgroundColor: colors.card, ...shadows.sm },
+  cardTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: spacing.md },
+  chartContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  donutCenter: { position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' },
+  donutCaption: { color: colors.textSecondary, fontSize: 10, fontWeight: '600', marginBottom: 2 },
+  legend: { flex: 1, gap: spacing.md },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  legendDot: { width: 9, height: 9, borderRadius: 5 },
+  legendLabel: { flex: 1, color: colors.textSecondary, fontSize: 12 },
+  legendValue: { color: colors.text, fontSize: 12, fontWeight: '700' },
+  segmented: { flexDirection: 'row', gap: spacing.xs, borderRadius: radii.md, padding: spacing.xs, backgroundColor: colors.surfaceSubtle },
+  segment: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radii.sm },
+  segmentActive: { backgroundColor: colors.card, ...shadows.sm },
+  segmentText: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  segmentTextActive: { color: colors.gold700, fontWeight: '800' },
+  searchInput: { minHeight: 48, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.lg, color: colors.text, backgroundColor: colors.card },
+  movementsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { color: colors.text, fontSize: 17, fontWeight: '700' },
+  countText: { minWidth: 28, textAlign: 'center', paddingVertical: 4, paddingHorizontal: 8, borderRadius: radii.full, color: colors.gold700, fontSize: 12, fontWeight: '700', backgroundColor: colors.gold100 },
+  movementCard: { minHeight: 86, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, backgroundColor: colors.card, ...shadows.sm },
+  movementIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  inIcon: { backgroundColor: colors.success100 },
+  outIcon: { backgroundColor: colors.danger100 },
+  movementBody: { flex: 1, minWidth: 0, gap: 2 },
+  movementTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  movementMeta: { color: colors.textSecondary, fontSize: 12 },
+  statusText: { fontSize: 11, fontWeight: '600' },
+  statusConfirmed: { color: colors.success600 },
+  statusPlanned: { color: colors.warningText },
+  movementRight: { alignItems: 'flex-end', gap: spacing.sm },
+  amountText: { fontSize: 13, fontWeight: '800' },
+  amountIn: { color: colors.success600 },
+  amountOut: { color: colors.text },
+  modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,17,21,0.45)' },
+  modalDismissArea: { flex: 1 },
+  sheet: { maxHeight: '90%', gap: spacing.md, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: spacing.sm, paddingHorizontal: spacing.lg, backgroundColor: colors.background },
+  categorySheet: { maxHeight: '78%' },
+  sheetHandle: { alignSelf: 'center', width: 42, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sheetTitle: { color: colors.text, fontSize: 21, fontWeight: '800' },
+  sheetSubtitle: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  formContent: { gap: spacing.md, paddingBottom: spacing.xl },
+  fieldGroup: { gap: 6 },
+  fieldLabel: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
+  input: { minHeight: 48, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, color: colors.text, fontSize: 14, backgroundColor: colors.card },
+  textarea: { minHeight: 84, paddingTop: spacing.md, textAlignVertical: 'top' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chip: { minHeight: 38, justifyContent: 'center', borderRadius: radii.full, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, backgroundColor: colors.card },
+  chipActive: { borderColor: colors.gold600, backgroundColor: colors.gold100 },
+  chipText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600' },
+  chipTextActive: { color: colors.gold700, fontWeight: '700' },
+  attachmentButton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radii.md, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.gold600, paddingHorizontal: spacing.md, backgroundColor: colors.gold50 },
+  attachmentText: { flex: 1, color: colors.gold700, fontSize: 12, fontWeight: '700' },
+  saveButton: { minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: radii.md, backgroundColor: colors.ink950 },
+  saveButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  disabled: { opacity: 0.5 },
+  categoryList: { marginTop: spacing.xs },
+  categoryRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  categoryDot: { width: 10, height: 10, borderRadius: 5 },
+  categoryName: { flex: 1, color: colors.text, fontSize: 14, fontWeight: '600' },
+  categoryType: { color: colors.textSecondary, fontSize: 12 },
+  onboardingBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg, backgroundColor: 'rgba(15,17,21,0.55)' },
+  onboardingCard: { width: '100%', maxWidth: 420, gap: spacing.lg, borderRadius: 24, padding: spacing.xl, backgroundColor: colors.card, ...shadows.elevated },
+  onboardingIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold100 },
+  onboardingText: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
 });
