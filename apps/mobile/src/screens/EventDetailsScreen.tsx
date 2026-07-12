@@ -1528,7 +1528,7 @@ export function EventDetailsScreen() {
         title="Navegar pelo evento"
         options={pickerOptions}
         selectedValue={activeTab}
-        variant="grid"
+        variant="list"
         onSelect={(val) => setActiveTab(val as EventDetailsInitialTab)}
         onClose={() => setIsModulePickerOpen(false)}
       />

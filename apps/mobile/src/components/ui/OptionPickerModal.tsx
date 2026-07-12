@@ -55,6 +55,8 @@ export function OptionPickerModal({
 
   const getGroupLabel = (groupKey: string) => {
     const labels: Record<string, string> = {
+      essential: 'Essenciais',
+      more: 'Mais áreas',
       summary: 'Resumo',
       planning: 'Planejamento',
       people: 'Pessoas',
@@ -73,7 +75,11 @@ export function OptionPickerModal({
         key={opt.value}
         style={[
           variant === 'grid' ? styles.optionCard : styles.optionRow,
-          isSelected ? styles.optionRowActive : null,
+          isSelected
+            ? variant === 'grid'
+              ? styles.optionCardActive
+              : styles.optionRowActive
+            : null,
         ]}
         onPress={() => {
           onSelect(opt.value);
@@ -186,7 +192,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 40,
     paddingHorizontal: 20,
   },
   section: {
@@ -225,7 +231,12 @@ const styles = StyleSheet.create({
   optionRowActive: {
     backgroundColor: colors.primarySoft,
     borderRadius: 8,
-    borderBottomWidth: 0,
+    borderBottomWidth: 1,
+    borderColor: colors.primaryStrong,
+  },
+  optionCardActive: {
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
     borderColor: colors.primaryStrong,
   },
   optionText: {
