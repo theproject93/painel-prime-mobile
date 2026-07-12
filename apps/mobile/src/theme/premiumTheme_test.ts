@@ -22,19 +22,19 @@ Deno.test('uses the approved warm Premium palette only in the mobile theme', asy
 Deno.test('keeps operational telemetry out of the assessor tools menu', async () => {
   const more = await read('screens/MoreScreen.tsx');
   const tools = more.slice(
-    more.indexOf('const ferramentasSection'),
-    more.indexOf('const adminSection')
+    more.indexOf('const ACCOUNT_ITEMS'),
+    more.indexOf('const ADMIN_ITEMS')
   );
   const admin = more.slice(
-    more.indexOf('const adminSection'),
-    more.indexOf('const sections')
+    more.indexOf('const ADMIN_ITEMS'),
+    more.indexOf('export function MoreScreen')
   );
   const walkthrough = await read('components/ModuleWalkthroughOverlay.tsx');
 
-  if (tools.includes('Saúde Operacional')) {
+  if (tools.toLowerCase().includes('saúde operacional')) {
     throw new Error('technical telemetry is still visible to assessors');
   }
-  if (!admin.includes('Saúde Operacional')) {
+  if (!admin.toLowerCase().includes('saúde operacional')) {
     throw new Error('technical telemetry should remain available to super admins');
   }
   if (walkthrough.includes('Acesse Perfil, Planejamento, Saúde Operacional e Configurações.')) {
