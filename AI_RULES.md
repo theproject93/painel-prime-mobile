@@ -132,6 +132,14 @@ Para garantir que o upload de source maps funcione durante o build EAS, o repo m
 - **Limpeza Firebase:** Só depois do smoke do APK oficial, preserve o resource name exato da nova release e apague em lote as anteriores. Nunca selecione apenas “a mais recente” sem conferir versão, código e hash.
 - **Único Runner de Mobile:** O workflow `Build Android Release` deve existir e rodar exclusivamente no repositório dedicado `painel-prime-mobile`.
 
+### Google AI Studio — companion preview
+
+- O Google AI Studio executa apenas preview web. Neste repositório, `apps/web` é um companion preview Vite da interface Android; ele não é a aplicação WEB comercial do monorepo.
+- `pnpm dev` inicia somente esse preview na porta 3000. Para desenvolvimento simultâneo, use `pnpm dev:all`; para o Android real, use `pnpm dev:mobile`.
+- A fonte de verdade permanece em `apps/mobile/app` e `apps/mobile/src`. Mudanças solicitadas para Android devem ser implementadas primeiro no React Native.
+- É proibido criar `mockData.ts`, simular Supabase, copiar a aplicação WEB real ou adicionar secrets para fazer o preview compilar.
+- O preview não participa do APK, não pode possuir lógica de negócio própria e não autoriza workflow Android fora do repositório mobile.
+
 ---
 
 ## 5-A. ESTREIRA WEB (GITOPS CLOUDFLARE WORKER)
