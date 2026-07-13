@@ -10,4 +10,4 @@ Operação de eventos mais simples, visual e completa:
 - Mapa de mesas mais confiável, com erros amigáveis e monitoramento no Sentry.
 - Carregamento premium centralizado entre as áreas do evento.
 
-Versão oficial de testes internos, assinada e distribuída pelo Firebase App Distribution.
+Versão oficial assinada do Painel Prime Android, pronta para distribuição. Nesta etapa, o APK será disponibilizado pelo Firebase App Distribution antes da publicação futura na Google Play.
