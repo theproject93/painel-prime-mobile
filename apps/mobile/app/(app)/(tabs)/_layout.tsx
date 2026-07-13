@@ -44,7 +44,11 @@ export default function AppTabsLayout() {
             letterSpacing: -0.2,
           },
           tabBarIcon: ({ focused, color, size }) => (
-            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+            <View
+              style={[styles.iconWrap, focused && styles.iconWrapActive]}
+              accessible={false}
+              importantForAccessibility="no-hide-descendants"
+            >
               {focused && (
                 <Svg style={StyleSheet.absoluteFill}>
                   <Defs>
