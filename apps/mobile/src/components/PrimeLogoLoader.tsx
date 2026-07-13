@@ -56,7 +56,12 @@ export function PrimeLogoLoader({ label = 'Carregando', variant = 'screen' }: Pr
 
   return (
     <View
-      style={[styles.root, variant === 'fullscreen' && styles.fullscreen, variant === 'inline' && styles.inline]}
+      style={[
+        styles.root,
+        variant === 'screen' && styles.screen,
+        variant === 'fullscreen' && styles.fullscreen,
+        variant === 'inline' && styles.inline,
+      ]}
       accessibilityRole="progressbar"
       accessibilityLabel={label}
     >
@@ -95,6 +100,7 @@ export function PrimeLogoLoader({ label = 'Carregando', variant = 'screen' }: Pr
 
 const styles = StyleSheet.create({
   root: { minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: colors.background },
+  screen: { flex: 1, alignSelf: 'stretch' },
   fullscreen: { flex: 1, backgroundColor: '#111113' },
   inline: { minHeight: 118, backgroundColor: 'transparent' },
   logo: { opacity: 0.96 },

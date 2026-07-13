@@ -60,17 +60,18 @@ export default function AppTabsLayout() {
                 name={getIconName(route.name, focused)}
                 color={focused ? '#FFFFFF' : color}
                 size={size - 2}
+                accessible={false}
               />
             </View>
           ),
         })}
       >
-        <Tabs.Screen name="dashboard" options={{ title: 'Início' }} />
-        <Tabs.Screen name="eventos" options={{ title: 'Eventos' }} />
-        <Tabs.Screen name="clientes" options={{ title: 'Clientes' }} />
-        <Tabs.Screen name="financeiro" options={{ title: 'Finanças' }} />
-        <Tabs.Screen name="fornecedores" options={{ title: 'Fornec.' }} />
-        <Tabs.Screen name="mais" options={{ title: 'Mais' }} />
+        <Tabs.Screen name="dashboard" options={{ title: 'Início', tabBarAccessibilityLabel: 'Início' }} />
+        <Tabs.Screen name="eventos" options={{ title: 'Eventos', tabBarAccessibilityLabel: 'Eventos' }} />
+        <Tabs.Screen name="clientes" options={{ title: 'Clientes', tabBarAccessibilityLabel: 'Clientes' }} />
+        <Tabs.Screen name="financeiro" options={{ title: 'Finanças', tabBarAccessibilityLabel: 'Meu caixa' }} />
+        <Tabs.Screen name="fornecedores" options={{ title: 'Fornec.', tabBarAccessibilityLabel: 'Fornecedores' }} />
+        <Tabs.Screen name="mais" options={{ title: 'Mais', tabBarAccessibilityLabel: 'Mais opções' }} />
       </Tabs>
       <ModuleWalkthroughBanner />
       <PlanAssistantFloating />

@@ -302,9 +302,18 @@ Quando o dispositivo Android estiver explicitamente indisponível e o responsáv
 ### Carregamento e biometria
 
 - `PrimeLogoLoader` é o padrão para carregamentos bloqueantes de inicialização, tela e troca de área. `ActivityIndicator` fica restrito a ações inline curtas, como salvar, enviar, upload ou carregar mais.
+- O loader bloqueante deve ocupar toda a área disponível (`flex: 1`) e centralizar marca e texto nos dois eixos. É proibido posicioná-lo com margem fixa ou deixá-lo como filho direto de um `ScrollView`, pois isso o empurra para o topo em telas altas.
 - A biometria é uma trava local sobre uma sessão Supabase válida já persistida pelo SecureStore. É proibido salvar, criptografar, repetir ou reconstruir a senha do usuário.
 - Sessão expirada sempre volta ao login normal. Cancelar biometria mantém o conteúdo sensível coberto e oferece “Usar e-mail e senha”.
 - Preferências biométricas são isoladas por `user.id`; outro usuário nunca herda a configuração do aparelho.
+
+### Workspace premium dos eventos
+
+- Áreas internas de evento devem seguir divulgação progressiva: resumo e métricas úteis, uma ação principal, filtros curtos e cards de leitura; formulários ficam em `EventFormSheet` e só aparecem quando solicitados.
+- Não exibir IDs técnicos (`vendor_id`, UUID, chave de documento) para a assessora. Seletores devem mostrar nomes humanos e persistir o ID apenas internamente.
+- `SafeAreaView` deve ficar fora do `ScrollView`. Não some `insets.top` manualmente ao conteúdo rolável quando a safe area já protege a tela.
+- Ações destrutivas devem ter tom visual de perigo e confirmação. Ações secundárias não competem com o CTA principal.
+- Persistência de sessão no `expo-secure-store` deve usar o adaptador fragmentado e versionado. É proibido gravar diretamente valores grandes de sessão, porque alguns keystores Android rejeitam payloads acima de aproximadamente 2 KB.
 
 Exemplos de smoke inválido:
 
@@ -386,4 +395,4 @@ O workflow `ci.yml` já instala Deno antes de executar `pnpm test`. O script `te
 
 ---
 
-**Última atualização:** 2026-07-12 — Android 1.0, release por tag, loader de marca e biometria local segura.
+**Última atualização:** 2026-07-12 — workspace premium de eventos, loader centralizado, safe area fixa e sessão SecureStore fragmentada.
