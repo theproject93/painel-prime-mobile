@@ -95,6 +95,7 @@ export function OptionPickerModal({
               name={opt.icon}
               size={20}
               color={isSelected ? colors.primaryStrong : colors.mutedText}
+              accessible={false}
             />
           </View>
         ) : null}
@@ -105,7 +106,7 @@ export function OptionPickerModal({
           {opt.label}
         </Text>
         {isSelected ? (
-          <Ionicons name="checkmark-circle" size={18} color={colors.primaryStrong} />
+          <Ionicons name="checkmark-circle" size={18} color={colors.primaryStrong} accessible={false} />
         ) : null}
       </Pressable>
     );

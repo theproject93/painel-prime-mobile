@@ -1,0 +1,10 @@
+Painel Prime Android 1.1
+
+Seu evento inteiro, mais claro e mais rápido.
+
+• Novo workspace premium para tarefas, convidados, fornecedores, orçamento, documentos, cronograma, mesas e demais áreas do evento.
+• Formulários aparecem somente quando necessários, deixando a rotina mais simples e objetiva.
+• Mapa visual de mesas restaurado e integrado à nova navegação.
+• Carregamento com a marca Painel Prime centralizada em qualquer tamanho de tela.
+• Sessão mais estável e segura em aparelhos Android.
+• Melhorias de acessibilidade, safe area, responsividade e acabamento visual.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,6 +21,20 @@ import { isEventDetailsInitialTab, EVENT_MODULES } from '../navigation/eventRout
 import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
 import { colors } from '../theme/colors';
 import { OptionPickerModal } from '../components/ui/OptionPickerModal';
+import {
+  EventEmptyState,
+  EventFilterChips,
+  EventFormSheet,
+  EventListCard,
+  EventModuleShell,
+  EventSectionTitle,
+} from '../features/events/EventWorkspace';
+import {
+  guestStatusLabel,
+  priorityLabel,
+  summarizeTasks,
+  vendorStatusLabel,
+} from '../features/events/eventWorkspaceUtils';
 
 type DataKey = 'tasks' | 'expenses' | 'payments' | 'guests' | 'timeline' | 'vendors' | 'documents' | 'notes' | 'team' | 'tables';
 type VisibleKey = 'tasks' | 'guests' | 'vendors' | 'documents' | 'timeline';
@@ -230,6 +244,7 @@ export function EventDetailsScreen() {
   const [budgetPaymentMethod, setBudgetPaymentMethod] = useState<PaymentMethod>('pix');
   const [budgetPaymentReceiptDocId, setBudgetPaymentReceiptDocId] = useState('');
   const [budgetPaymentNote, setBudgetPaymentNote] = useState('');
+  const [paymentExpenseId, setPaymentExpenseId] = useState<string | null>(null);
   const [newVendorPhone, setNewVendorPhone] = useState('');
   const [newVendorEmail, setNewVendorEmail] = useState('');
   const [newVendorArrival, setNewVendorArrival] = useState('');
@@ -237,6 +252,7 @@ export function EventDetailsScreen() {
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  const [composer, setComposer] = useState<EventDetailsTab | null>(null);
   const [budgetCardDraft, setBudgetCardDraft] = useState('0');
   const [isBudgetCardEditing, setIsBudgetCardEditing] = useState(false);
   const [savingBudgetCard, setSavingBudgetCard] = useState(false);
@@ -853,6 +869,7 @@ export function EventDetailsScreen() {
     return result;
   }, [data.documents, data.payments]);
   const visibleTasks = useMemo(() => data.tasks.slice(0, visible.tasks), [data.tasks, visible.tasks]);
+  const taskSummary = useMemo(() => summarizeTasks(data.tasks), [data.tasks]);
   const visibleTimeline = useMemo(() => data.timeline.slice(0, visible.timeline), [data.timeline, visible.timeline]);
   const visibleGuests = useMemo(() => filteredGuests.slice(0, visible.guests), [filteredGuests, visible.guests]);
   const visibleVendors = useMemo(() => filteredVendors.slice(0, visible.vendors), [filteredVendors, visible.vendors]);
@@ -1438,7 +1455,8 @@ export function EventDetailsScreen() {
   if (loadingEvent) return <PrimeLogoLoader label="Abrindo o evento" />;
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 140 }]}>
+    <SafeAreaView style={styles.page} edges={['top']}>
+    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]}>
       <Pressable onPress={() => router.push('/eventos')}><Text style={styles.back}>Voltar para eventos</Text></Pressable>
       {!!event && (
         <View style={styles.heroCard}>
@@ -1512,7 +1530,7 @@ export function EventDetailsScreen() {
         accessibilityLabel={`Navegar pelas áreas do evento. Área atual: ${activeTabLabel}`}
       >
         <View style={styles.compactPickerIcon}>
-          <Ionicons name={activeTabIcon} size={22} color={colors.primaryStrong} />
+          <Ionicons name={activeTabIcon} size={22} color={colors.primaryStrong} accessible={false} />
         </View>
         <View style={styles.compactPickerTextGroup}>
           <Text style={styles.compactPickerLabel}>Área do evento</Text>
@@ -1520,7 +1538,7 @@ export function EventDetailsScreen() {
         </View>
         <View style={styles.compactPickerAction}>
           <Text style={styles.compactPickerActionText}>Ver áreas</Text>
-          <Ionicons name="chevron-down" size={18} color={colors.primaryStrong} />
+          <Ionicons name="chevron-down" size={18} color={colors.primaryStrong} accessible={false} />
         </View>
       </Pressable>
 
@@ -2021,79 +2039,67 @@ export function EventDetailsScreen() {
       )}
 
       {activeTab === 'tasks' && (
-        <Card title="Tarefas">
-          <View style={styles.rowBtns}>
-            <Small onPress={() => void act(async () => {
-              const ids = data.tasks.filter((t) => !t.completed).map((t) => t.id);
-              if (ids.length === 0) return;
-              const { error: e } = await supabase.from('event_tasks').update({ completed: true }).in('id', ids);
-              if (e) throw new Error(e.message);
-            })}>Concluir pendentes</Small>
-            <Small onPress={() => void act(async () => {
-              const ids = data.tasks.filter((t) => t.completed).map((t) => t.id);
-              if (ids.length === 0) return;
-              const { error: e } = await supabase.from('event_tasks').update({ completed: false }).in('id', ids);
-              if (e) throw new Error(e.message);
-            })}>Reabrir concluidas</Small>
-            <Danger onPress={() => confirmBatchDelete('Excluir todas as tarefas concluídas?', async () => {
-              const ids = data.tasks.filter((t) => t.completed).map((t) => t.id);
-              if (ids.length === 0) return;
-              const { error: e } = await supabase.from('event_tasks').delete().in('id', ids);
-              if (e) throw new Error(e.message);
-            })}>Excluir concluídas</Danger>
-          </View>
-          <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nova tarefa" />
-          <TextInput style={styles.input} value={newTaskDueDate} onChangeText={setNewTaskDueDate} placeholder="Prazo (YYYY-MM-DD)" />
-          <TextInput style={styles.input} value={newTaskAssignee} onChangeText={setNewTaskAssignee} placeholder="Responsável (opcional)" />
-          <View style={styles.rowBtns}>
-            <Small onPress={() => setNewTaskPriority('low')}>Prioridade baixa</Small>
-            <Small onPress={() => setNewTaskPriority('normal')}>Prioridade normal</Small>
-            <Small onPress={() => setNewTaskPriority('high')}>Prioridade alta</Small>
-            <Small onPress={() => setNewTaskPriority('urgent')}>Urgente</Small>
-          </View>
-          <Text style={styles.caption}>Prioridade atual: {newTaskPriority.toUpperCase()}</Text>
-          <Pressable style={styles.btn} onPress={() => void act(async () => {
-            if (!f.a.trim()) return;
-            const { error: e } = await supabase.from('event_tasks').insert({
-              event_id: eventId,
-              text: f.a.trim(),
-              completed: false,
-              due_date: newTaskDueDate.trim() || null,
-              priority: newTaskPriority,
-              assignee_name: newTaskAssignee.trim() || null,
-              position: data.tasks.length,
-            });
-            if (e) throw new Error(e.message);
-            setF((s) => ({ ...s, a: '' }));
-            setNewTaskDueDate('');
-            setNewTaskAssignee('');
-            setNewTaskPriority('normal');
-          })}><Text style={styles.btnText}>Adicionar</Text></Pressable>
+        <EventModuleShell
+          title="Tarefas"
+          description="O que precisa acontecer para este evento avançar."
+          icon="checkbox-outline"
+          metrics={[
+            { label: 'Pendentes', value: taskSummary.pending, tone: taskSummary.pending ? 'gold' : 'neutral' },
+            { label: 'Atrasadas', value: taskSummary.overdue, tone: taskSummary.overdue ? 'danger' : 'neutral' },
+            { label: 'Concluídas', value: taskSummary.completed, tone: 'success' },
+          ]}
+          actionLabel="Nova tarefa"
+          onAction={() => setComposer('tasks')}
+        >
+          <EventSectionTitle title="Lista de tarefas" />
+          {visibleTasks.length === 0 ? (
+            <EventEmptyState
+              icon="checkmark-done-outline"
+              title="Tudo organizado por aqui"
+              description="Crie a primeira tarefa para acompanhar prazos e responsáveis."
+              actionLabel="Criar tarefa"
+              onAction={() => setComposer('tasks')}
+            />
+          ) : null}
           {visibleTasks.map((t) => (
-            <Item
+            <EventListCard
               key={t.id}
-              text={`${t.text} | ${(t.priority ?? 'normal').toUpperCase()} | ${t.completed ? 'Concluida' : 'Pendente'}${t.due_date ? ` | Prazo: ${new Date(t.due_date).toLocaleDateString('pt-BR')}` : ''}${t.assignee_name ? ` | Resp: ${t.assignee_name}` : ''}`}
-            >
-              <Small onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_tasks').update({ completed: !t.completed }).eq('id', t.id);
-                if (e) throw new Error(e.message);
-              })}>{t.completed ? 'Reabrir' : 'Concluir'}</Small>
-              <Small onPress={() => void act(async () => {
-                const nextPriority = t.priority === 'urgent'
-                  ? 'low'
-                  : t.priority === 'high'
-                    ? 'urgent'
-                    : t.priority === 'normal'
-                      ? 'high'
-                      : 'normal';
-                const { error: e } = await supabase.from('event_tasks').update({ priority: nextPriority }).eq('id', t.id);
-                if (e) throw new Error(e.message);
-              })}>Prioridade</Small>
-              <Danger onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_tasks').delete().eq('id', t.id);
-                if (e) throw new Error(e.message);
-              })}>Excluir</Danger>
-            </Item>
+              title={String(t.text ?? 'Tarefa')}
+              status={t.completed ? 'Concluída' : priorityLabel(t.priority)}
+              statusTone={t.completed ? 'success' : t.priority === 'urgent' ? 'danger' : t.priority === 'high' ? 'warning' : 'gold'}
+              meta={[
+                t.due_date ? `Prazo: ${new Date(t.due_date).toLocaleDateString('pt-BR')}` : 'Sem prazo',
+                t.assignee_name ? `Responsável: ${t.assignee_name}` : 'Sem responsável',
+              ]}
+              actions={[
+                {
+                  label: t.completed ? 'Reabrir' : 'Concluir',
+                  icon: t.completed ? 'refresh-outline' : 'checkmark-outline',
+                  onPress: () => void act(async () => {
+                    const { error: e } = await supabase.from('event_tasks').update({ completed: !t.completed }).eq('id', t.id);
+                    if (e) throw new Error(e.message);
+                  }),
+                },
+                {
+                  label: 'Prioridade',
+                  icon: 'flag-outline',
+                  onPress: () => void act(async () => {
+                    const nextPriority = t.priority === 'urgent' ? 'low' : t.priority === 'high' ? 'urgent' : t.priority === 'normal' ? 'high' : 'normal';
+                    const { error: e } = await supabase.from('event_tasks').update({ priority: nextPriority }).eq('id', t.id);
+                    if (e) throw new Error(e.message);
+                  }),
+                },
+                {
+                  label: 'Excluir',
+                  tone: 'danger',
+                  icon: 'trash-outline',
+                  onPress: () => void act(async () => {
+                    const { error: e } = await supabase.from('event_tasks').delete().eq('id', t.id);
+                    if (e) throw new Error(e.message);
+                  }),
+                },
+              ]}
+            />
           ))}
           {data.tasks.length > visible.tasks && (
             <Pressable style={styles.btnGhostWide} onPress={() => showMore('tasks')}>
@@ -2105,172 +2111,137 @@ export function EventDetailsScreen() {
               <Text style={styles.smallText}>{loadingMore === 'tasks' ? 'Carregando...' : 'Carregar mais do servidor'}</Text>
             </Pressable>
           )}
-        </Card>
+          <EventFormSheet visible={composer === 'tasks'} title="Nova tarefa" subtitle="Defina apenas o necessário agora." onClose={() => setComposer(null)}>
+            <Text style={styles.formLabel}>O que precisa ser feito?</Text>
+            <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Ex.: Confirmar horário com o buffet" />
+            <Text style={styles.formLabel}>Prazo</Text>
+            <TextInput style={styles.input} value={newTaskDueDate} onChangeText={setNewTaskDueDate} placeholder="AAAA-MM-DD" />
+            <Text style={styles.formLabel}>Responsável (opcional)</Text>
+            <TextInput style={styles.input} value={newTaskAssignee} onChangeText={setNewTaskAssignee} placeholder="Nome da pessoa" />
+            <Text style={styles.formLabel}>Prioridade</Text>
+            <EventFilterChips selected={newTaskPriority} onSelect={(value) => setNewTaskPriority(value as typeof newTaskPriority)} options={[
+              { value: 'low', label: 'Baixa' }, { value: 'normal', label: 'Normal' }, { value: 'high', label: 'Alta' }, { value: 'urgent', label: 'Urgente' },
+            ]} />
+            <Pressable style={styles.btn} onPress={() => void act(async () => {
+              if (!f.a.trim()) return;
+              const { error: e } = await supabase.from('event_tasks').insert({ event_id: eventId, text: f.a.trim(), completed: false, due_date: newTaskDueDate.trim() || null, priority: newTaskPriority, assignee_name: newTaskAssignee.trim() || null, position: data.tasks.length });
+              if (e) throw new Error(e.message);
+              setF((s) => ({ ...s, a: '' }));
+              setNewTaskDueDate('');
+              setNewTaskAssignee('');
+              setNewTaskPriority('normal');
+              setComposer(null);
+            })}><Text style={styles.btnText}>Adicionar tarefa</Text></Pressable>
+          </EventFormSheet>
+        </EventModuleShell>
       )}
 
       {activeTab === 'budget' && (
-        <Card title="Orçamento">
-          <Text style={styles.caption}>Filtro por fornecedor (ID)</Text>
-          <TextInput style={styles.input} value={budgetVendorFilter} onChangeText={setBudgetVendorFilter} placeholder="Filtrar por vendor_id" />
-          <View style={styles.rowBtns}>
-            <Small onPress={() => setBudgetStatusFilter('all')}>Todos status</Small>
-            <Small onPress={() => setBudgetStatusFilter('pending')}>Pendentes</Small>
-            <Small onPress={() => setBudgetStatusFilter('confirmed')}>Confirmados</Small>
-            <Small onPress={() => setBudgetStatusFilter('paid')}>Pagos</Small>
-            <Small onPress={() => setBudgetStatusFilter('cancelled')}>Cancelados</Small>
-          </View>
-          <Text style={styles.caption}>Status selecionado: {budgetStatusFilter.toUpperCase()}</Text>
-          <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Despesa" />
-          <TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="Valor" keyboardType="numeric" />
-          <TextInput style={styles.input} value={budgetVendorInput} onChangeText={setBudgetVendorInput} placeholder="vendor_id da despesa (opcional)" />
-          <Pressable style={styles.btn} onPress={() => void act(async () => {
-            const val = Number(f.b);
-            if (!f.a.trim() || !Number.isFinite(val)) return;
-            const { error: e } = await supabase.from('event_expenses').insert({
-              event_id: eventId,
-              name: f.a.trim(),
-              value: val,
-              color: '#D4AF37',
-              status: 'pending',
-              vendor_id: budgetVendorInput.trim() || null,
-            });
-            if (e) throw new Error(e.message);
-            setF((s) => ({ ...s, a: '', b: '' }));
-            setBudgetVendorInput('');
-          })}><Text style={styles.btnText}>Adicionar despesa</Text></Pressable>
-          <Text style={styles.subtitle}>Configuração de pagamento</Text>
-          <TextInput style={styles.input} value={budgetPaymentMethod} onChangeText={(v) => setBudgetPaymentMethod((v as PaymentMethod) || 'pix')} placeholder="Método (pix,crédito,débito...)" />
-          <TextInput style={styles.input} value={budgetPaymentReceiptDocId} onChangeText={setBudgetPaymentReceiptDocId} placeholder="ID do documento/recibo (opcional)" />
-          <TextInput style={styles.input} value={budgetPaymentNote} onChangeText={setBudgetPaymentNote} placeholder="Nota do pagamento (opcional)" />
+        <EventModuleShell
+          title="Orçamento do evento"
+          description="Despesas e pagamentos ligados a este evento."
+          icon="wallet-outline"
+          metrics={[
+            { label: 'Previsto', value: brl(filteredExpenses.reduce((sum, expense) => sum + Number(expense.value ?? 0), 0)), tone: 'gold' },
+            { label: 'Pago', value: brl(filteredPayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0)), tone: 'success' },
+          ]}
+          actionLabel="Nova despesa"
+          onAction={() => setComposer('budget')}
+        >
+          {budgetVendorFilter ? (
+            <Pressable style={styles.activeFilter} onPress={() => setBudgetVendorFilter('')} accessibilityRole="button">
+              <Text style={styles.activeFilterText}>Fornecedor: {data.vendors.find((vendor) => String(vendor.id) === budgetVendorFilter)?.name ?? 'selecionado'}</Text>
+              <Ionicons name="close" size={16} color={colors.gold700} accessible={false} />
+            </Pressable>
+          ) : null}
+          <EventFilterChips selected={budgetStatusFilter} onSelect={(value) => setBudgetStatusFilter(value as typeof budgetStatusFilter)} options={[
+            { value: 'all', label: 'Todas' }, { value: 'pending', label: 'Pendentes' }, { value: 'confirmed', label: 'Confirmadas' }, { value: 'paid', label: 'Pagas' }, { value: 'cancelled', label: 'Canceladas' },
+          ]} />
+          <EventSectionTitle title="Despesas" />
+          {filteredExpenses.length === 0 ? <EventEmptyState icon="wallet-outline" title="Nenhuma despesa neste filtro" description="Adicione um custo do evento para começar o acompanhamento." actionLabel="Adicionar despesa" onAction={() => setComposer('budget')} /> : null}
           {filteredExpenses.map((x) => (
-            <Item key={x.id} text={`${x.name} | ${brl(Number(x.value ?? 0))} | ${(x.status ?? 'pending').toUpperCase()} | vendor: ${x.vendor_id ?? '-'}`}>
-              <Small onPress={() => void act(async () => {
-                const note = composePaymentNote(budgetPaymentNote, {
-                  receipt_document_id: budgetPaymentReceiptDocId.trim() || null,
-                });
-                const method = normalizePaymentMethod(budgetPaymentMethod);
-                const { error: e } = await supabase.from('expense_payments').insert({
-                  event_id: eventId,
-                  expense_id: x.id,
-                  amount: Number(x.value ?? 0),
-                  method,
-                  paid_at: new Date().toISOString(),
-                  note,
-                });
-                if (e) throw new Error(e.message);
-                setBudgetPaymentReceiptDocId('');
-                setBudgetPaymentNote('');
-              })}>Pagar</Small>
-              <Small onPress={() => void act(async () => {
-                const { error: e } = await supabase
-                  .from('event_expenses')
-                  .update({ status: x.status === 'confirmed' ? 'paid' : 'confirmed' })
-                  .eq('id', x.id);
-                if (e) throw new Error(e.message);
-              })}>{x.status === 'confirmed' ? 'Marcar pago' : 'Confirmar'}</Small>
-              <Small onPress={() => void act(async () => {
-                const { error: e } = await supabase
-                  .from('event_expenses')
-                  .update({ status: 'cancelled' })
-                  .eq('id', x.id);
-                if (e) throw new Error(e.message);
-              })}>Cancelar</Small>
-              <Danger onPress={() => void act(async () => {
-                await supabase.from('expense_payments').delete().eq('expense_id', x.id);
-                const { error: e } = await supabase.from('event_expenses').delete().eq('id', x.id);
-                if (e) throw new Error(e.message);
-              })}>Excluir</Danger>
-            </Item>
+            <EventListCard key={x.id} title={String(x.name ?? 'Despesa')} subtitle={data.vendors.find((vendor) => String(vendor.id) === String(x.vendor_id))?.name || 'Sem fornecedor vinculado'} status={brl(Number(x.value ?? 0))} statusTone={x.status === 'paid' ? 'success' : x.status === 'cancelled' ? 'danger' : 'gold'} meta={[vendorStatusLabel(x.status)]} actions={[
+              { label: 'Registrar pagamento', icon: 'card-outline', onPress: () => setPaymentExpenseId(String(x.id)) },
+              { label: x.status === 'confirmed' ? 'Marcar paga' : 'Confirmar', icon: 'checkmark-outline', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_expenses').update({ status: x.status === 'confirmed' ? 'paid' : 'confirmed' }).eq('id', x.id); if (e) throw new Error(e.message); }) },
+              { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { await supabase.from('expense_payments').delete().eq('expense_id', x.id); const { error: e } = await supabase.from('event_expenses').delete().eq('id', x.id); if (e) throw new Error(e.message); }) },
+            ]} />
           ))}
-          <Text style={styles.subtitle}>Pagamentos</Text>
+          <EventSectionTitle title="Pagamentos registrados" />
           {filteredPayments.map((p) => (
-            <Item key={p.id} text={`${brl(Number(p.amount ?? 0))} | ${fmt(p.paid_at)} | ${String(p.method ?? '-').toUpperCase()}`}>
-              <Small onPress={() => {
-                const meta = parsePaymentNote(p.note).meta;
-                if (!meta.receipt_document_id) return;
-                setDocumentReceiptFilterId(meta.receipt_document_id);
-                setActiveTab('documents');
-              }}>Ver recibo</Small>
-              <Danger onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('expense_payments').delete().eq('id', p.id);
-                if (e) throw new Error(e.message);
-              })}>Excluir</Danger>
-            </Item>
+            <EventListCard key={p.id} title={brl(Number(p.amount ?? 0))} subtitle={`${fmt(p.paid_at)} • ${String(p.method ?? 'outro').toUpperCase()}`} status="Pago" statusTone="success" actions={[
+              { label: 'Ver recibo', icon: 'receipt-outline', onPress: () => { const meta = parsePaymentNote(p.note).meta; if (!meta.receipt_document_id) return; setDocumentReceiptFilterId(meta.receipt_document_id); setActiveTab('documents'); } },
+              { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { const { error: e } = await supabase.from('expense_payments').delete().eq('id', p.id); if (e) throw new Error(e.message); }) },
+            ]} />
           ))}
-        </Card>
+          <EventFormSheet visible={composer === 'budget'} title="Nova despesa" subtitle="Vincule ao fornecedor quando fizer sentido." onClose={() => setComposer(null)}>
+            <Text style={styles.formLabel}>Descrição</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Ex.: Buffet" />
+            <Text style={styles.formLabel}>Valor</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="0,00" keyboardType="decimal-pad" />
+            {data.vendors.length ? <><Text style={styles.formLabel}>Fornecedor (opcional)</Text><EventFilterChips selected={budgetVendorInput} onSelect={setBudgetVendorInput} options={[{ value: '', label: 'Sem vínculo' }, ...data.vendors.map((vendor) => ({ value: String(vendor.id), label: String(vendor.name) }))]} /></> : null}
+            <Pressable style={styles.btn} onPress={() => void act(async () => { const val = Number(f.b.replace(',', '.')); if (!f.a.trim() || !Number.isFinite(val)) return; const { error: e } = await supabase.from('event_expenses').insert({ event_id: eventId, name: f.a.trim(), value: val, color: '#D4AF37', status: 'pending', vendor_id: budgetVendorInput || null }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '', b: '' })); setBudgetVendorInput(''); setComposer(null); })}><Text style={styles.btnText}>Adicionar despesa</Text></Pressable>
+          </EventFormSheet>
+          <EventFormSheet visible={Boolean(paymentExpenseId)} title="Registrar pagamento" subtitle={filteredExpenses.find((expense) => String(expense.id) === paymentExpenseId)?.name} onClose={() => setPaymentExpenseId(null)}>
+            <Text style={styles.formLabel}>Forma de pagamento</Text><EventFilterChips selected={budgetPaymentMethod} onSelect={(value) => setBudgetPaymentMethod(value as PaymentMethod)} options={[{ value: 'pix', label: 'Pix' }, { value: 'dinheiro', label: 'Dinheiro' }, { value: 'credito', label: 'Crédito' }, { value: 'debito', label: 'Débito' }, { value: 'transferencia', label: 'Transferência' }]} />
+            <Text style={styles.formLabel}>Observação (opcional)</Text><TextInput style={styles.input} value={budgetPaymentNote} onChangeText={setBudgetPaymentNote} placeholder="Detalhes do pagamento" />
+            <Pressable style={styles.btn} onPress={() => void act(async () => { const expense = filteredExpenses.find((item) => String(item.id) === paymentExpenseId); if (!expense) return; const note = composePaymentNote(budgetPaymentNote, { receipt_document_id: budgetPaymentReceiptDocId.trim() || null }); const { error: e } = await supabase.from('expense_payments').insert({ event_id: eventId, expense_id: expense.id, amount: Number(expense.value ?? 0), method: normalizePaymentMethod(budgetPaymentMethod), paid_at: new Date().toISOString(), note }); if (e) throw new Error(e.message); setBudgetPaymentReceiptDocId(''); setBudgetPaymentNote(''); setPaymentExpenseId(null); })}><Text style={styles.btnText}>Confirmar pagamento</Text></Pressable>
+          </EventFormSheet>
+        </EventModuleShell>
       )}
 
       {activeTab === 'guests' && (
-        <Card title="Convidados">
-          <View style={styles.statsRow}>
-            <Text style={styles.pill}>Total: {guestSummary.total}</Text>
-            <Text style={styles.pill}>Pendentes: {guestSummary.pending}</Text>
-            <Text style={styles.pill}>Confirmados: {guestSummary.confirmed}</Text>
-            <Text style={styles.pill}>Recusados: {guestSummary.declined}</Text>
-          </View>
-          <View style={styles.rowBtns}>
-            <Small onPress={() => setGuestFilter('all')}>Todos</Small>
-            <Small onPress={() => setGuestFilter('pending')}>Pendentes</Small>
-            <Small onPress={() => setGuestFilter('confirmed')}>Confirmados</Small>
-            <Small onPress={() => setGuestFilter('declined')}>Recusados</Small>
-          </View>
-          <View style={styles.rowBtns}>
-            <Small onPress={() => void act(async () => {
-              const ids = filteredGuests
-                .filter((g) => (g.rsvp_status ?? 'pending') !== 'confirmed')
-                .map((g) => g.id);
-              if (ids.length === 0) return;
-              const { error: e } = await supabase.from('event_guests').update({ rsvp_status: 'confirmed', confirmed: true }).in('id', ids);
-              if (e) throw new Error(e.message);
-            })}>Confirmar filtrados</Small>
-            <Small onPress={() => void act(async () => {
-              const ids = filteredGuests
-                .filter((g) => (g.rsvp_status ?? 'pending') !== 'declined')
-                .map((g) => g.id);
-              if (ids.length === 0) return;
-              const { error: e } = await supabase.from('event_guests').update({ rsvp_status: 'declined', confirmed: false }).in('id', ids);
-              if (e) throw new Error(e.message);
-            })}>Recusar filtrados</Small>
-            <Danger onPress={() => confirmBatchDelete('Excluir todos os convidados filtrados?', async () => {
-              const ids = filteredGuests.map((g) => g.id);
-              if (ids.length === 0) return;
-              const { error: e } = await supabase.from('event_guests').delete().in('id', ids);
-              if (e) throw new Error(e.message);
-            })}>Excluir filtrados</Danger>
-          </View>
+        <EventModuleShell
+          title="Convidados"
+          description="Confirmações claras, sem planilha no caminho."
+          icon="people-outline"
+          metrics={[
+            { label: 'Total', value: guestSummary.total, tone: 'neutral' },
+            { label: 'Confirmados', value: guestSummary.confirmed, tone: 'success' },
+            { label: 'Aguardando', value: guestSummary.pending, tone: 'warning' },
+          ]}
+          actionLabel="Adicionar convidado"
+          onAction={() => setComposer('guests')}
+        >
           <TextInput style={styles.input} value={guestSearch} onChangeText={setGuestSearch} placeholder="Buscar por nome ou telefone" />
-          <View style={styles.rowBtns}>
-            <Small onPress={() => setGuestSort('name_asc')}>A-Z</Small>
-            <Small onPress={() => setGuestSort('name_desc')}>Z-A</Small>
-          </View>
-          <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome" />
-          <TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="Telefone" />
-          <Pressable style={styles.btn} onPress={() => void act(async () => {
-            if (!f.a.trim()) return;
-            const { error: e } = await supabase.from('event_guests').insert({ event_id: eventId, name: f.a.trim(), phone: f.b.trim() || null, rsvp_status: 'pending', confirmed: false });
-            if (e) throw new Error(e.message);
-            setF((s) => ({ ...s, a: '', b: '' }));
-          })}><Text style={styles.btnText}>Adicionar convidado</Text></Pressable>
+          <EventFilterChips selected={guestFilter} onSelect={(value) => setGuestFilter(value as typeof guestFilter)} options={[
+            { value: 'all', label: 'Todos' }, { value: 'pending', label: 'Aguardando' }, { value: 'confirmed', label: 'Confirmados' }, { value: 'declined', label: 'Não vão' },
+          ]} />
+          <EventSectionTitle title="Lista de convidados" actionLabel={guestSort === 'name_asc' ? 'A–Z' : 'Z–A'} onAction={() => setGuestSort((value) => value === 'name_asc' ? 'name_desc' : 'name_asc')} />
+          {visibleGuests.length === 0 ? (
+            <EventEmptyState icon="people-outline" title="Nenhum convidado aqui" description="Adicione pessoas ou altere o filtro para acompanhar as confirmações." actionLabel="Adicionar convidado" onAction={() => setComposer('guests')} />
+          ) : null}
           {visibleGuests.map((g) => (
-            <Item key={g.id} text={`${g.name} | ${(g.rsvp_status ?? 'pending').toUpperCase()}`}>
-              <Small onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_guests').update({ rsvp_status: 'confirmed', confirmed: true }).eq('id', g.id);
-                if (e) throw new Error(e.message);
-              })}>Confirmar</Small>
-              <Small onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_guests').update({ rsvp_status: 'declined', confirmed: false }).eq('id', g.id);
-                if (e) throw new Error(e.message);
-              })}>Recusar</Small>
-              <Danger onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_guests').delete().eq('id', g.id);
-                if (e) throw new Error(e.message);
-              })}>Excluir</Danger>
-            </Item>
+            <EventListCard
+              key={g.id}
+              title={String(g.name ?? 'Convidado')}
+              subtitle={g.phone || 'Telefone não informado'}
+              status={guestStatusLabel(g.rsvp_status)}
+              statusTone={g.rsvp_status === 'confirmed' ? 'success' : g.rsvp_status === 'declined' ? 'danger' : 'warning'}
+              actions={[
+                { label: 'Confirmar', icon: 'checkmark-outline', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_guests').update({ rsvp_status: 'confirmed', confirmed: true }).eq('id', g.id); if (e) throw new Error(e.message); }) },
+                { label: 'Não vai', icon: 'close-outline', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_guests').update({ rsvp_status: 'declined', confirmed: false }).eq('id', g.id); if (e) throw new Error(e.message); }) },
+                { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_guests').delete().eq('id', g.id); if (e) throw new Error(e.message); }) },
+              ]}
+            />
           ))}
-        </Card>
+          <EventFormSheet visible={composer === 'guests'} title="Adicionar convidado" subtitle="Você pode completar os detalhes depois." onClose={() => setComposer(null)}>
+            <Text style={styles.formLabel}>Nome</Text>
+            <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome do convidado" />
+            <Text style={styles.formLabel}>Telefone (opcional)</Text>
+            <TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="(11) 99999-9999" keyboardType="phone-pad" />
+            <Pressable style={styles.btn} onPress={() => void act(async () => {
+              if (!f.a.trim()) return;
+              const { error: e } = await supabase.from('event_guests').insert({ event_id: eventId, name: f.a.trim(), phone: f.b.trim() || null, rsvp_status: 'pending', confirmed: false });
+              if (e) throw new Error(e.message);
+              setF((s) => ({ ...s, a: '', b: '' }));
+              setComposer(null);
+            })}><Text style={styles.btnText}>Adicionar convidado</Text></Pressable>
+          </EventFormSheet>
+        </EventModuleShell>
       )}
       {activeTab === 'timeline' && (
-        <Card title="Cronograma">
+        <EventModuleShell title="Cronograma" description="A sequência do grande dia, organizada por horário." icon="calendar-outline" metrics={[
+          { label: 'Atividades', value: data.timeline.length, tone: 'gold' },
+          { label: 'Sugestões', value: timelineSuggestions.length, tone: 'info' },
+        ]} actionLabel="Adicionar atividade" onAction={() => setComposer('timeline')}>
           <View style={styles.cardSoft}>
             <View style={styles.rowBetween}>
               <View style={styles.grow}>
@@ -2289,33 +2260,16 @@ export function EventDetailsScreen() {
               <Text style={styles.caption}>Sem sugestoes pendentes.</Text>
             ) : (
               timelineSuggestions.map((item) => (
-                <View key={item.id} style={styles.item}>
-                  <Text style={styles.row}>{item.title}</Text>
-                  <Text style={styles.caption}>{item.reason}</Text>
-                  <Text style={styles.caption}>{item.time} | {item.activity}</Text>
-                  <View style={styles.rowBtns}>
-                    <Small onPress={() => void applySmartTimelineSuggestion(item)}>Aplicar</Small>
-                  </View>
-                </View>
+                <EventListCard key={item.id} title={item.title} subtitle={item.reason} meta={[`${item.time} • ${item.activity}`]} status="Sugestão" statusTone="info" actions={[{ label: 'Aplicar', icon: 'sparkles-outline', onPress: () => void applySmartTimelineSuggestion(item) }]} />
               ))
             )}
           </View>
-          <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Hora HH:MM" />
-          <TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="Atividade" />
-          <TextInput style={styles.input} value={f.c} onChangeText={(v) => setF((s) => ({ ...s, c: v }))} placeholder="Responsável" />
-          <Pressable style={styles.btn} onPress={() => void act(async () => {
-            if (!f.b.trim()) return;
-            const { error: e } = await supabase.from('event_timeline').insert({ event_id: eventId, time: f.a.trim() || '00:00', activity: f.b.trim(), assignee_name: f.c.trim() || null, position: data.timeline.length });
-            if (e) throw new Error(e.message);
-            setF((s) => ({ ...s, a: '', b: '', c: '' }));
-          })}><Text style={styles.btnText}>Adicionar item</Text></Pressable>
+          <EventSectionTitle title="Roteiro do evento" />
+          {visibleTimeline.length === 0 ? <EventEmptyState icon="calendar-outline" title="Cronograma ainda vazio" description="Adicione a primeira atividade ou gere sugestões inteligentes." actionLabel="Adicionar atividade" onAction={() => setComposer('timeline')} /> : null}
           {visibleTimeline.map((t) => (
-            <Item key={t.id} text={`${t.time || '--:--'} | ${t.activity}`}>
-              <Danger onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_timeline').delete().eq('id', t.id);
-                if (e) throw new Error(e.message);
-              })}>Excluir</Danger>
-            </Item>
+            <EventListCard key={t.id} title={String(t.activity ?? 'Atividade')} subtitle={t.assignee_name ? `Responsável: ${t.assignee_name}` : 'Sem responsável'} status={t.time || '--:--'} statusTone="gold" actions={[
+              { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_timeline').delete().eq('id', t.id); if (e) throw new Error(e.message); }) },
+            ]} />
           ))}
           {data.timeline.length > visible.timeline && (
             <Pressable style={styles.btnGhostWide} onPress={() => showMore('timeline')}>
@@ -2327,77 +2281,55 @@ export function EventDetailsScreen() {
               <Text style={styles.smallText}>{loadingMore === 'timeline' ? 'Carregando...' : 'Carregar mais do servidor'}</Text>
             </Pressable>
           )}
-        </Card>
+          <EventFormSheet visible={composer === 'timeline'} title="Adicionar atividade" subtitle="Monte o roteiro em ordem cronológica." onClose={() => setComposer(null)}>
+            <Text style={styles.formLabel}>Horário</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="HH:MM" />
+            <Text style={styles.formLabel}>Atividade</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="Ex.: Entrada dos noivos" />
+            <Text style={styles.formLabel}>Responsável (opcional)</Text><TextInput style={styles.input} value={f.c} onChangeText={(v) => setF((s) => ({ ...s, c: v }))} placeholder="Nome da pessoa" />
+            <Pressable style={styles.btn} onPress={() => void act(async () => { if (!f.b.trim()) return; const { error: e } = await supabase.from('event_timeline').insert({ event_id: eventId, time: f.a.trim() || '00:00', activity: f.b.trim(), assignee_name: f.c.trim() || null, position: data.timeline.length }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '', b: '', c: '' })); setComposer(null); })}><Text style={styles.btnText}>Adicionar ao cronograma</Text></Pressable>
+          </EventFormSheet>
+        </EventModuleShell>
       )}
 
       {activeTab === 'vendors' && (
-        <Card title="Fornecedores">
+        <EventModuleShell
+          title="Fornecedores"
+          description="Contatos, confirmação e operação em um só lugar."
+          icon="storefront-outline"
+          metrics={[
+            { label: 'Total', value: data.vendors.length, tone: 'neutral' },
+            { label: 'Confirmados', value: data.vendors.filter((vendor) => ['confirmed', 'paid'].includes(vendor.status)).length, tone: 'success' },
+            { label: 'A confirmar', value: data.vendors.filter((vendor) => !vendor.status || vendor.status === 'pending').length, tone: 'warning' },
+          ]}
+          actionLabel="Vincular fornecedor"
+          onAction={() => setComposer('vendors')}
+        >
           <TextInput style={styles.input} value={vendorSearch} onChangeText={setVendorSearch} placeholder="Buscar por nome/categoria" />
-          <View style={styles.rowBtns}>
-            <Small onPress={() => setVendorSort('name_asc')}>A-Z</Small>
-            <Small onPress={() => setVendorSort('name_desc')}>Z-A</Small>
-            <Small onPress={() => setVendorSort('status')}>Por status</Small>
-            <Small onPress={() => void act(async () => {
-              const ids = filteredVendors.filter((v) => (v.status ?? 'pending') !== 'confirmed').map((v) => v.id);
-              if (ids.length === 0) return;
-              const { error: e } = await supabase.from('event_vendors').update({ status: 'confirmed' }).in('id', ids);
-              if (e) throw new Error(e.message);
-            })}>Confirmar filtrados</Small>
-            <Danger onPress={() => confirmBatchDelete('Excluir todos os fornecedores filtrados?', async () => {
-              const ids = filteredVendors.map((v) => v.id);
-              if (ids.length === 0) return;
-              const { error: e } = await supabase.from('event_vendors').delete().in('id', ids);
-              if (e) throw new Error(e.message);
-            })}>Excluir filtrados</Danger>
-          </View>
-          <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome" />
-          <TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="Categoria" />
-          <TextInput style={styles.input} value={newVendorPhone} onChangeText={setNewVendorPhone} placeholder="Telefone (opcional)" />
-          <TextInput style={styles.input} value={newVendorEmail} onChangeText={setNewVendorEmail} placeholder="Email (opcional)" />
-          <TextInput style={styles.input} value={newVendorArrival} onChangeText={setNewVendorArrival} placeholder="Chegada HH:MM (opcional)" />
-          <TextInput style={styles.input} value={newVendorDone} onChangeText={setNewVendorDone} placeholder="Fim HH:MM (opcional)" />
-          <Pressable style={styles.btn} onPress={() => void act(async () => {
-            if (!f.a.trim() || !f.b.trim()) return;
-            const { error: e } = await supabase.from('event_vendors').insert({
-              event_id: eventId,
-              name: f.a.trim(),
-              category: f.b.trim(),
-              status: 'pending',
-              phone: newVendorPhone.trim() || null,
-              email: newVendorEmail.trim() || null,
-              expected_arrival_time: newVendorArrival.trim() || null,
-              expected_done_time: newVendorDone.trim() || null,
-            });
-            if (e) throw new Error(e.message);
-            setF((s) => ({ ...s, a: '', b: '' }));
-            setNewVendorPhone('');
-            setNewVendorEmail('');
-            setNewVendorArrival('');
-            setNewVendorDone('');
-          })}><Text style={styles.btnText}>Adicionar fornecedor</Text></Pressable>
+          <EventFilterChips selected={vendorSort} onSelect={(value) => setVendorSort(value as typeof vendorSort)} options={[
+            { value: 'name_asc', label: 'A–Z' }, { value: 'name_desc', label: 'Z–A' }, { value: 'status', label: 'Por status' },
+          ]} />
+          <EventSectionTitle title="Equipe de fornecedores" />
+          {visibleVendors.length === 0 ? (
+            <EventEmptyState icon="storefront-outline" title="Nenhum fornecedor encontrado" description="Vincule o primeiro parceiro deste evento ou altere sua busca." actionLabel="Vincular fornecedor" onAction={() => setComposer('vendors')} />
+          ) : null}
           {visibleVendors.map((v) => (
-            <Item key={v.id} text={`${v.name} | ${v.category || '-'} | ${(v.status || 'pending').toUpperCase()} | ${v.expected_arrival_time || '--:--'}-${v.expected_done_time || '--:--'} | recibos: ${paymentReceiptCountByVendor.get(String(v.id)) ?? 0}`}>
-              <Small onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_vendors').update({ status: 'confirmed' }).eq('id', v.id);
-                if (e) throw new Error(e.message);
-              })}>Confirmar</Small>
-              <Small onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_vendors').update({ status: 'paid' }).eq('id', v.id);
-                if (e) throw new Error(e.message);
-              })}>Pago</Small>
-              <Small onPress={() => {
-                setBudgetVendorFilter(String(v.id));
-                setActiveTab('budget');
-              }}>Ver gastos</Small>
-              <Small onPress={() => {
-                setDocumentVendorFilter(String(v.id));
-                setActiveTab('documents');
-              }}>Ver docs</Small>
-              <Danger onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_vendors').delete().eq('id', v.id);
-                if (e) throw new Error(e.message);
-              })}>Excluir</Danger>
-            </Item>
+            <EventListCard
+              key={v.id}
+              title={String(v.name ?? 'Fornecedor')}
+              subtitle={v.category || 'Categoria não informada'}
+              status={vendorStatusLabel(v.status)}
+              statusTone={v.status === 'paid' || v.status === 'confirmed' ? 'success' : v.status === 'cancelled' ? 'danger' : 'warning'}
+              meta={[
+                v.phone || v.email || 'Contato não informado',
+                v.expected_arrival_time ? `Chegada: ${v.expected_arrival_time}` : 'Horário a combinar',
+                `${paymentReceiptCountByVendor.get(String(v.id)) ?? 0} recibo(s)`,
+              ]}
+              actions={[
+                { label: v.status === 'confirmed' ? 'Marcar pago' : 'Confirmar', icon: 'checkmark-outline', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_vendors').update({ status: v.status === 'confirmed' ? 'paid' : 'confirmed' }).eq('id', v.id); if (e) throw new Error(e.message); }) },
+                { label: 'Gastos', icon: 'wallet-outline', onPress: () => { setBudgetVendorFilter(String(v.id)); setActiveTab('budget'); } },
+                { label: 'Documentos', icon: 'document-text-outline', onPress: () => { setDocumentVendorFilter(String(v.id)); setActiveTab('documents'); } },
+                { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_vendors').delete().eq('id', v.id); if (e) throw new Error(e.message); }) },
+              ]}
+            />
           ))}
           {filteredVendors.length > visible.vendors && (
             <Pressable style={styles.btnGhostWide} onPress={() => showMore('vendors')}>
@@ -2409,83 +2341,50 @@ export function EventDetailsScreen() {
               <Text style={styles.smallText}>{loadingMore === 'vendors' ? 'Carregando...' : 'Carregar mais do servidor'}</Text>
             </Pressable>
           )}
-        </Card>
+          <EventFormSheet visible={composer === 'vendors'} title="Vincular fornecedor" subtitle="Cadastre os dados essenciais para a operação." onClose={() => setComposer(null)}>
+            <Text style={styles.formLabel}>Nome</Text>
+            <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome do fornecedor" />
+            <Text style={styles.formLabel}>Categoria</Text>
+            <TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="Ex.: Buffet" />
+            <Text style={styles.formLabel}>Contato</Text>
+            <TextInput style={styles.input} value={newVendorPhone} onChangeText={setNewVendorPhone} placeholder="Telefone (opcional)" keyboardType="phone-pad" />
+            <TextInput style={styles.input} value={newVendorEmail} onChangeText={setNewVendorEmail} placeholder="E-mail (opcional)" keyboardType="email-address" autoCapitalize="none" />
+            <Text style={styles.formLabel}>Operação no dia</Text>
+            <View style={styles.formRow}>
+              <TextInput style={[styles.input, styles.formGrow]} value={newVendorArrival} onChangeText={setNewVendorArrival} placeholder="Chegada HH:MM" />
+              <TextInput style={[styles.input, styles.formGrow]} value={newVendorDone} onChangeText={setNewVendorDone} placeholder="Fim HH:MM" />
+            </View>
+            <Pressable style={styles.btn} onPress={() => void act(async () => {
+              if (!f.a.trim() || !f.b.trim()) return;
+              const { error: e } = await supabase.from('event_vendors').insert({ event_id: eventId, name: f.a.trim(), category: f.b.trim(), status: 'pending', phone: newVendorPhone.trim() || null, email: newVendorEmail.trim() || null, expected_arrival_time: newVendorArrival.trim() || null, expected_done_time: newVendorDone.trim() || null });
+              if (e) throw new Error(e.message);
+              setF((s) => ({ ...s, a: '', b: '' })); setNewVendorPhone(''); setNewVendorEmail(''); setNewVendorArrival(''); setNewVendorDone(''); setComposer(null);
+            })}><Text style={styles.btnText}>Vincular fornecedor</Text></Pressable>
+          </EventFormSheet>
+        </EventModuleShell>
       )}
 
       {activeTab === 'documents' && (
-        <Card title="Documentos">
+        <EventModuleShell title="Documentos" description="Contratos, recibos e arquivos importantes do evento." icon="document-text-outline" metrics={[
+          { label: 'Arquivos', value: data.documents.length, tone: 'gold' },
+          { label: 'Categorias', value: documentCategories.length, tone: 'neutral' },
+        ]} actionLabel="Adicionar documento" onAction={() => setComposer('documents')}>
           {documentReceiptFilterId ? (
-            <View style={styles.cardSoft}>
-              <Text style={styles.caption}>Filtro ativo de recibo: {documentReceiptFilterId}</Text>
-              <Pressable style={styles.btnGhost} onPress={() => setDocumentReceiptFilterId('')}>
-                <Text style={styles.smallText}>Limpar filtro de recibo</Text>
-              </Pressable>
-            </View>
+            <Pressable style={styles.activeFilter} onPress={() => setDocumentReceiptFilterId('')}><Text style={styles.activeFilterText}>Exibindo o recibo selecionado</Text><Ionicons name="close" size={16} color={colors.gold700} accessible={false} /></Pressable>
+          ) : null}
+          {documentVendorFilter ? (
+            <Pressable style={styles.activeFilter} onPress={() => setDocumentVendorFilter('')}><Text style={styles.activeFilterText}>Fornecedor: {data.vendors.find((vendor) => String(vendor.id) === documentVendorFilter)?.name ?? 'selecionado'}</Text><Ionicons name="close" size={16} color={colors.gold700} accessible={false} /></Pressable>
           ) : null}
           <TextInput style={styles.input} value={documentSearch} onChangeText={setDocumentSearch} placeholder="Buscar documento" />
-          <TextInput style={styles.input} value={documentVendorFilter} onChangeText={setDocumentVendorFilter} placeholder="Filtrar por vendor_id" />
-          <TextInput style={styles.input} value={documentCategoryFilter} onChangeText={setDocumentCategoryFilter} placeholder="Filtrar por categoria" />
-          <View style={styles.rowBtns}>
-            <Small onPress={() => setDocumentCategoryFilter('')}>Todas categorias</Small>
-            {documentCategories.slice(0, 6).map((category) => (
-              <Small key={category} onPress={() => setDocumentCategoryFilter(category)}>{category}</Small>
-            ))}
-            <Small onPress={() => void pickAndUploadDocument()}>
-              {uploadingDoc ? 'Enviando arquivo...' : 'Upload do celular'}
-            </Small>
-            <Small
-              onPress={() =>
-                void Share.share({
-                  message:
-                    filteredDocuments
-                      .filter((d) => !d.file_id && typeof d.file_url === 'string' && d.file_url.trim())
-                      .map((d) => d.file_url)
-                      .join('\n') || 'Nenhum link público para compartilhar.',
-                })
-              }
-            >
-              Compartilhar links públicos
-            </Small>
-            <Danger onPress={() => confirmBatchDelete('Excluir todos os documentos filtrados?', async () => {
-              const ids = filteredDocuments.map((d) => d.id);
-              if (ids.length === 0) return;
-              const privateFileIds = filteredDocuments.map((d) => d.file_id).filter(Boolean);
-              const { error: e } = await supabase.from('event_documents').delete().in('id', ids);
-              if (e) throw new Error(e.message);
-              await Promise.all(privateFileIds.map((fileId) => deleteStoredFile(String(fileId)).catch(() => undefined)));
-            })}>Excluir filtrados</Danger>
-          </View>
-          <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome" />
-          <TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="URL" />
-          <TextInput style={styles.input} value={f.c} onChangeText={(v) => setF((s) => ({ ...s, c: v }))} placeholder="Categoria" />
-          <TextInput style={styles.input} value={documentVendorInput} onChangeText={setDocumentVendorInput} placeholder="ID do fornecedor (opcional)" />
-          <Pressable style={styles.btn} onPress={() => void act(async () => {
-            if (!f.a.trim() || !f.b.trim()) return;
-            const { error: e } = await supabase.from('event_documents').insert({
-              event_id: eventId,
-              name: f.a.trim(),
-              file_url: f.b.trim(),
-              category: f.c.trim() || 'Outros',
-              vendor_id: documentVendorInput.trim() || null,
-            });
-            if (e) throw new Error(e.message);
-            setF((s) => ({ ...s, a: '', b: '', c: '' }));
-            setDocumentVendorInput('');
-          })}><Text style={styles.btnText}>Adicionar documento</Text></Pressable>
+          <EventFilterChips selected={documentCategoryFilter} onSelect={setDocumentCategoryFilter} options={[{ value: '', label: 'Todos' }, ...documentCategories.slice(0, 6).map((category) => ({ value: category, label: category }))]} />
+          <EventSectionTitle title="Arquivos do evento" actionLabel="Compartilhar links" onAction={() => void Share.share({ message: filteredDocuments.filter((d) => !d.file_id && typeof d.file_url === 'string' && d.file_url.trim()).map((d) => d.file_url).join('\n') || 'Nenhum link público para compartilhar.' })} />
+          {visibleDocuments.length === 0 ? <EventEmptyState icon="document-text-outline" title="Nenhum documento encontrado" description="Envie um arquivo ou adicione um link para centralizar os documentos." actionLabel="Adicionar documento" onAction={() => setComposer('documents')} /> : null}
           {visibleDocuments.map((d) => (
-            <Item key={d.id} text={`${d.name} | ${d.category || 'Outros'} | vendor: ${d.vendor_id ?? '-'}`}>
-              <Small onPress={() => void openDocumentLink(d)}>Abrir</Small>
-              {!d.file_id && d.file_url ? (
-                <Small onPress={() => { if (d.file_url) void Share.share({ message: d.file_url }); }}>Compartilhar link</Small>
-              ) : null}
-              <Danger onPress={() => void act(async () => {
-                if (d.file_id) {
-                  await deleteStoredFile(String(d.file_id)).catch(() => undefined);
-                }
-                const { error: e } = await supabase.from('event_documents').delete().eq('id', d.id);
-                if (e) throw new Error(e.message);
-              })}>Excluir</Danger>
-            </Item>
+            <EventListCard key={d.id} title={String(d.name ?? 'Documento')} subtitle={data.vendors.find((vendor) => String(vendor.id) === String(d.vendor_id))?.name || 'Documento geral'} status={d.category || 'Outros'} statusTone="info" actions={[
+              { label: 'Abrir', icon: 'open-outline', onPress: () => void openDocumentLink(d) },
+              ...(!d.file_id && d.file_url ? [{ label: 'Compartilhar', icon: 'share-outline' as const, onPress: () => { if (d.file_url) void Share.share({ message: d.file_url }); } }] : []),
+              { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { if (d.file_id) await deleteStoredFile(String(d.file_id)).catch(() => undefined); const { error: e } = await supabase.from('event_documents').delete().eq('id', d.id); if (e) throw new Error(e.message); }) },
+            ]} />
           ))}
           {filteredDocuments.length > visible.documents && (
             <Pressable style={styles.btnGhostWide} onPress={() => showMore('documents')}>
@@ -2497,92 +2396,67 @@ export function EventDetailsScreen() {
               <Text style={styles.smallText}>{loadingMore === 'documents' ? 'Carregando...' : 'Carregar mais do servidor'}</Text>
             </Pressable>
           )}
-        </Card>
+          <EventFormSheet visible={composer === 'documents'} title="Adicionar documento" subtitle="Envie um arquivo do celular ou salve um link." onClose={() => setComposer(null)}>
+            <Pressable style={styles.uploadAction} onPress={() => void pickAndUploadDocument()} accessibilityRole="button"><Ionicons name="cloud-upload-outline" size={22} color={colors.gold700} accessible={false} /><View style={styles.formGrow}><Text style={styles.uploadTitle}>{uploadingDoc ? 'Enviando arquivo...' : 'Escolher arquivo do celular'}</Text><Text style={styles.uploadSubtitle}>PDF, imagem ou documento</Text></View></Pressable>
+            <Text style={styles.formDivider}>ou adicione um link</Text>
+            <Text style={styles.formLabel}>Nome</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Ex.: Contrato do buffet" />
+            <Text style={styles.formLabel}>Link</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="https://" autoCapitalize="none" keyboardType="url" />
+            <Text style={styles.formLabel}>Categoria</Text><TextInput style={styles.input} value={f.c} onChangeText={(v) => setF((s) => ({ ...s, c: v }))} placeholder="Ex.: Contratos" />
+            {data.vendors.length ? <><Text style={styles.formLabel}>Fornecedor (opcional)</Text><EventFilterChips selected={documentVendorInput} onSelect={setDocumentVendorInput} options={[{ value: '', label: 'Geral' }, ...data.vendors.map((vendor) => ({ value: String(vendor.id), label: String(vendor.name) }))]} /></> : null}
+            <Pressable style={styles.btn} onPress={() => void act(async () => { if (!f.a.trim() || !f.b.trim()) return; const { error: e } = await supabase.from('event_documents').insert({ event_id: eventId, name: f.a.trim(), file_url: f.b.trim(), category: f.c.trim() || 'Outros', vendor_id: documentVendorInput || null }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '', b: '', c: '' })); setDocumentVendorInput(''); setComposer(null); })}><Text style={styles.btnText}>Salvar link</Text></Pressable>
+          </EventFormSheet>
+        </EventModuleShell>
       )}
 
       {activeTab === 'notes' && (
-        <Card title="Notas">
-          <TextInput style={[styles.input, styles.area]} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nota" multiline />
-          <Pressable style={styles.btn} onPress={() => void act(async () => {
-            if (!f.a.trim()) return;
-            const { error: e } = await supabase.from('event_notes').insert({ event_id: eventId, content: f.a.trim(), color: '#FEF3C7' });
-            if (e) throw new Error(e.message);
-            setF((s) => ({ ...s, a: '' }));
-          })}><Text style={styles.btnText}>Adicionar nota</Text></Pressable>
+        <EventModuleShell title="Notas" description="Lembretes rápidos que ficam junto do evento." icon="create-outline" metrics={[{ label: 'Anotações', value: data.notes.length, tone: 'gold' }]} actionLabel="Nova nota" onAction={() => setComposer('notes')}>
+          <EventSectionTitle title="Anotações do evento" />
+          {data.notes.length === 0 ? <EventEmptyState icon="create-outline" title="Nenhuma nota ainda" description="Registre uma observação importante para a equipe." actionLabel="Criar nota" onAction={() => setComposer('notes')} /> : null}
           {data.notes.map((n) => (
-            <Item key={n.id} text={n.content}>
-              <Danger onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_notes').delete().eq('id', n.id);
-                if (e) throw new Error(e.message);
-              })}>Excluir</Danger>
-            </Item>
+            <EventListCard key={n.id} title={String(n.content ?? 'Nota')} status="Nota" statusTone="gold" actions={[
+              { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_notes').delete().eq('id', n.id); if (e) throw new Error(e.message); }) },
+            ]} />
           ))}
-          {filteredGuests.length > visible.guests && (
-            <Pressable style={styles.btnGhostWide} onPress={() => showMore('guests')}>
-              <Text style={styles.smallText}>Mostrar mais ({filteredGuests.length - visible.guests} restantes)</Text>
-            </Pressable>
-          )}
-          {paging.guests.hasMore && (
-            <Pressable style={styles.btnGhostWide} onPress={() => void loadMoreKey('guests')}>
-              <Text style={styles.smallText}>{loadingMore === 'guests' ? 'Carregando...' : 'Carregar mais do servidor'}</Text>
-            </Pressable>
-          )}
-        </Card>
+          <EventFormSheet visible={composer === 'notes'} title="Nova nota" onClose={() => setComposer(null)}>
+            <Text style={styles.formLabel}>Observação</Text>
+            <TextInput style={[styles.input, styles.area]} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Escreva o que a equipe precisa lembrar" multiline />
+            <Pressable style={styles.btn} onPress={() => void act(async () => { if (!f.a.trim()) return; const { error: e } = await supabase.from('event_notes').insert({ event_id: eventId, content: f.a.trim(), color: '#FEF3C7' }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '' })); setComposer(null); })}><Text style={styles.btnText}>Salvar nota</Text></Pressable>
+          </EventFormSheet>
+        </EventModuleShell>
       )}
 
       {activeTab === 'team' && (
-        <Card title="Equipe">
-          <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome" />
-          <TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="Telefone" />
-          <TextInput style={styles.input} value={f.c} onChangeText={(v) => setF((s) => ({ ...s, c: v }))} placeholder="Função" />
-          <Pressable style={styles.btn} onPress={() => void act(async () => {
-            if (!f.a.trim()) return;
-            const { error: e } = await supabase.from('event_team_members').insert({ event_id: eventId, name: f.a.trim(), phone: f.b.trim() || null, role: f.c.trim() || 'Cerimonialista' });
-            if (e) throw new Error(e.message);
-            setF((s) => ({ ...s, a: '', b: '', c: '' }));
-          })}><Text style={styles.btnText}>Adicionar membro</Text></Pressable>
+        <EventModuleShell title="Equipe" description="Quem faz o evento acontecer e como entrar em contato." icon="people-circle-outline" metrics={[{ label: 'Pessoas', value: data.team.length, tone: 'info' }]} actionLabel="Adicionar à equipe" onAction={() => setComposer('team')}>
+          <EventSectionTitle title="Equipe escalada" />
+          {data.team.length === 0 ? <EventEmptyState icon="people-circle-outline" title="Equipe ainda não definida" description="Adicione cerimonialistas e profissionais responsáveis pela operação." actionLabel="Adicionar pessoa" onAction={() => setComposer('team')} /> : null}
           {data.team.map((m) => (
-            <Item key={m.id} text={`${m.name} | ${m.role || '-'}`}>
-              <Danger onPress={() => void act(async () => {
-                const { error: e } = await supabase.from('event_team_members').delete().eq('id', m.id);
-                if (e) throw new Error(e.message);
-              })}>Excluir</Danger>
-            </Item>
+            <EventListCard key={m.id} title={String(m.name ?? 'Pessoa da equipe')} subtitle={m.role || 'Função não informada'} meta={[m.phone || 'Telefone não informado']} status="Equipe" statusTone="info" actions={[
+              { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_team_members').delete().eq('id', m.id); if (e) throw new Error(e.message); }) },
+            ]} />
           ))}
-        </Card>
+          <EventFormSheet visible={composer === 'team'} title="Adicionar à equipe" onClose={() => setComposer(null)}>
+            <Text style={styles.formLabel}>Nome</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome completo" />
+            <Text style={styles.formLabel}>Telefone</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="(11) 99999-9999" keyboardType="phone-pad" />
+            <Text style={styles.formLabel}>Função</Text><TextInput style={styles.input} value={f.c} onChangeText={(v) => setF((s) => ({ ...s, c: v }))} placeholder="Ex.: Cerimonialista" />
+            <Pressable style={styles.btn} onPress={() => void act(async () => { if (!f.a.trim()) return; const { error: e } = await supabase.from('event_team_members').insert({ event_id: eventId, name: f.a.trim(), phone: f.b.trim() || null, role: f.c.trim() || 'Cerimonialista' }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '', b: '', c: '' })); setComposer(null); })}><Text style={styles.btnText}>Adicionar à equipe</Text></Pressable>
+          </EventFormSheet>
+        </EventModuleShell>
       )}
 
       {activeTab === 'tables' && (
-        <Card title="Mesas">
-          <View style={styles.rowBtns}>
-            <Small onPress={() => setTablesViewMode('list')}>Modo lista</Small>
-            <Small onPress={() => setTablesViewMode('map')}>Modo visual</Small>
-          </View>
-          <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome da mesa" />
-          <TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="Lugares" keyboardType="numeric" />
-          <Pressable style={styles.btn} onPress={() => void act(async () => {
-            const seats = Number(f.b);
-            if (!f.a.trim() || !Number.isFinite(seats) || seats < 1) return;
-            const { error: e } = await supabase.from('event_tables').insert({ event_id: eventId, name: f.a.trim(), seats, shape: 'round' });
-            if (e) throw new Error(e.message);
-            setF((s) => ({ ...s, a: '', b: '' }));
-          })}><Text style={styles.btnText}>Adicionar mesa</Text></Pressable>
+        <EventModuleShell title="Mesas" description="Organize lugares e acompanhe a ocupação do salão." icon="restaurant-outline" metrics={[
+          { label: 'Mesas', value: data.tables.length, tone: 'gold' },
+          { label: 'Lugares', value: data.tables.reduce((sum, table) => sum + Number(table.seats ?? 0), 0), tone: 'neutral' },
+          { label: 'Alocados', value: data.guests.filter((guest) => guest.table_id).length, tone: 'success' },
+        ]} actionLabel="Adicionar mesa" onAction={() => setComposer('tables')}>
+          <EventFilterChips selected={tablesViewMode} onSelect={(value) => setTablesViewMode(value as typeof tablesViewMode)} options={[{ value: 'list', label: 'Lista' }, { value: 'map', label: 'Mapa visual' }]} />
           {tablesViewMode === 'list' ? (
-            data.tables.map((t) => (
-              <Item key={t.id} text={`${t.name} | ${(data.guests ?? []).filter((g) => g.table_id === t.id).length}/${t.seats}`}>
-                <Small onPress={() => void act(async () => {
-                  const g = data.guests.find((x) => !x.table_id);
-                  if (!g) return;
-                  const { error: e } = await supabase.from('event_guests').update({ table_id: t.id }).eq('id', g.id);
-                  if (e) throw new Error(e.message);
-                })}>Alocar pendente</Small>
-                <Danger onPress={() => void act(async () => {
-                  await supabase.from('event_guests').update({ table_id: null }).eq('table_id', t.id);
-                  const { error: e } = await supabase.from('event_tables').delete().eq('id', t.id);
-                  if (e) throw new Error(e.message);
-                })}>Excluir</Danger>
-              </Item>
-            ))
+            <>{data.tables.length === 0 ? <EventEmptyState icon="restaurant-outline" title="Mapa de mesas vazio" description="Crie as mesas para começar a distribuir os convidados." actionLabel="Criar mesa" onAction={() => setComposer('tables')} /> : null}{data.tables.map((t) => (
+              <EventListCard key={t.id} title={String(t.name ?? 'Mesa')} status={`${(data.guests ?? []).filter((g) => g.table_id === t.id).length}/${t.seats} lugares`} statusTone="gold" actions={[
+                { label: 'Alocar próximo', icon: 'person-add-outline', onPress: () => void act(async () => { const g = data.guests.find((x) => !x.table_id); if (!g) return; const { error: e } = await supabase.from('event_guests').update({ table_id: t.id }).eq('id', g.id); if (e) throw new Error(e.message); }) },
+                { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { await supabase.from('event_guests').update({ table_id: null }).eq('table_id', t.id); const { error: e } = await supabase.from('event_tables').delete().eq('id', t.id); if (e) throw new Error(e.message); }) },
+              ]} />
+            ))}</>
           ) : (
             <EventTablesVisualMap
               eventId={eventId}
@@ -2600,37 +2474,23 @@ export function EventDetailsScreen() {
               }}
             />
           )}
-        </Card>
+          <EventFormSheet visible={composer === 'tables'} title="Adicionar mesa" subtitle="Você poderá posicioná-la depois no mapa visual." onClose={() => setComposer(null)}>
+            <Text style={styles.formLabel}>Nome da mesa</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Ex.: Mesa 01" />
+            <Text style={styles.formLabel}>Quantidade de lugares</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="8" keyboardType="numeric" />
+            <Pressable style={styles.btn} onPress={() => void act(async () => { const seats = Number(f.b); if (!f.a.trim() || !Number.isFinite(seats) || seats < 1) return; const { error: e } = await supabase.from('event_tables').insert({ event_id: eventId, name: f.a.trim(), seats, shape: 'round' }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '', b: '' })); setComposer(null); })}><Text style={styles.btnText}>Adicionar mesa</Text></Pressable>
+          </EventFormSheet>
+        </EventModuleShell>
       )}
 
       {activeTab === 'invites' && (
-        <Card title="Convites">
-          <View style={styles.statsRow}>
-            <Text style={styles.pill}>Pendentes: {guestSummary.pending}</Text>
-            <Text style={styles.pill}>Confirmados: {guestSummary.confirmed}</Text>
-            <Text style={styles.pill}>Recusados: {guestSummary.declined}</Text>
-          </View>
-          <View style={styles.rowBtns}>
-            <Small onPress={() => setGuestFilter('all')}>Todos</Small>
-            <Small onPress={() => setGuestFilter('pending')}>Pendentes</Small>
-            <Small onPress={() => setGuestFilter('confirmed')}>Confirmados</Small>
-            <Small onPress={() => setGuestFilter('declined')}>Recusados</Small>
-          </View>
+        <EventModuleShell title="Convites" description="Envie o RSVP certo para cada convidado." icon="mail-outline" metrics={[
+          { label: 'Aguardando', value: guestSummary.pending, tone: 'warning' },
+          { label: 'Confirmados', value: guestSummary.confirmed, tone: 'success' },
+          { label: 'Não vão', value: guestSummary.declined, tone: 'danger' },
+        ]} actionLabel="Configurar convite" onAction={() => setComposer('invites')}>
           <TextInput style={styles.input} value={guestSearch} onChangeText={setGuestSearch} placeholder="Buscar convidado" />
-          <TextInput style={[styles.input, styles.area]} value={f.inviteTemplate} onChangeText={(v) => setF((s) => ({ ...s, inviteTemplate: v }))} placeholder="Modelo" multiline />
-          <TextInput style={styles.input} value={f.inviteDress} onChangeText={(v) => setF((s) => ({ ...s, inviteDress: v }))} placeholder="Código de vestimenta" />
-          <Pressable style={styles.btn} onPress={() => void act(async () => {
-            const { error: e } = await supabase.from('events').update({ invite_message_template: f.inviteTemplate.trim() || null, invite_dress_code: f.inviteDress.trim() || null }).eq('id', eventId);
-            if (e) throw new Error(e.message);
-            setEvent((s) => s ? { ...s, invite_message_template: f.inviteTemplate.trim() || null, invite_dress_code: f.inviteDress.trim() || null } : s);
-          }, false)}><Text style={styles.btnText}>Salvar configurações</Text></Pressable>
-          <Pressable style={styles.btnGhostWide} onPress={() => void act(async () => {
-            const ids = data.guests.filter((g) => (g.rsvp_status ?? 'pending') === 'pending').map((g) => g.id);
-            if (ids.length === 0) return;
-            const { error: e } = await supabase.from('event_guests').update({ invited_at: new Date().toISOString() }).in('id', ids);
-            if (e) throw new Error(e.message);
-          })}><Text style={styles.smallText}>Marcar envio para pendentes</Text></Pressable>
-          <Pressable style={styles.btnGhostWide} onPress={() => void act(async () => {
+          <EventFilterChips selected={guestFilter} onSelect={(value) => setGuestFilter(value as typeof guestFilter)} options={[{ value: 'all', label: 'Todos' }, { value: 'pending', label: 'Aguardando' }, { value: 'confirmed', label: 'Confirmados' }, { value: 'declined', label: 'Não vão' }]} />
+          <EventSectionTitle title="Convidados" actionLabel="Compartilhar lista" onAction={() => void act(async () => {
             const lines: string[] = [];
             for (const g of filteredGuests) {
               let token = g.invite_token;
@@ -2645,16 +2505,14 @@ export function EventDetailsScreen() {
               lines.push(`${g.name}: ${msg}`);
             }
             await Share.share({ message: lines.join('\n\n') || 'Sem convidados filtrados.' });
-          })}>
-            <Text style={styles.smallText}>Gerar e compartilhar todos filtrados</Text>
-          </Pressable>
+          })} />
           {visibleGuests.map((g) => {
             const base = process.env.EXPO_PUBLIC_BASE_INVITE_URL || 'https://painelprime.com.br/convite';
             const link = g.invite_token ? `${base}/${g.invite_token}` : base;
             const msg = f.inviteTemplate.replaceAll('[Nome do Convidado]', g.name || 'Convidado').replaceAll('[LinkRSVP]', link);
             return (
-              <Item key={g.id} text={`${g.name} | ${(g.rsvp_status ?? 'pending').toUpperCase()}`}>
-                <Small onPress={() => void act(async () => {
+              <EventListCard key={g.id} title={String(g.name ?? 'Convidado')} subtitle={g.phone || 'Telefone não informado'} status={guestStatusLabel(g.rsvp_status)} statusTone={g.rsvp_status === 'confirmed' ? 'success' : g.rsvp_status === 'declined' ? 'danger' : 'warning'} actions={[
+                { label: 'Compartilhar convite', icon: 'share-outline', onPress: () => void act(async () => {
                   let token = g.invite_token;
                   if (!token) {
                     token = `${g.id}-${Date.now()}`;
@@ -2666,8 +2524,8 @@ export function EventDetailsScreen() {
                     .replaceAll('[Nome do Convidado]', g.name || 'Convidado')
                     .replaceAll('[LinkRSVP]', finalLink);
                   await Share.share({ message: finalMsg });
-                })}>Gerar link e compartilhar</Small>
-              </Item>
+                }) },
+              ]} />
             );
           })}
           {filteredGuests.length > visible.guests && (
@@ -2680,43 +2538,42 @@ export function EventDetailsScreen() {
               <Text style={styles.smallText}>{loadingMore === 'guests' ? 'Carregando...' : 'Carregar mais do servidor'}</Text>
             </Pressable>
           )}
-        </Card>
+          <EventFormSheet visible={composer === 'invites'} title="Configurar convite" subtitle="Personalize a mensagem enviada aos convidados." onClose={() => setComposer(null)}>
+            <Text style={styles.formLabel}>Mensagem</Text><TextInput style={[styles.input, styles.area]} value={f.inviteTemplate} onChangeText={(v) => setF((s) => ({ ...s, inviteTemplate: v }))} placeholder="Use [Nome do Convidado] e [LinkRSVP]" multiline />
+            <Text style={styles.formLabel}>Código de vestimenta (opcional)</Text><TextInput style={styles.input} value={f.inviteDress} onChangeText={(v) => setF((s) => ({ ...s, inviteDress: v }))} placeholder="Ex.: Esporte fino" />
+            <Pressable style={styles.btn} onPress={() => void act(async () => { const { error: e } = await supabase.from('events').update({ invite_message_template: f.inviteTemplate.trim() || null, invite_dress_code: f.inviteDress.trim() || null }).eq('id', eventId); if (e) throw new Error(e.message); setEvent((s) => s ? { ...s, invite_message_template: f.inviteTemplate.trim() || null, invite_dress_code: f.inviteDress.trim() || null } : s); setComposer(null); }, false)}><Text style={styles.btnText}>Salvar configuração</Text></Pressable>
+          </EventFormSheet>
+        </EventModuleShell>
       )}
 
       {activeTab === 'catalog' && (
-        <Card title="Catálogo de Fornecedores">
-          <Text style={styles.p}>Selecione fornecedores do catálogo da sua assessoria para este evento.</Text>
-          <Pressable style={styles.btn} onPress={() => setActiveTab('vendors')}>
-            <Text style={styles.btnText}>Ver fornecedores do evento</Text>
-          </Pressable>
-        </Card>
+        <EventModuleShell title="Catálogo" description="Encontre parceiros da sua assessoria para este evento." icon="albums-outline" actionLabel="Ver fornecedores do evento" onAction={() => setActiveTab('vendors')}>
+          <EventEmptyState icon="albums-outline" title="Catálogo da sua assessoria" description="Escolha parceiros no catálogo geral e acompanhe a operação na área Fornecedores." actionLabel="Abrir fornecedores" onAction={() => setActiveTab('vendors')} />
+        </EventModuleShell>
       )}
 
       {activeTab === 'portal' && (
-        <Card title="Portal do Cliente">
-          <Text style={styles.p}>Acesse o portal do cliente para compartilhar informações do evento.</Text>
-          <Pressable style={styles.btn} onPress={() => router.push(`/portal/${eventId}`)}>
-            <Text style={styles.btnText}>Abrir Portal do Cliente</Text>
-          </Pressable>
-        </Card>
+        <EventModuleShell title="Portal do cliente" description="O espaço compartilhado com os responsáveis pelo evento." icon="person-circle-outline" actionLabel="Abrir portal do cliente" onAction={() => router.push(`/portal/${eventId}`)}>
+          <EventEmptyState icon="person-circle-outline" title="Tudo pronto para compartilhar" description="Abra o portal para revisar informações, documentos e aprovações visíveis ao cliente." />
+        </EventModuleShell>
       )}
 
       {activeTab === 'meetings' && <MeetingCenter eventId={eventId} />}
 
       {activeTab === 'presentes' && (
-        <Card title="Intenções de Presentes">
+        <EventModuleShell title="Presentes" description="Acompanhe intenções e recebimentos ligados ao evento." icon="gift-outline">
           <PresentesTabContent eventId={eventId} />
-        </Card>
+        </EventModuleShell>
       )}
 
       {activeTab === 'analytics' && (
-        <Card title="Relatório de Encerramento">
-          <Text style={styles.p}>Gere um relatório completo com métricas de presença, financeiro e muito mais.</Text>
-          <Text style={styles.p}>Disponível em breve.</Text>
-        </Card>
+        <EventModuleShell title="Relatório final" description="Presença, financeiro e aprendizados depois do evento." icon="bar-chart-outline">
+          <EventEmptyState icon="bar-chart-outline" title="Relatório disponível após o encerramento" description="Quando o evento terminar, este espaço reunirá os principais resultados." />
+        </EventModuleShell>
       )}
         </View>
           </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -3240,6 +3097,15 @@ const styles = StyleSheet.create({
   historyAt: { color: colors.mutedText, fontSize: 11, fontWeight: '700' },
   historyText: { color: colors.text, fontSize: 13 },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: colors.text },
+  formLabel: { color: colors.text, fontSize: 13, fontWeight: '700', marginTop: 2 },
+  formRow: { flexDirection: 'row', gap: 10 },
+  formGrow: { flex: 1 },
+  formDivider: { color: colors.mutedText, fontSize: 12, textAlign: 'center', marginVertical: 2 },
+  activeFilter: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.gold200, backgroundColor: colors.gold50, paddingHorizontal: 12 },
+  activeFilterText: { flex: 1, color: colors.gold700, fontSize: 12, fontWeight: '700' },
+  uploadAction: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.gold200, backgroundColor: colors.gold50, padding: 14 },
+  uploadTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  uploadSubtitle: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
   area: { minHeight: 88, textAlignVertical: 'top' },
   btn: { backgroundColor: colors.primary, borderRadius: 8, minHeight: 38, alignItems: 'center', justifyContent: 'center' },
   btnText: { color: colors.primaryTextOn, fontWeight: '700' },
