@@ -314,6 +314,11 @@ Quando o dispositivo Android estiver explicitamente indisponível e o responsáv
 - `SafeAreaView` deve ficar fora do `ScrollView`. Não some `insets.top` manualmente ao conteúdo rolável quando a safe area já protege a tela.
 - Ações destrutivas devem ter tom visual de perigo e confirmação. Ações secundárias não competem com o CTA principal.
 - Persistência de sessão no `expo-secure-store` deve usar o adaptador fragmentado e versionado. É proibido gravar diretamente valores grandes de sessão, porque alguns keystores Android rejeitam payloads acima de aproximadamente 2 KB.
+- A lista global de fornecedores é a fonte reutilizável da assessoria. Dentro do evento, a ação canônica é vincular um fornecedor global a `event_vendors`; é proibido criar um dashboard concorrente de "Catálogo" que não alimente a operação real.
+- Tarefas e Cronograma do dia devem oferecer responsáveis humanos por nome (Cliente, Você/assessoria, Fornecedor ou Equipe) e manter texto livre como alternativa. IDs técnicos nunca aparecem na interface.
+- O scanner canônico de recepção é a PWA offline `/recepcao`, com token individual por membro, fila local e sincronização posterior. Web e Android devem abrir/liberar esse fluxo; não duplique a lógica offline dentro do bundle nativo.
+- O Portal do Cliente e as rotas públicas existentes são contratos protegidos. Melhorias de operação interna não podem alterar rotas, tokens, payloads ou políticas do portal sem tarefa e regressão específicas.
+- Quando uma entrega integrada for explicitamente autorizada a agrupar várias sprints, `check:local` continua obrigatório durante o desenvolvimento, mas o smoke físico pode ser executado uma única vez no SHA final que será promovido. Essa exceção precisa estar registrada no relatório e não permite chamar validação por código de smoke físico.
 
 Exemplos de smoke inválido:
 
@@ -395,4 +400,4 @@ O workflow `ci.yml` já instala Deno antes de executar `pnpm test`. O script `te
 
 ---
 
-**Última atualização:** 2026-07-12 — workspace premium de eventos, loader centralizado, safe area fixa e sessão SecureStore fragmentada.
+**Última atualização:** 2026-07-13 — operação de eventos Web/Android, fornecedores reutilizáveis, recepção offline e smoke final agrupado.

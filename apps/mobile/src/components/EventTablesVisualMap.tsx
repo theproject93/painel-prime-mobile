@@ -15,6 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
+import * as Sentry from '@sentry/react-native';
 
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../features/events/eventPresentation';
@@ -36,12 +37,13 @@ type GuestRow = {
 
 type FixtureType =
   | 'altar'
-  | 'pista'
+  | 'photo_totem'
+  | 'cake_table'
+  | 'dance_floor'
   | 'bar'
-  | 'entrada'
-  | 'saida'
-  | 'banheiro'
-  | 'totem';
+  | 'entry_door'
+  | 'exit_door'
+  | 'restroom';
 
 type FixtureConfig = {
   label: string;
@@ -86,7 +88,25 @@ const FIXTURE_LIBRARY: Record<FixtureType, FixtureConfig> = {
     w: 220,
     h: 90,
   },
-  pista: {
+  photo_totem: {
+    label: 'Totem de fotos',
+    color: '#FFFBEB',
+    borderColor: '#FCD34D',
+    iconName: 'camera',
+    iconColor: '#B45309',
+    w: 160,
+    h: 82,
+  },
+  cake_table: {
+    label: 'Mesa de bolo',
+    color: '#FFF1F2',
+    borderColor: '#FDA4AF',
+    iconName: 'cake-variant',
+    iconColor: '#BE123C',
+    w: 180,
+    h: 82,
+  },
+  dance_floor: {
     label: 'Pista de dança',
     color: '#E0E7FF',
     borderColor: '#818CF8',
@@ -104,7 +124,7 @@ const FIXTURE_LIBRARY: Record<FixtureType, FixtureConfig> = {
     w: 165,
     h: 88,
   },
-  entrada: {
+  entry_door: {
     label: 'Porta de entrada',
     color: '#ECFEFF',
     borderColor: '#67E8F9',
@@ -113,7 +133,7 @@ const FIXTURE_LIBRARY: Record<FixtureType, FixtureConfig> = {
     w: 170,
     h: 78,
   },
-  saida: {
+  exit_door: {
     label: 'Porta de saída',
     color: '#F0F9FF',
     borderColor: '#7DD3FC',
@@ -122,7 +142,7 @@ const FIXTURE_LIBRARY: Record<FixtureType, FixtureConfig> = {
     w: 160,
     h: 78,
   },
-  banheiro: {
+  restroom: {
     label: 'Banheiro',
     color: '#F0FDFA',
     borderColor: '#5EEAD4',
@@ -130,15 +150,6 @@ const FIXTURE_LIBRARY: Record<FixtureType, FixtureConfig> = {
     iconColor: '#0F766E',
     w: 155,
     h: 78,
-  },
-  totem: {
-    label: 'Totem de fotos',
-    color: '#FFFBEB',
-    borderColor: '#FCD34D',
-    iconName: 'camera',
-    iconColor: '#B45309',
-    w: 160,
-    h: 82,
   },
 };
 
@@ -163,6 +174,12 @@ function fixtureLabel(item: FixtureItem) {
   const fallback = FIXTURE_LIBRARY[item.type]?.label ?? 'Item';
   const custom = String(item.custom_label ?? '').trim();
   return custom || fallback;
+}
+
+function friendlyMapError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String((error as { message?: unknown }).message ?? '') : '';
+  Sentry.captureException(error instanceof Error ? error : new Error(message || fallback), { tags: { area: 'event_tables_visual_map' } });
+  return message.includes('row-level security') ? 'Você não tem permissão para alterar este mapa.' : fallback;
 }
 
 export function EventTablesVisualMap({
@@ -280,9 +297,9 @@ export function EventTablesVisualMap({
           })
           .filter((row): row is FixtureItem => row !== null);
         setFixtures(rows);
-      } catch {
+      } catch (loadError) {
         if (!alive) return;
-        const message = 'Não foi possível carregar o mapa agora.';
+        const message = friendlyMapError(loadError, 'Não foi possível carregar o mapa agora.');
         setFixtureError(message);
         onError(message);
       } finally {
@@ -408,7 +425,7 @@ export function EventTablesVisualMap({
       .from('event_tables')
       .update({ posx: snapped.x, posy: snapped.y })
       .eq('id', tableId);
-    if (error) onError(error.message);
+    if (error) onError(friendlyMapError(error, 'Não foi possível salvar a posição da mesa.'));
   }
 
   async function persistFixturePosition(fixtureId: string) {
@@ -433,7 +450,7 @@ export function EventTablesVisualMap({
       .from('event_map_fixtures')
       .update({ x: snapped.x, y: snapped.y })
       .eq('id', fixtureId);
-    if (error) onError(error.message);
+    if (error) onError(friendlyMapError(error, 'Não foi possível salvar a posição do item.'));
   }
 
   async function addFixture(type: FixtureType) {
@@ -448,33 +465,21 @@ export function EventTablesVisualMap({
       w: cfg.w,
       h: cfg.h,
     };
-    if (hasCustomLabelColumn) {
-      payload.custom_label = null;
-    }
+    if (hasCustomLabelColumn) payload.custom_label = null;
 
-    const selectFields = hasCustomLabelColumn
+    const selectColumns = hasCustomLabelColumn
       ? 'id,type,x,y,w,h,custom_label'
       : 'id,type,x,y,w,h';
 
-    let res = await supabase
+    const res = await supabase
       .from('event_map_fixtures')
       .insert(payload)
-      .select(selectFields)
-      .single();
+      .select(selectColumns)
+      .maybeSingle();
 
-    if (res.error && hasCustomLabelColumn) {
-      setHasCustomLabelColumn(false);
-      const fallbackPayload = { ...payload };
-      delete fallbackPayload.custom_label;
-      res = await supabase
-        .from('event_map_fixtures')
-        .insert(fallbackPayload)
-        .select('id,type,x,y,w,h')
-        .single();
-    }
-
-    if (res.error) {
-      onError(res.error.message);
+    if (res.error || !res.data) {
+      if (__DEV__) console.warn('event_map_fixtures insert failed', res.error);
+      onError(friendlyMapError(res.error, 'Não foi possível adicionar este item ao mapa. Tente novamente.'));
       return;
     }
 

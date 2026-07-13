@@ -458,6 +458,14 @@ export function VendorsCatalogScreen() {
         </View>
       ) : null}
 
+      <View style={styles.reuseInfoCard}>
+        <Ionicons name="sparkles-outline" size={22} color={colors.gold700} />
+        <View style={styles.reuseInfoText}>
+          <Text style={styles.reuseInfoTitle}>Sua lista de parceiros</Text>
+          <Text style={styles.reuseInfoBody}>Cadastre uma vez os fornecedores que você mais usa. Depois, escolha-os dentro de qualquer evento sem preencher nome e contato novamente.</Text>
+        </View>
+      </View>
+
       <View style={styles.statsRow}>
         <StatCardPremium title="Total" value={vendors.length} icon="people" gradient="royal" subtitle="cadastrados" />
         <StatCardPremium title="Vitrine" value={vendors.filter(v => v.is_visible_in_vitrine).length} icon="eye" gradient="gold" subtitle="visíveis" />
@@ -986,6 +994,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  reuseInfoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginHorizontal: 16, marginBottom: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.gold200, backgroundColor: colors.gold50, padding: 14 },
+  reuseInfoText: { flex: 1 },
+  reuseInfoTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  reuseInfoBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 3 },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
