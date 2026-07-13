@@ -15,6 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
+import * as Sentry from '@sentry/react-native';
 
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../features/events/eventPresentation';
@@ -165,6 +166,12 @@ function fixtureLabel(item: FixtureItem) {
   return custom || fallback;
 }
 
+function friendlyMapError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : typeof error === 'object' && error && 'message' in error ? String((error as { message?: unknown }).message ?? '') : '';
+  Sentry.captureException(error instanceof Error ? error : new Error(message || fallback), { tags: { area: 'event_tables_visual_map' } });
+  return message.includes('row-level security') ? 'Você não tem permissão para alterar este mapa.' : fallback;
+}
+
 export function EventTablesVisualMap({
   eventId,
   tables,
@@ -280,9 +287,9 @@ export function EventTablesVisualMap({
           })
           .filter((row): row is FixtureItem => row !== null);
         setFixtures(rows);
-      } catch {
+      } catch (loadError) {
         if (!alive) return;
-        const message = 'Não foi possível carregar o mapa agora.';
+        const message = friendlyMapError(loadError, 'Não foi possível carregar o mapa agora.');
         setFixtureError(message);
         onError(message);
       } finally {
@@ -408,7 +415,7 @@ export function EventTablesVisualMap({
       .from('event_tables')
       .update({ posx: snapped.x, posy: snapped.y })
       .eq('id', tableId);
-    if (error) onError(error.message);
+    if (error) onError(friendlyMapError(error, 'Não foi possível salvar a posição da mesa.'));
   }
 
   async function persistFixturePosition(fixtureId: string) {
@@ -433,7 +440,7 @@ export function EventTablesVisualMap({
       .from('event_map_fixtures')
       .update({ x: snapped.x, y: snapped.y })
       .eq('id', fixtureId);
-    if (error) onError(error.message);
+    if (error) onError(friendlyMapError(error, 'Não foi possível salvar a posição do item.'));
   }
 
   async function addFixture(type: FixtureType) {
@@ -448,33 +455,16 @@ export function EventTablesVisualMap({
       w: cfg.w,
       h: cfg.h,
     };
-    if (hasCustomLabelColumn) {
-      payload.custom_label = null;
-    }
+    payload.custom_label = null;
 
-    const selectFields = hasCustomLabelColumn
-      ? 'id,type,x,y,w,h,custom_label'
-      : 'id,type,x,y,w,h';
-
-    let res = await supabase
+    const res = await supabase
       .from('event_map_fixtures')
       .insert(payload)
-      .select(selectFields)
-      .single();
+      .select('id,type,x,y,w,h,custom_label')
+      .maybeSingle();
 
-    if (res.error && hasCustomLabelColumn) {
-      setHasCustomLabelColumn(false);
-      const fallbackPayload = { ...payload };
-      delete fallbackPayload.custom_label;
-      res = await supabase
-        .from('event_map_fixtures')
-        .insert(fallbackPayload)
-        .select('id,type,x,y,w,h')
-        .single();
-    }
-
-    if (res.error) {
-      onError(res.error.message);
+    if (res.error || !res.data) {
+      onError(friendlyMapError(res.error, 'Não foi possível adicionar este item ao mapa. Tente novamente.'));
       return;
     }
 

@@ -1,0 +1,13 @@
+Painel Prime Android 1.2.0 (build 6)
+
+Operação de eventos mais simples, visual e completa:
+- Convites com imagem de destaque, envio individual e disparo em massa pelo WhatsApp.
+- Recepção e check-in por QR Code, com acesso seguro da equipe e funcionamento offline.
+- Fornecedores da assessoria reutilizáveis dentro de cada evento.
+- Tarefas organizadas por urgentes, pendentes, atrasadas e concluídas.
+- Cronograma do dia com responsáveis escolhidos entre clientes, assessoria, fornecedores e equipe.
+- Fotos da equipe armazenadas com segurança.
+- Mapa de mesas mais confiável, com erros amigáveis e monitoramento no Sentry.
+- Carregamento premium centralizado entre as áreas do evento.
+
+Versão oficial de testes internos, assinada e distribuída pelo Firebase App Distribution.

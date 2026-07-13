@@ -5,6 +5,8 @@ export type StorageEntityType =
   | 'finance_expense_proof'
   | 'event_document'
   | 'event_photo'
+  | 'event_invite_whatsapp_image'
+  | 'event_team_member_photo'
   | 'crm_portfolio_pdf'
   | 'couple_update_photo';
 

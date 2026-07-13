@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -52,6 +52,8 @@ type EventRow = {
   budget_total: number | null;
   invite_message_template: string | null;
   invite_dress_code: string | null;
+  whatsapp_image_file_id?: string | null;
+  whatsapp_image_url?: string | null;
   created_at: string;
 };
 
@@ -149,17 +151,17 @@ const TAB_KEYS: Record<EventDetailsTab, DataKey[]> = {
   overview: ['expenses', 'payments', 'tasks', 'guests', 'timeline', 'vendors'],
   command: ['expenses', 'payments', 'tasks', 'guests', 'timeline', 'vendors'],
   history: ['tasks', 'guests', 'timeline', 'vendors', 'documents', 'expenses', 'payments'],
-  tasks: ['tasks'],
+  tasks: ['tasks', 'vendors', 'team'],
   budget: ['expenses', 'payments'],
   guests: ['guests'],
-  timeline: ['timeline'],
+  timeline: ['timeline', 'vendors', 'team'],
   vendors: ['vendors'],
   documents: ['documents', 'vendors'],
   notes: ['notes'],
   team: ['team'],
   tables: ['tables', 'guests'],
   invites: ['guests'],
-  catalog: ['vendors'],
+  reception: ['guests', 'team'],
   portal: ['guests'],
   meetings: [],
   presentes: ['guests'],
@@ -234,6 +236,10 @@ export function EventDetailsScreen() {
   });
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingInviteImage, setUploadingInviteImage] = useState(false);
+  const [uploadingTeamMemberId, setUploadingTeamMemberId] = useState<string | null>(null);
+  const [catalogVendors, setCatalogVendors] = useState<any[]>([]);
+  const [loadingCatalogVendors, setLoadingCatalogVendors] = useState(false);
   const [tablesViewMode, setTablesViewMode] = useState<'list' | 'map'>('list');
   const [loadingAiTimelineSuggestions, setLoadingAiTimelineSuggestions] = useState(false);
   const [aiTimelineError, setAiTimelineError] = useState<string | null>(null);
@@ -252,6 +258,7 @@ export function EventDetailsScreen() {
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  const [taskView, setTaskView] = useState<'urgent' | 'pending' | 'overdue' | 'completed'>('pending');
   const [composer, setComposer] = useState<EventDetailsTab | null>(null);
   const [budgetCardDraft, setBudgetCardDraft] = useState('0');
   const [isBudgetCardEditing, setIsBudgetCardEditing] = useState(false);
@@ -289,7 +296,7 @@ export function EventDetailsScreen() {
       setLoadingEvent(true);
       const { data: row, error: e } = await supabase
         .from('events')
-        .select('id,name,couple,couple_photo_url,couple_photo_file_id,event_date,location,status,budget_total,invite_message_template,invite_dress_code,created_at')
+        .select('id,name,couple,couple_photo_url,couple_photo_file_id,event_date,location,status,budget_total,invite_message_template,invite_dress_code,whatsapp_image_file_id,whatsapp_image_url,created_at')
         .eq('id', eventId)
         .single();
       if (e) setError(e.message);
@@ -479,6 +486,44 @@ export function EventDetailsScreen() {
     const couple = (event?.couple ?? '').trim();
     return couple || event?.name || 'Evento';
   }, [event?.couple, event?.name]);
+
+  const assigneeOptions = useMemo(() => {
+    const options: Array<{ value: string; label: string; group: string }> = [];
+    const coupleNames = String(event?.couple ?? '').split(/\s*(?:&|\+|\/|,|\be\b)\s*/i).map((name) => name.trim()).filter(Boolean);
+    coupleNames.forEach((name) => options.push({ value: name, label: `Cliente · ${name}`, group: 'Cliente' }));
+    options.push({ value: 'Você (assessoria)', label: 'Você · Assessoria', group: 'Assessoria' });
+    data.vendors.forEach((vendor) => options.push({ value: String(vendor.name), label: `Fornecedor · ${vendor.name}`, group: 'Fornecedor' }));
+    data.team.forEach((member) => options.push({ value: String(member.name), label: `Equipe · ${member.name}`, group: 'Equipe' }));
+    return options.filter((option, index) => options.findIndex((candidate) => candidate.value.toLocaleLowerCase('pt-BR') === option.value.toLocaleLowerCase('pt-BR')) === index);
+  }, [data.team, data.vendors, event?.couple]);
+
+  useEffect(() => {
+    if (activeTab !== 'vendors' || loadingCatalogVendors) return;
+    setLoadingCatalogVendors(true);
+    void (async () => {
+      try {
+        const { data: rows, error: catalogError } = await supabase.rpc('get_vendors');
+        if (catalogError) setError(catalogError.message);
+        else setCatalogVendors((rows as any[]) ?? []);
+      } finally { setLoadingCatalogVendors(false); }
+    })();
+  }, [activeTab, eventId]);
+
+  const teamPhotoSignature = data.team.map((member) => `${member.id}:${member.photo_file_id ?? ''}:${member.photo_url ?? ''}`).join('|');
+  useEffect(() => {
+    const pending = data.team.filter((member) => member.photo_file_id && !member.photo_url);
+    if (pending.length === 0) return;
+    let cancelled = false;
+    void Promise.all(pending.map(async (member) => {
+      try { return [member.id, await getPrivateFileDownloadUrl(String(member.photo_file_id))] as const; }
+      catch { return [member.id, ''] as const; }
+    })).then((entries) => {
+      if (cancelled) return;
+      const urls = new Map(entries);
+      setData((current) => ({ ...current, team: current.team.map((member) => urls.get(member.id) ? { ...member, photo_url: urls.get(member.id) } : member) }));
+    });
+    return () => { cancelled = true; };
+  }, [teamPhotoSignature]);
 
   const totalPaid = useMemo(() => data.payments.reduce((s, x) => s + Number(x.amount ?? 0), 0), [data.payments]);
   const totalExpenses = useMemo(
@@ -868,7 +913,14 @@ export function EventDetailsScreen() {
     });
     return result;
   }, [data.documents, data.payments]);
-  const visibleTasks = useMemo(() => data.tasks.slice(0, visible.tasks), [data.tasks, visible.tasks]);
+  const filteredTasks = useMemo(() => data.tasks.filter((task) => {
+    if (taskView === 'completed') return Boolean(task.completed);
+    if (task.completed) return false;
+    if (taskView === 'urgent') return task.priority === 'urgent';
+    if (taskView === 'overdue') return isOverdueDate(task.due_date);
+    return task.priority !== 'urgent' && !isOverdueDate(task.due_date);
+  }), [data.tasks, taskView]);
+  const visibleTasks = useMemo(() => filteredTasks.slice(0, visible.tasks), [filteredTasks, visible.tasks]);
   const taskSummary = useMemo(() => summarizeTasks(data.tasks), [data.tasks]);
   const visibleTimeline = useMemo(() => data.timeline.slice(0, visible.timeline), [data.timeline, visible.timeline]);
   const visibleGuests = useMemo(() => filteredGuests.slice(0, visible.guests), [filteredGuests, visible.guests]);
@@ -1268,6 +1320,86 @@ export function EventDetailsScreen() {
     }
   }
 
+  async function pickAndUploadInviteImage() {
+    if (uploadingInviteImage || !event) return;
+    setUploadingInviteImage(true);
+    let nextFileId: string | null = null;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) throw new Error('Permissão de galeria negada.');
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.82 });
+      if (result.canceled || result.assets.length === 0) return;
+      const asset = result.assets[0];
+      const extension = (asset.fileName?.split('.').pop() ?? 'jpg').toLowerCase();
+      const upload = await uploadPrivateAsset({ uri: asset.uri, fileName: `convite-${eventId}-${Date.now()}.${extension}`, contentType: asset.mimeType ?? 'image/jpeg', byteSize: asset.fileSize ?? null, entityType: 'event_invite_whatsapp_image', entityId: eventId });
+      nextFileId = upload.fileId;
+      const signedUrl = await getPrivateFileDownloadUrl(upload.fileId);
+      const { error: updateError } = await supabase.from('events').update({ whatsapp_image_file_id: upload.fileId, whatsapp_image_url: null }).eq('id', eventId);
+      if (updateError) throw new Error(updateError.message);
+      if (event.whatsapp_image_file_id) void deleteStoredFile(event.whatsapp_image_file_id).catch(() => undefined);
+      setEvent((current) => current ? { ...current, whatsapp_image_file_id: upload.fileId, whatsapp_image_url: signedUrl } : current);
+    } catch (uploadError: any) {
+      if (nextFileId) void deleteStoredFile(nextFileId).catch(() => undefined);
+      setError(uploadError?.message ?? 'Não foi possível enviar a imagem do convite.');
+    } finally { setUploadingInviteImage(false); }
+  }
+
+  async function pickAndUploadTeamPhoto(member: any) {
+    if (uploadingTeamMemberId) return;
+    setUploadingTeamMemberId(String(member.id));
+    let nextFileId: string | null = null;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) throw new Error('Permissão de galeria negada.');
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+      if (result.canceled || result.assets.length === 0) return;
+      const asset = result.assets[0];
+      const extension = (asset.fileName?.split('.').pop() ?? 'jpg').toLowerCase();
+      const upload = await uploadPrivateAsset({ uri: asset.uri, fileName: `equipe-${member.id}-${Date.now()}.${extension}`, contentType: asset.mimeType ?? 'image/jpeg', byteSize: asset.fileSize ?? null, entityType: 'event_team_member_photo', entityId: eventId });
+      nextFileId = upload.fileId;
+      const signedUrl = await getPrivateFileDownloadUrl(upload.fileId);
+      const { error: updateError } = await supabase.from('event_team_members').update({ photo_file_id: upload.fileId, photo_url: null }).eq('id', member.id).eq('event_id', eventId);
+      if (updateError) throw new Error(updateError.message);
+      if (member.photo_file_id) void deleteStoredFile(String(member.photo_file_id)).catch(() => undefined);
+      setData((current) => ({ ...current, team: current.team.map((item) => item.id === member.id ? { ...item, photo_file_id: upload.fileId, photo_url: signedUrl } : item) }));
+    } catch (uploadError: any) {
+      if (nextFileId) void deleteStoredFile(nextFileId).catch(() => undefined);
+      setError(uploadError?.message ?? 'Não foi possível enviar a foto da equipe.');
+    } finally { setUploadingTeamMemberId(null); }
+  }
+
+  async function linkCatalogVendor(vendorId: string) {
+    const { error: linkError } = await supabase.rpc('link_catalog_vendor_to_event', { p_event_id: eventId, p_vendor_id: vendorId });
+    if (linkError) throw new Error(linkError.message);
+    await loadTab('vendors', true);
+  }
+
+  async function dispatchWhatsApp(mode: 'bulk' | 'single', guestId?: string) {
+    const baseInviteUrl = process.env.EXPO_PUBLIC_BASE_INVITE_URL || 'https://app.painelprime.com.br/convite';
+    const { data: response, error: invokeError } = await supabase.functions.invoke('whatsapp-rsvp-dispatch', { body: { action: mode, baseInviteUrl, eventId, guestId } });
+    if (invokeError) throw new Error(invokeError.message);
+    const summary = (response as any)?.summary;
+    const sent = Number(summary?.sent ?? summary?.accepted ?? 0);
+    const failed = Number(summary?.failed ?? 0);
+    Alert.alert('Disparo concluído', `${sent} convite(s) enviado(s)${failed ? ` e ${failed} falha(s)` : ''}.`);
+    await loadTab('invites', true);
+  }
+
+  async function sendReceptionAccess(memberId: string) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.');
+    const { error: invokeError } = await supabase.functions.invoke('send-reception-access-link', { body: { accessToken, eventId, memberId } });
+    if (invokeError) throw new Error(invokeError.message);
+    Alert.alert('Acesso enviado', 'O link seguro da recepção foi enviado pelo WhatsApp.');
+  }
+
+  async function resendGuestQr(guestId: string) {
+    const { error: invokeError } = await supabase.functions.invoke('whatsapp-rsvp-review-action', { body: { action: 'resend_qr', eventId, guestId } });
+    if (invokeError) throw new Error(invokeError.message);
+    Alert.alert('QR Code enviado', 'O QR Code de entrada foi reenviado pelo WhatsApp.');
+  }
+
   async function openDocumentLink(documentRow: any) {
     try {
       if (documentRow.file_id) {
@@ -1456,6 +1588,9 @@ export function EventDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.page} edges={['top']}>
+    <Modal visible={loadingTab} transparent animationType="fade" statusBarTranslucent>
+      <View style={styles.loadingOverlay}><PrimeLogoLoader variant="screen" label="Carregando esta área" /></View>
+    </Modal>
     <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]}>
       <Pressable onPress={() => router.push('/eventos')}><Text style={styles.back}>Voltar para eventos</Text></Pressable>
       {!!event && (
@@ -1552,11 +1687,6 @@ export function EventDetailsScreen() {
         onClose={() => setIsModulePickerOpen(false)}
       />
       {!!error && <Text style={styles.err}>{error}</Text>}
-      {loadingTab ? (
-        <View style={styles.loadingModule}>
-          <PrimeLogoLoader variant="inline" label="Carregando esta área" />
-        </View>
-      ) : null}
               <View style={styles.moduleContent}>
       {activeTab === 'overview' && (
         <View style={styles.overviewStack}>
@@ -2044,6 +2174,7 @@ export function EventDetailsScreen() {
           description="O que precisa acontecer para este evento avançar."
           icon="checkbox-outline"
           metrics={[
+            { label: 'Urgentes', value: data.tasks.filter((task) => !task.completed && task.priority === 'urgent').length, tone: 'danger' },
             { label: 'Pendentes', value: taskSummary.pending, tone: taskSummary.pending ? 'gold' : 'neutral' },
             { label: 'Atrasadas', value: taskSummary.overdue, tone: taskSummary.overdue ? 'danger' : 'neutral' },
             { label: 'Concluídas', value: taskSummary.completed, tone: 'success' },
@@ -2051,7 +2182,8 @@ export function EventDetailsScreen() {
           actionLabel="Nova tarefa"
           onAction={() => setComposer('tasks')}
         >
-          <EventSectionTitle title="Lista de tarefas" />
+          <EventFilterChips selected={taskView} onSelect={(value) => setTaskView(value as typeof taskView)} options={[{ value: 'urgent', label: 'Urgentes' }, { value: 'pending', label: 'Pendentes' }, { value: 'overdue', label: 'Atrasadas' }, { value: 'completed', label: 'Concluídas' }]} />
+          <EventSectionTitle title={taskView === 'urgent' ? 'Tarefas urgentes' : taskView === 'overdue' ? 'Tarefas atrasadas' : taskView === 'completed' ? 'Tarefas concluídas' : 'Tarefas pendentes'} />
           {visibleTasks.length === 0 ? (
             <EventEmptyState
               icon="checkmark-done-outline"
@@ -2101,9 +2233,9 @@ export function EventDetailsScreen() {
               ]}
             />
           ))}
-          {data.tasks.length > visible.tasks && (
+          {filteredTasks.length > visible.tasks && (
             <Pressable style={styles.btnGhostWide} onPress={() => showMore('tasks')}>
-              <Text style={styles.smallText}>Mostrar mais ({data.tasks.length - visible.tasks} restantes)</Text>
+              <Text style={styles.smallText}>Mostrar mais ({filteredTasks.length - visible.tasks} restantes)</Text>
             </Pressable>
           )}
           {paging.tasks.hasMore && (
@@ -2117,6 +2249,7 @@ export function EventDetailsScreen() {
             <Text style={styles.formLabel}>Prazo</Text>
             <TextInput style={styles.input} value={newTaskDueDate} onChangeText={setNewTaskDueDate} placeholder="AAAA-MM-DD" />
             <Text style={styles.formLabel}>Responsável (opcional)</Text>
+            <EventFilterChips selected={newTaskAssignee} onSelect={setNewTaskAssignee} options={assigneeOptions.map((option) => ({ value: option.value, label: option.label }))} />
             <TextInput style={styles.input} value={newTaskAssignee} onChangeText={setNewTaskAssignee} placeholder="Nome da pessoa" />
             <Text style={styles.formLabel}>Prioridade</Text>
             <EventFilterChips selected={newTaskPriority} onSelect={(value) => setNewTaskPriority(value as typeof newTaskPriority)} options={[
@@ -2238,10 +2371,10 @@ export function EventDetailsScreen() {
         </EventModuleShell>
       )}
       {activeTab === 'timeline' && (
-        <EventModuleShell title="Cronograma" description="A sequência do grande dia, organizada por horário." icon="calendar-outline" metrics={[
+        <EventModuleShell title="Cronograma do dia" description="O roteiro real do evento, do primeiro fornecedor à despedida." icon="calendar-outline" metrics={[
           { label: 'Atividades', value: data.timeline.length, tone: 'gold' },
           { label: 'Sugestões', value: timelineSuggestions.length, tone: 'info' },
-        ]} actionLabel="Adicionar atividade" onAction={() => setComposer('timeline')}>
+        ]} actionLabel="Adicionar ação do dia" onAction={() => setComposer('timeline')}>
           <View style={styles.cardSoft}>
             <View style={styles.rowBetween}>
               <View style={styles.grow}>
@@ -2264,7 +2397,7 @@ export function EventDetailsScreen() {
               ))
             )}
           </View>
-          <EventSectionTitle title="Roteiro do evento" />
+          <EventSectionTitle title="Roteiro do dia" />
           {visibleTimeline.length === 0 ? <EventEmptyState icon="calendar-outline" title="Cronograma ainda vazio" description="Adicione a primeira atividade ou gere sugestões inteligentes." actionLabel="Adicionar atividade" onAction={() => setComposer('timeline')} /> : null}
           {visibleTimeline.map((t) => (
             <EventListCard key={t.id} title={String(t.activity ?? 'Atividade')} subtitle={t.assignee_name ? `Responsável: ${t.assignee_name}` : 'Sem responsável'} status={t.time || '--:--'} statusTone="gold" actions={[
@@ -2281,10 +2414,12 @@ export function EventDetailsScreen() {
               <Text style={styles.smallText}>{loadingMore === 'timeline' ? 'Carregando...' : 'Carregar mais do servidor'}</Text>
             </Pressable>
           )}
-          <EventFormSheet visible={composer === 'timeline'} title="Adicionar atividade" subtitle="Monte o roteiro em ordem cronológica." onClose={() => setComposer(null)}>
+          <EventFormSheet visible={composer === 'timeline'} title="Adicionar ao cronograma do dia" subtitle="Registre apenas o que acontece no dia deste evento." onClose={() => setComposer(null)}>
             <Text style={styles.formLabel}>Horário</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="HH:MM" />
             <Text style={styles.formLabel}>Atividade</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="Ex.: Entrada dos noivos" />
-            <Text style={styles.formLabel}>Responsável (opcional)</Text><TextInput style={styles.input} value={f.c} onChangeText={(v) => setF((s) => ({ ...s, c: v }))} placeholder="Nome da pessoa" />
+            <Text style={styles.formLabel}>Responsável (opcional)</Text>
+            <EventFilterChips selected={f.c} onSelect={(value) => setF((state) => ({ ...state, c: value }))} options={assigneeOptions.map((option) => ({ value: option.value, label: option.label }))} />
+            <TextInput style={styles.input} value={f.c} onChangeText={(v) => setF((s) => ({ ...s, c: v }))} placeholder="Ou escreva outro nome" />
             <Pressable style={styles.btn} onPress={() => void act(async () => { if (!f.b.trim()) return; const { error: e } = await supabase.from('event_timeline').insert({ event_id: eventId, time: f.a.trim() || '00:00', activity: f.b.trim(), assignee_name: f.c.trim() || null, position: data.timeline.length }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '', b: '', c: '' })); setComposer(null); })}><Text style={styles.btnText}>Adicionar ao cronograma</Text></Pressable>
           </EventFormSheet>
         </EventModuleShell>
@@ -2303,6 +2438,14 @@ export function EventDetailsScreen() {
           actionLabel="Vincular fornecedor"
           onAction={() => setComposer('vendors')}
         >
+          <View style={styles.cardSoft}>
+            <Text style={styles.subtitle}>Seus fornecedores de confiança</Text>
+            <Text style={styles.caption}>Escolha alguém já cadastrado na aba Fornecedores. Os contatos entram neste evento sem você digitar tudo novamente.</Text>
+            {loadingCatalogVendors ? <PrimeLogoLoader label="Carregando fornecedores..." /> : catalogVendors.filter((vendor) => !data.vendors.some((linked) => String(linked.catalog_vendor_id ?? '') === String(vendor.id))).slice(0, 8).map((vendor) => (
+              <EventListCard key={vendor.id} title={String(vendor.name)} subtitle={String(vendor.category || 'Sem categoria')} meta={[vendor.whatsapp || vendor.email || 'Contato não informado']} status="Disponível" statusTone="info" actions={[{ label: 'Usar neste evento', icon: 'add-circle-outline', onPress: () => void act(() => linkCatalogVendor(String(vendor.id)))}]} />
+            ))}
+            {!loadingCatalogVendors && catalogVendors.length === 0 ? <Text style={styles.caption}>Cadastre parceiros na aba Fornecedores para reutilizá-los em todos os eventos.</Text> : null}
+          </View>
           <TextInput style={styles.input} value={vendorSearch} onChangeText={setVendorSearch} placeholder="Buscar por nome/categoria" />
           <EventFilterChips selected={vendorSort} onSelect={(value) => setVendorSort(value as typeof vendorSort)} options={[
             { value: 'name_asc', label: 'A–Z' }, { value: 'name_desc', label: 'Z–A' }, { value: 'status', label: 'Por status' },
@@ -2341,7 +2484,7 @@ export function EventDetailsScreen() {
               <Text style={styles.smallText}>{loadingMore === 'vendors' ? 'Carregando...' : 'Carregar mais do servidor'}</Text>
             </Pressable>
           )}
-          <EventFormSheet visible={composer === 'vendors'} title="Vincular fornecedor" subtitle="Cadastre os dados essenciais para a operação." onClose={() => setComposer(null)}>
+          <EventFormSheet visible={composer === 'vendors'} title="Outro fornecedor" subtitle="Não encontrou na sua lista? Cadastre manualmente para este evento." onClose={() => setComposer(null)}>
             <Text style={styles.formLabel}>Nome</Text>
             <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome do fornecedor" />
             <Text style={styles.formLabel}>Categoria</Text>
@@ -2430,9 +2573,15 @@ export function EventDetailsScreen() {
           <EventSectionTitle title="Equipe escalada" />
           {data.team.length === 0 ? <EventEmptyState icon="people-circle-outline" title="Equipe ainda não definida" description="Adicione cerimonialistas e profissionais responsáveis pela operação." actionLabel="Adicionar pessoa" onAction={() => setComposer('team')} /> : null}
           {data.team.map((m) => (
-            <EventListCard key={m.id} title={String(m.name ?? 'Pessoa da equipe')} subtitle={m.role || 'Função não informada'} meta={[m.phone || 'Telefone não informado']} status="Equipe" statusTone="info" actions={[
-              { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_team_members').delete().eq('id', m.id); if (e) throw new Error(e.message); }) },
-            ]} />
+            <View key={m.id} style={styles.teamMemberWrap}>
+              <Pressable style={styles.teamPhotoButton} onPress={() => void pickAndUploadTeamPhoto(m)} accessibilityLabel={`Adicionar foto de ${m.name}`}>
+                {m.photo_url ? <Image source={{ uri: String(m.photo_url) }} style={styles.teamPhoto} /> : <Ionicons name="camera-outline" size={24} color={colors.gold700} />}
+                <Text style={styles.teamPhotoText}>{uploadingTeamMemberId === String(m.id) ? 'Enviando...' : m.photo_url ? 'Trocar foto' : 'Adicionar foto'}</Text>
+              </Pressable>
+              <View style={styles.formGrow}><EventListCard title={String(m.name ?? 'Pessoa da equipe')} subtitle={m.role || 'Função não informada'} meta={[m.phone || 'Telefone não informado']} status="Equipe" statusTone="info" actions={[
+                { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_team_members').delete().eq('id', m.id); if (e) throw new Error(e.message); }) },
+              ]} /></View>
+            </View>
           ))}
           <EventFormSheet visible={composer === 'team'} title="Adicionar à equipe" onClose={() => setComposer(null)}>
             <Text style={styles.formLabel}>Nome</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome completo" />
@@ -2488,6 +2637,13 @@ export function EventDetailsScreen() {
           { label: 'Confirmados', value: guestSummary.confirmed, tone: 'success' },
           { label: 'Não vão', value: guestSummary.declined, tone: 'danger' },
         ]} actionLabel="Configurar convite" onAction={() => setComposer('invites')}>
+          <View style={styles.inviteHero}>
+            {event?.whatsapp_image_url ? <Image source={{ uri: event.whatsapp_image_url }} style={styles.inviteHeroImage} /> : <View style={styles.inviteHeroPlaceholder}><Ionicons name="image-outline" size={34} color={colors.gold700} /><Text style={styles.caption}>Imagem de destaque do WhatsApp</Text></View>}
+            <View style={styles.inviteHeroActions}>
+              <Pressable style={styles.btnGhost} onPress={() => void pickAndUploadInviteImage()}><Text style={styles.smallText}>{uploadingInviteImage ? 'Enviando...' : event?.whatsapp_image_file_id ? 'Trocar imagem' : 'Adicionar imagem'}</Text></Pressable>
+              <Pressable style={styles.btn} onPress={() => void act(() => dispatchWhatsApp('bulk'), false)}><Text style={styles.btnText}>Disparar pendentes no WhatsApp</Text></Pressable>
+            </View>
+          </View>
           <TextInput style={styles.input} value={guestSearch} onChangeText={setGuestSearch} placeholder="Buscar convidado" />
           <EventFilterChips selected={guestFilter} onSelect={(value) => setGuestFilter(value as typeof guestFilter)} options={[{ value: 'all', label: 'Todos' }, { value: 'pending', label: 'Aguardando' }, { value: 'confirmed', label: 'Confirmados' }, { value: 'declined', label: 'Não vão' }]} />
           <EventSectionTitle title="Convidados" actionLabel="Compartilhar lista" onAction={() => void act(async () => {
@@ -2512,6 +2668,8 @@ export function EventDetailsScreen() {
             const msg = f.inviteTemplate.replaceAll('[Nome do Convidado]', g.name || 'Convidado').replaceAll('[LinkRSVP]', link);
             return (
               <EventListCard key={g.id} title={String(g.name ?? 'Convidado')} subtitle={g.phone || 'Telefone não informado'} status={guestStatusLabel(g.rsvp_status)} statusTone={g.rsvp_status === 'confirmed' ? 'success' : g.rsvp_status === 'declined' ? 'danger' : 'warning'} actions={[
+                { label: 'Enviar WhatsApp', icon: 'logo-whatsapp', onPress: () => void act(() => dispatchWhatsApp('single', String(g.id)), false) },
+                ...(g.rsvp_status === 'confirmed' ? [{ label: 'Reenviar QR Code', icon: 'qr-code-outline' as const, onPress: () => void act(() => resendGuestQr(String(g.id)), false) }] : []),
                 { label: 'Compartilhar convite', icon: 'share-outline', onPress: () => void act(async () => {
                   let token = g.invite_token;
                   if (!token) {
@@ -2546,9 +2704,15 @@ export function EventDetailsScreen() {
         </EventModuleShell>
       )}
 
-      {activeTab === 'catalog' && (
-        <EventModuleShell title="Catálogo" description="Encontre parceiros da sua assessoria para este evento." icon="albums-outline" actionLabel="Ver fornecedores do evento" onAction={() => setActiveTab('vendors')}>
-          <EventEmptyState icon="albums-outline" title="Catálogo da sua assessoria" description="Escolha parceiros no catálogo geral e acompanhe a operação na área Fornecedores." actionLabel="Abrir fornecedores" onAction={() => setActiveTab('vendors')} />
+      {activeTab === 'reception' && (
+        <EventModuleShell title="Recepção e QR Code" description="Controle a entrada dos convidados, mesmo quando a internet estiver instável." icon="qr-code-outline" metrics={[
+          { label: 'Confirmados', value: data.guests.filter((guest) => guest.confirmed || guest.rsvp_status === 'confirmed').length, tone: 'info' },
+          { label: 'Já chegaram', value: data.guests.filter((guest) => Boolean(guest.checked_in_at)).length, tone: 'success' },
+          { label: 'Aguardados', value: Math.max(data.guests.filter((guest) => guest.confirmed || guest.rsvp_status === 'confirmed').length - data.guests.filter((guest) => Boolean(guest.checked_in_at)).length, 0), tone: 'gold' },
+        ]} actionLabel="Abrir scanner" onAction={() => void Linking.openURL(`https://app.painelprime.com.br/recepcao/${eventId}`)}>
+          <View style={styles.receptionHero}><Ionicons name="shield-checkmark-outline" size={38} color={colors.gold700} /><Text style={styles.subtitle}>Scanner offline pronto para a porta</Text><Text style={styles.caption}>A equipe escaneia o QR Code do convidado e as entradas sincronizam assim que a conexão voltar.</Text></View>
+          <EventSectionTitle title="Enviar acesso seguro à equipe" />
+          {data.team.length === 0 ? <EventEmptyState icon="people-outline" title="Adicione a equipe da recepção" description="Cadastre nome e WhatsApp na área Equipe antes de liberar o scanner." actionLabel="Abrir equipe" onAction={() => setActiveTab('team')} /> : data.team.map((member) => <EventListCard key={member.id} title={String(member.name)} subtitle={member.role || 'Equipe'} meta={[member.phone || 'WhatsApp não informado']} status={member.phone ? 'Pronto' : 'Sem telefone'} statusTone={member.phone ? 'success' : 'warning'} actions={member.phone ? [{ label: 'Enviar acesso', icon: 'logo-whatsapp', onPress: () => void act(() => sendReceptionAccess(String(member.id)), false) }] : []} />)}
         </EventModuleShell>
       )}
 
@@ -2960,19 +3124,7 @@ const styles = StyleSheet.create({
   tabText: { color: colors.mutedText, fontWeight: '600', fontSize: 12 },
   tabTextOn: { color: colors.primaryStrong },
   err: { color: colors.dangerText, backgroundColor: colors.dangerBg, borderRadius: 8, padding: 8, textAlign: 'center' },
-  loadingModule: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    alignSelf: 'flex-start',
-  },
-  loadingModuleText: { color: '#1D4ED8', fontSize: 12, fontWeight: '600' },
+  loadingOverlay: { flex: 1, backgroundColor: colors.background, alignItems: 'stretch', justifyContent: 'center' },
   moduleContent: { gap: 10 },
   subtitle: { color: colors.text, fontWeight: '700', fontSize: 15 },
   overviewStack: { gap: 10 },
@@ -3106,6 +3258,15 @@ const styles = StyleSheet.create({
   uploadAction: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.gold200, backgroundColor: colors.gold50, padding: 14 },
   uploadTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
   uploadSubtitle: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  teamMemberWrap: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  teamPhotoButton: { width: 82, minHeight: 92, alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: 14, borderWidth: 1, borderColor: colors.gold200, backgroundColor: colors.gold50, overflow: 'hidden' },
+  teamPhoto: { width: 82, height: 64, resizeMode: 'cover' },
+  teamPhotoText: { color: colors.gold700, fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  inviteHero: { overflow: 'hidden', borderRadius: 18, borderWidth: 1, borderColor: colors.gold200, backgroundColor: colors.gold50 },
+  inviteHeroImage: { width: '100%', height: 170, resizeMode: 'cover' },
+  inviteHeroPlaceholder: { height: 130, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  inviteHeroActions: { gap: 10, padding: 12 },
+  receptionHero: { alignItems: 'center', gap: 8, borderRadius: 18, borderWidth: 1, borderColor: colors.gold200, backgroundColor: colors.gold50, padding: 20 },
   area: { minHeight: 88, textAlignVertical: 'top' },
   btn: { backgroundColor: colors.primary, borderRadius: 8, minHeight: 38, alignItems: 'center', justifyContent: 'center' },
   btnText: { color: colors.primaryTextOn, fontWeight: '700' },
