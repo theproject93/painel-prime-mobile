@@ -6,6 +6,7 @@ import {
   Image as RNImage,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Svg, { Defs, Image as SvgImage, LinearGradient, Mask, Rect, Stop } from 'react-native-svg';
@@ -21,6 +22,7 @@ const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const logo = require('../../assets/splash-icon.png');
 
 export function PrimeLogoLoader({ label = 'Carregando', variant = 'screen' }: PrimeLogoLoaderProps) {
+  const { height: windowHeight } = useWindowDimensions();
   const progress = useRef(new Animated.Value(0)).current;
   const [reduceMotion, setReduceMotion] = useState(false);
   const rawId = useId();
@@ -59,6 +61,7 @@ export function PrimeLogoLoader({ label = 'Carregando', variant = 'screen' }: Pr
       style={[
         styles.root,
         variant === 'screen' && styles.screen,
+        variant === 'screen' && { minHeight: Math.max(420, windowHeight - 150) },
         variant === 'fullscreen' && styles.fullscreen,
         variant === 'inline' && styles.inline,
       ]}

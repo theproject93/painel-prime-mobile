@@ -5,8 +5,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors } from '../theme/colors';
 
 type ScreenProps = PropsWithChildren<{
-  title: string;
-  subtitle: string;
+  title?: string;
+  subtitle?: string;
 }>;
 
 export function Screen({ title, subtitle, children }: ScreenProps) {
@@ -20,10 +20,12 @@ export function Screen({ title, subtitle, children }: ScreenProps) {
           { paddingBottom: insets.bottom + 140 },
         ]}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        </View>
+        {title || subtitle ? (
+          <View style={styles.header}>
+            {title ? <Text style={styles.title}>{title}</Text> : null}
+            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          </View>
+        ) : null}
         {children}
       </ScrollView>
     </SafeAreaView>

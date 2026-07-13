@@ -9,7 +9,9 @@
     ".": "./src/index.ts",
     "./auth": "./src/auth/index.ts",
     "./billingPlans": "./src/billingPlans.ts",
+    "./eventAssignees": "./src/eventAssignees.ts",
     "./navigation": "./src/navigation.ts",
+    "./premiumWorkspace": "./src/premiumWorkspace.ts",
     "./routes": "./src/routes/index.ts",
     "./supabase": "./src/supabase/index.ts"
   },

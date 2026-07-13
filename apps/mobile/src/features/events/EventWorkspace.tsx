@@ -141,6 +141,7 @@ export function EventListCard({
   status,
   statusTone = 'neutral',
   actions,
+  onPress,
 }: {
   title: string;
   subtitle?: string;
@@ -148,10 +149,12 @@ export function EventListCard({
   status?: string;
   statusTone?: Tone;
   actions?: { label: string; onPress: () => void; tone?: 'normal' | 'danger'; icon?: IconName }[];
+  onPress?: () => void;
 }) {
   const tone = TONES[statusTone];
+  const CardRoot = onPress ? Pressable : View;
   return (
-    <View style={styles.listCard}>
+    <CardRoot style={styles.listCard} onPress={onPress} accessibilityRole={onPress ? 'button' : undefined}>
       <View style={styles.listTop}>
         <View style={styles.listCopy}>
           <Text style={styles.listTitle}>{title}</Text>
@@ -199,7 +202,7 @@ export function EventListCard({
           ))}
         </View>
       ) : null}
-    </View>
+    </CardRoot>
   );
 }
 

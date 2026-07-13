@@ -2,6 +2,7 @@ import { Redirect, Slot } from 'expo-router';
 
 import { useAuth } from '../../src/contexts/AuthContext';
 import { PrimeLogoLoader } from '../../src/components/PrimeLogoLoader';
+import { ProfileWelcomeGate } from '../../src/components/ProfileWelcomeGate';
 
 export default function AuthenticatedLayout() {
   const { user, loading } = useAuth();
@@ -14,5 +15,5 @@ export default function AuthenticatedLayout() {
     return <Redirect href="/login" />;
   }
 
-  return <Slot />;
+  return <ProfileWelcomeGate><Slot /></ProfileWelcomeGate>;
 }

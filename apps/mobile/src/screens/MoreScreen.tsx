@@ -21,6 +21,12 @@ type MenuSection = {
 
 const ACCOUNT_ITEMS: MenuItem[] = [
   {
+    label: 'Equipe',
+    description: 'Pessoas, líderes e funções da sua assessoria',
+    icon: 'people-circle-outline',
+    route: '/mais/equipe',
+  },
+  {
     label: 'Perfil',
     description: 'Dados pessoais, contatos e assinatura',
     icon: 'person-outline',
