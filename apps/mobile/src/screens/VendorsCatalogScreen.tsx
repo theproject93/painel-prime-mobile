@@ -1,7 +1,6 @@
 import { useCallback, useId, useMemo, useState } from 'react';
 import {
   Dimensions,
-  FlatList,
   Image,
   Pressable,
   ScrollView,
@@ -31,7 +30,7 @@ import { colors } from '../theme/colors';
 import { gradients, radii, shadows, spacing } from '../theme/colors';
 
 const SCREEN_W = Dimensions.get('window').width;
-const CARD_IMAGE_H = 140;
+const CARD_IMAGE_H = 104;
 
 const CATEGORIES = [
   'Assessoria/Cerimonial',
@@ -441,7 +440,13 @@ export function VendorsCatalogScreen() {
   }
 
   return (
-    <View style={[styles.page, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 140 }]}>
+    <View style={[styles.page, { paddingTop: insets.top + 10 }]}>
+      <ScrollView
+        style={styles.catalogScroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.catalogContent, { paddingBottom: insets.bottom + 140 }]}
+        keyboardShouldPersistTaps="handled"
+      >
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Fornecedores</Text>
@@ -504,15 +509,8 @@ export function VendorsCatalogScreen() {
             actionLabel="Cadastrar fornecedor"
             onAction={openCreateModal}
           />
-        ) : (
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.id}
-            renderItem={renderVendorCard}
-            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 140 }]}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
+        ) : <View style={styles.listContent}>{filtered.map((item) => <View key={item.id}>{renderVendorCard({ item })}</View>)}</View>}
+      </ScrollView>
 
       <Modal visible={isCreateModalOpen} onClose={closeModal} title={editingVendor ? 'Editar fornecedor' : 'Novo fornecedor'}>
         <ScrollView
@@ -869,7 +867,10 @@ const styles = StyleSheet.create({
   },
   vendorCardBody: {
     padding: 12,
+    gap: 8,
   },
+  catalogContent: { flexGrow: 1 },
+  catalogScroll: { flex: 1 },
   contactRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

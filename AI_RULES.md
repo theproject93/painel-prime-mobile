@@ -86,6 +86,7 @@ Os seguintes plugins estão ativos e validados em `apps/mobile/app.json`:
   "expo-asset",
   "expo-router",
   "expo-web-browser",
+  "@react-native-community/datetimepicker",
   ["expo-local-authentication", {
     "faceIDPermission": "Permita que o Painel Prime use o Face ID para proteger seu acesso."
   }],
@@ -296,6 +297,7 @@ O smoke só pode ser marcado como aprovado quando:
 5. `adb logcat` não mostrar `FATAL EXCEPTION`, `RedBox`, `Uncaught`, `Invariant Violation`, `TypeError`, `ReferenceError` ou erro crítico de `ReactNativeJS`.
 6. Para mudanças visuais, capturar screenshot ou registrar evidência observável de cada tela validada.
 7. **Identidade obrigatória do smoke mobile:** O SHA testado no Android (ou Metro) deve ser exatamente o `headRefOid` do PR mobile (`gh pr view <PR> --json headRefOid`). Patches locais não publicados invalidam o smoke do PR. Nesse caso, remova o patch e repita o teste ou entregue-o em PR separado. Para o espelho no monorepo, confirme que os blobs dos arquivos mobile são idênticos.
+8. **Completude operacional:** abrir uma tela, modal ou editor não prova que a funcionalidade passou. Execute ao menos a ação principal do fluxo (por exemplo: adicionar e mover um item, salvar uma alteração, aplicar um filtro ou concluir uma tarefa) e confirme o feedback de sucesso. Controles necessários devem permanecer visíveis no contexto em que a ação acontece.
 
 Quando o dispositivo Android estiver explicitamente indisponível e o responsável autorizar validação somente por código, registre a exceção: rode testes, typecheck, `expo config --type introspect --json`, bundle e checks de encoding, mas não chame isso de smoke físico. O smoke no APK real permanece obrigatório antes da promoção para loja.
 
@@ -306,6 +308,13 @@ Quando o dispositivo Android estiver explicitamente indisponível e o responsáv
 - A biometria é uma trava local sobre uma sessão Supabase válida já persistida pelo SecureStore. É proibido salvar, criptografar, repetir ou reconstruir a senha do usuário.
 - Sessão expirada sempre volta ao login normal. Cancelar biometria mantém o conteúdo sensível coberto e oferece “Usar e-mail e senha”.
 - Preferências biométricas são isoladas por `user.id`; outro usuário nunca herda a configuração do aparelho.
+
+### Primeiro acesso humano no mobile
+
+- Usuário autenticado sem foto de perfil deve concluir o `ProfileWelcomeGate` antes de acessar as abas: nome preferido, foto e confirmação final. Não criar botão de pular que deixe a Home impessoal.
+- Nome e foto pertencem a `user_onboarding_state`; a imagem privada usa `storage-r2` com `entityType=user_avatar`. É proibido guardar imagem em base64, bucket público ou metadado local do aparelho.
+- O gate deve aparecer somente na área autenticada. Falha de rede deve oferecer nova tentativa sem deslogar, perder o nome digitado ou liberar silenciosamente uma experiência incompleta.
+- A Home deve consumir os mesmos `display_name` e `avatar_file_id`; não duplique perfil em tabela ou armazenamento paralelo.
 
 ### Workspace premium dos eventos
 

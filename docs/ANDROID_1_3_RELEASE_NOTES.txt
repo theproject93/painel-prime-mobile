@@ -1,0 +1,17 @@
+Painel Prime Android 1.3.0 (build 7)
+
+Uma experiência mais humana, premium e direta para a rotina da assessoria:
+
+- Início renovado com saudação pessoal, foto de perfil, frase inspiradora e orientação de próximos passos.
+- Primeiro acesso personalizado com nome, foto privada e uma recepção feita para cada assessoria.
+- Resumo e orçamento do evento com valores protegidos, visão do limite reservado, total investido e saldo disponível.
+- Valores em reais com preenchimento formatado e opção de ocultar ou exibir, como em aplicativos bancários.
+- Tarefas com calendário em português, anotações e edição de detalhes ao tocar no card.
+- Diretório reutilizável de equipes, com nome, líder, função, contato e foto privada.
+- Escalação de uma equipe completa ou de pessoas específicas dentro de cada evento.
+- Mapa de mesas reorganizado em editor visual de tela cheia, com ferramentas acessíveis e salvamento automático.
+- Cards globais de fornecedores mais compactos e fáceis de visualizar.
+- Plan IA mostra apenas uma dica rápida por sessão para reduzir interrupções.
+- Carregamento com logotipo centralizado e animação premium.
+
+Esta versão mantém as integrações do Painel Prime com Supabase, Cloudflare R2, Sentry e Firebase App Distribution.

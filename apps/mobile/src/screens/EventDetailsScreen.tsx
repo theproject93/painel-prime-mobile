@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -21,6 +21,7 @@ import { isEventDetailsInitialTab, EVENT_MODULES } from '../navigation/eventRout
 import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
 import { colors } from '../theme/colors';
 import { OptionPickerModal } from '../components/ui/OptionPickerModal';
+import { MoneyField, PrivacyToggle, PtBrDateField, SensitiveMoney, formatBrlInput, parseBrlInput } from '../components/ui/PremiumInputs';
 import {
   EventEmptyState,
   EventFilterChips,
@@ -171,6 +172,7 @@ const TAB_KEYS: Record<EventDetailsTab, DataKey[]> = {
 export function EventDetailsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const pageRef = useRef<ScrollView>(null);
   const params = useLocalSearchParams<{ id?: string | string[]; initialTab?: string | string[] }>();
   const eventId = Array.isArray(params.id) ? params.id[0] ?? '' : params.id ?? '';
   const initialTabParam = Array.isArray(params.initialTab) ? params.initialTab[0] : params.initialTab;
@@ -187,6 +189,10 @@ export function EventDetailsScreen() {
       icon: t.icon,
     }));
   }, []);
+
+  useEffect(() => {
+    requestAnimationFrame(() => pageRef.current?.scrollTo({ y: 0, animated: false }));
+  }, [activeTab]);
   const [event, setEvent] = useState<EventRow | null>(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const [loadingTab, setLoadingTab] = useState(false);
@@ -238,6 +244,7 @@ export function EventDetailsScreen() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingInviteImage, setUploadingInviteImage] = useState(false);
   const [uploadingTeamMemberId, setUploadingTeamMemberId] = useState<string | null>(null);
+  const [teamDirectory, setTeamDirectory] = useState<any[]>([]);
   const [catalogVendors, setCatalogVendors] = useState<any[]>([]);
   const [loadingCatalogVendors, setLoadingCatalogVendors] = useState(false);
   const [tablesViewMode, setTablesViewMode] = useState<'list' | 'map'>('list');
@@ -256,6 +263,9 @@ export function EventDetailsScreen() {
   const [newVendorArrival, setNewVendorArrival] = useState('');
   const [newVendorDone, setNewVendorDone] = useState('');
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
+  const [newTaskNotes, setNewTaskNotes] = useState('');
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [taskNotesDraft, setTaskNotesDraft] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
   const [taskView, setTaskView] = useState<'urgent' | 'pending' | 'overdue' | 'completed'>('pending');
@@ -263,6 +273,7 @@ export function EventDetailsScreen() {
   const [budgetCardDraft, setBudgetCardDraft] = useState('0');
   const [isBudgetCardEditing, setIsBudgetCardEditing] = useState(false);
   const [savingBudgetCard, setSavingBudgetCard] = useState(false);
+  const [hideFinancialValues, setHideFinancialValues] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [editingBasics, setEditingBasics] = useState(false);
   const [savingBasics, setSavingBasics] = useState(false);
@@ -509,9 +520,9 @@ export function EventDetailsScreen() {
     })();
   }, [activeTab, eventId]);
 
-  const teamPhotoSignature = data.team.map((member) => `${member.id}:${member.photo_file_id ?? ''}:${member.photo_url ?? ''}`).join('|');
+  const teamPhotoSignature = data.team.map((member) => `${member.id}:${member.photo_file_id ?? ''}`).join('|');
   useEffect(() => {
-    const pending = data.team.filter((member) => member.photo_file_id && !member.photo_url);
+    const pending = data.team.filter((member) => member.photo_file_id);
     if (pending.length === 0) return;
     let cancelled = false;
     void Promise.all(pending.map(async (member) => {
@@ -523,7 +534,20 @@ export function EventDetailsScreen() {
       setData((current) => ({ ...current, team: current.team.map((member) => urls.get(member.id) ? { ...member, photo_url: urls.get(member.id) } : member) }));
     });
     return () => { cancelled = true; };
-  }, [teamPhotoSignature]);
+  }, [activeTab, teamPhotoSignature]);
+
+  useEffect(() => {
+    if (activeTab !== 'team') return;
+    void (async () => {
+      const db = supabase as any;
+      const [teamsRes, membersRes] = await Promise.all([
+        db.from('advisor_teams').select('id,name,leader_member_id').order('created_at'),
+        db.from('advisor_team_members').select('id,team_id,name,role,phone,email,photo_file_id,photo_url').order('created_at'),
+      ]);
+      if (teamsRes.error || membersRes.error) return;
+      setTeamDirectory((teamsRes.data ?? []).map((team: any) => ({ ...team, members: (membersRes.data ?? []).filter((member: any) => member.team_id === team.id) })));
+    })();
+  }, [activeTab]);
 
   const totalPaid = useMemo(() => data.payments.reduce((s, x) => s + Number(x.amount ?? 0), 0), [data.payments]);
   const totalExpenses = useMemo(
@@ -556,7 +580,7 @@ export function EventDetailsScreen() {
   );
 
   useEffect(() => {
-    setBudgetCardDraft(String(Number(event?.budget_total ?? 0)));
+    setBudgetCardDraft(formatBrlInput(Math.round(Number(event?.budget_total ?? 0) * 100)));
     setIsBudgetCardEditing(false);
   }, [event?.id, event?.budget_total]);
 
@@ -1428,8 +1452,28 @@ export function EventDetailsScreen() {
     await Promise.all([loadKey('tables', 'reset'), loadKey('guests', 'reset')]);
   }
 
+  async function assignDirectoryMembers(team: any, members: any[]) {
+    if (!members.length) return;
+    const existingIds = new Set(data.team.map((item) => String(item.advisor_team_member_id ?? '')));
+    const rows = members.filter((member) => !existingIds.has(String(member.id))).map((member) => ({
+      event_id: eventId,
+      advisor_team_id: team.id,
+      advisor_team_member_id: member.id,
+      team_name: team.name,
+      is_leader: team.leader_member_id === member.id,
+      name: member.name,
+      role: member.role || 'Assessoria',
+      phone: member.phone || null,
+      photo_file_id: member.photo_file_id || null,
+      photo_url: null,
+    }));
+    if (!rows.length) return;
+    const { error: insertError } = await (supabase as any).from('event_team_members').insert(rows);
+    if (insertError) throw new Error(insertError.message);
+  }
+
   async function saveBudgetFromCard() {
-    const next = Number(budgetCardDraft);
+    const next = parseBrlInput(budgetCardDraft);
     if (!Number.isFinite(next) || savingBudgetCard) return;
     setSavingBudgetCard(true);
     setError('');
@@ -1591,7 +1635,7 @@ export function EventDetailsScreen() {
     <Modal visible={loadingTab} transparent animationType="fade" statusBarTranslucent>
       <View style={styles.loadingOverlay}><PrimeLogoLoader variant="screen" label="Carregando esta área" /></View>
     </Modal>
-    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]}>
+    <ScrollView ref={pageRef} style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]}>
       <Pressable onPress={() => router.push('/eventos')}><Text style={styles.back}>Voltar para eventos</Text></Pressable>
       {!!event && (
         <View style={styles.heroCard}>
@@ -1710,76 +1754,96 @@ export function EventDetailsScreen() {
             </View>
           ) : null}
 
-          <View style={styles.metricGrid}>
-            <Pressable style={[styles.metricCard, styles.metricPink]} onPress={() => openModule('history')}>
-              <Text style={styles.metricLabel}>Contagem regressiva</Text>
-              <Text style={styles.metricValue}>
-                {!event?.event_date ? '-' : daysRemaining <= 0 ? 'Hoje' : `${daysRemaining} dias`}
-              </Text>
-              <Text style={styles.metricSub}>Abrir histórico</Text>
-            </Pressable>
-
-            <View style={[styles.metricCard, styles.metricGold]}>
-              <Text style={styles.metricLabel}>Orçamento e financeiro</Text>
-              {isBudgetCardEditing ? (
-                <View style={styles.metricEditWrap}>
-                  <TextInput
-                    style={styles.input}
-                    value={budgetCardDraft}
-                    onChangeText={setBudgetCardDraft}
-                    placeholder="Orçamento total"
-                    keyboardType="numeric"
-                  />
-                  <View style={styles.rowBtns}>
-                    <Pressable
-                      style={styles.btnGhost}
-                      onPress={() => {
-                        setBudgetCardDraft(String(budgetTotal));
-                        setIsBudgetCardEditing(false);
-                      }}
-                    >
-                      <Text style={styles.smallText}>Cancelar</Text>
-                    </Pressable>
-                    <Pressable style={styles.btn} onPress={() => void saveBudgetFromCard()}>
-                      <Text style={styles.btnText}>{savingBudgetCard ? 'Salvando...' : 'Salvar'}</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              ) : (
-                <>
-                  <Text style={styles.metricValue}>{brl(budgetTotal)}</Text>
-                  <Text style={styles.metricSub}>Gasto: {brl(totalExpenses)}</Text>
-                  <View style={styles.metricTrack}>
-                    <View style={[styles.metricFill, { width: `${Math.max(0, budgetProgress)}%`, backgroundColor: '#D4AF37' }]} />
-                  </View>
-                  <View style={styles.rowBtns}>
-                    <Pressable style={styles.btnGhost} onPress={() => setIsBudgetCardEditing(true)}>
-                      <Text style={styles.smallText}>Editar</Text>
-                    </Pressable>
-                    <Pressable style={styles.btnGhost} onPress={() => openModule('budget')}>
-                      <Text style={styles.smallText}>Abrir financeiro</Text>
-                    </Pressable>
-                  </View>
-                </>
-              )}
+          <View style={styles.overviewFinanceHero}>
+            <View style={styles.overviewFinanceHeader}>
+              <View style={styles.formGrow}>
+                <Text style={styles.overviewEyebrow}>Planejamento financeiro</Text>
+                <Text style={styles.overviewFinanceTitle}>Quanto o casal pode investir</Text>
+                <Text style={styles.overviewFinanceCopy}>O valor total reservado para realizar este evento.</Text>
+              </View>
+              <PrivacyToggle hidden={hideFinancialValues} onPress={() => setHideFinancialValues((value) => !value)} />
             </View>
 
-            <Pressable style={[styles.metricCard, styles.metricBlue]} onPress={() => openModule('tasks')}>
-              <Text style={styles.metricLabel}>Checklist</Text>
-              <Text style={styles.metricValue}>
-                {completedTasks}/{data.tasks.length}
-              </Text>
-              <View style={styles.metricTrack}>
-                <View style={[styles.metricFill, { width: `${Math.max(0, tasksProgress)}%`, backgroundColor: '#2563EB' }]} />
+            {isBudgetCardEditing ? (
+              <View style={styles.metricEditWrap}>
+                <Text style={styles.overviewFinanceCopy}>Informe o limite que o casal separou para realizar este evento.</Text>
+                <MoneyField value={budgetCardDraft} onChangeValue={setBudgetCardDraft} />
+                <View style={styles.overviewFinanceActions}>
+                  <Pressable
+                    style={styles.overviewSecondaryAction}
+                    onPress={() => {
+                      setBudgetCardDraft(formatBrlInput(Math.round(budgetTotal * 100)));
+                      setIsBudgetCardEditing(false);
+                    }}
+                  >
+                    <Text style={styles.overviewSecondaryActionText}>Cancelar</Text>
+                  </Pressable>
+                  <Pressable style={styles.overviewPrimaryAction} onPress={() => void saveBudgetFromCard()}>
+                    <Text style={styles.overviewPrimaryActionText}>{savingBudgetCard ? 'Salvando...' : 'Salvar valor'}</Text>
+                  </Pressable>
+                </View>
               </View>
-            </Pressable>
+            ) : (
+              <>
+                <SensitiveMoney value={budgetTotal} hidden={hideFinancialValues} />
+                <View style={styles.overviewMoneySplit}>
+                  <View style={styles.overviewMoneyItem}>
+                    <View style={[styles.overviewMoneyDot, styles.overviewMoneyDotSpent]} />
+                    <View style={styles.formGrow}>
+                      <Text style={styles.overviewMoneyLabel}>Já investido</Text>
+                      <Text style={styles.overviewMoneyValue}>{hideFinancialValues ? 'R$ ••••••' : brl(totalExpenses)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.overviewMoneyDivider} />
+                  <View style={styles.overviewMoneyItem}>
+                    <View style={[styles.overviewMoneyDot, styles.overviewMoneyDotAvailable]} />
+                    <View style={styles.formGrow}>
+                      <Text style={styles.overviewMoneyLabel}>Ainda disponível</Text>
+                      <Text style={styles.overviewMoneyValue}>{hideFinancialValues ? 'R$ ••••••' : brl(budgetTotal - totalExpenses)}</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.overviewProgressTrack}>
+                  <View style={[styles.overviewProgressFill, { width: `${Math.max(0, budgetProgress)}%` }]} />
+                </View>
+                <View style={styles.overviewFinanceActions}>
+                  <Pressable style={styles.overviewSecondaryAction} onPress={() => setIsBudgetCardEditing(true)}>
+                    <Ionicons name="pencil-outline" size={16} color={colors.text} accessible={false} />
+                    <Text style={styles.overviewSecondaryActionText}>Editar limite</Text>
+                  </Pressable>
+                  <Pressable style={styles.overviewPrimaryAction} onPress={() => openModule('budget')}>
+                    <Text style={styles.overviewPrimaryActionText}>Ver orçamento</Text>
+                    <Ionicons name="arrow-forward" size={16} color="#FFFFFF" accessible={false} />
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
 
-            <Pressable style={[styles.metricCard, styles.metricGreen]} onPress={() => openModule('guests')}>
-              <Text style={styles.metricLabel}>Convidados</Text>
-              <Text style={styles.metricValue}>
-                {guestSummary.confirmed}/{guestSummary.total}
-              </Text>
-              <Text style={styles.metricSub}>Pendentes: {guestSummary.pending}</Text>
+          <View style={styles.overviewSectionHeading}>
+            <View>
+              <Text style={styles.overviewSectionTitle}>O que merece atenção</Text>
+              <Text style={styles.caption}>Atalhos para conduzir o evento sem se perder.</Text>
+            </View>
+          </View>
+          <View style={styles.overviewActionStack}>
+            <Pressable style={styles.overviewActionCard} onPress={() => openModule('history')}>
+              <View style={[styles.overviewActionIcon, styles.overviewActionIconRose]}><Ionicons name="calendar-outline" size={20} color="#BE185D" accessible={false} /></View>
+              <View style={styles.formGrow}><Text style={styles.overviewActionTitle}>Data do evento</Text><Text style={styles.overviewActionCopy}>Acompanhe o histórico e os marcos importantes.</Text></View>
+              <View style={styles.overviewActionValueWrap}><Text style={styles.overviewActionValue}>{!event?.event_date ? '-' : daysRemaining <= 0 ? 'Hoje' : daysRemaining}</Text><Text style={styles.overviewActionUnit}>{daysRemaining > 0 ? 'dias' : ''}</Text></View>
+              <Ionicons name="chevron-forward" size={18} color={colors.mutedText} accessible={false} />
+            </Pressable>
+            <Pressable style={styles.overviewActionCard} onPress={() => openModule('tasks')}>
+              <View style={[styles.overviewActionIcon, styles.overviewActionIconBlue]}><Ionicons name="checkmark-done-outline" size={20} color="#1D4ED8" accessible={false} /></View>
+              <View style={styles.formGrow}><Text style={styles.overviewActionTitle}>Tarefas do evento</Text><Text style={styles.overviewActionCopy}>{data.tasks.length - completedTasks} pendente{data.tasks.length - completedTasks === 1 ? '' : 's'} para organizar.</Text></View>
+              <Text style={styles.overviewActionCounter}>{completedTasks}/{data.tasks.length}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.mutedText} accessible={false} />
+            </Pressable>
+            <Pressable style={styles.overviewActionCard} onPress={() => openModule('guests')}>
+              <View style={[styles.overviewActionIcon, styles.overviewActionIconGreen]}><Ionicons name="people-outline" size={20} color="#047857" accessible={false} /></View>
+              <View style={styles.formGrow}><Text style={styles.overviewActionTitle}>Lista de convidados</Text><Text style={styles.overviewActionCopy}>{guestSummary.pending} aguardando confirmação.</Text></View>
+              <Text style={styles.overviewActionCounter}>{guestSummary.confirmed}/{guestSummary.total}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.mutedText} accessible={false} />
             </Pressable>
           </View>
 
@@ -2197,6 +2261,8 @@ export function EventDetailsScreen() {
             <EventListCard
               key={t.id}
               title={String(t.text ?? 'Tarefa')}
+              subtitle={t.notes ? String(t.notes) : 'Toque para ver detalhes e anotações'}
+              onPress={() => { setSelectedTask(t); setTaskNotesDraft(String(t.notes ?? '')); }}
               status={t.completed ? 'Concluída' : priorityLabel(t.priority)}
               statusTone={t.completed ? 'success' : t.priority === 'urgent' ? 'danger' : t.priority === 'high' ? 'warning' : 'gold'}
               meta={[
@@ -2247,7 +2313,9 @@ export function EventDetailsScreen() {
             <Text style={styles.formLabel}>O que precisa ser feito?</Text>
             <TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Ex.: Confirmar horário com o buffet" />
             <Text style={styles.formLabel}>Prazo</Text>
-            <TextInput style={styles.input} value={newTaskDueDate} onChangeText={setNewTaskDueDate} placeholder="AAAA-MM-DD" />
+            <PtBrDateField value={newTaskDueDate} onChange={setNewTaskDueDate} />
+            <Text style={styles.formLabel}>Anotações (opcional)</Text>
+            <TextInput style={[styles.input, styles.area]} value={newTaskNotes} onChangeText={setNewTaskNotes} placeholder="Contexto, combinações ou detalhes importantes" multiline />
             <Text style={styles.formLabel}>Responsável (opcional)</Text>
             <EventFilterChips selected={newTaskAssignee} onSelect={setNewTaskAssignee} options={assigneeOptions.map((option) => ({ value: option.value, label: option.label }))} />
             <TextInput style={styles.input} value={newTaskAssignee} onChangeText={setNewTaskAssignee} placeholder="Nome da pessoa" />
@@ -2257,14 +2325,27 @@ export function EventDetailsScreen() {
             ]} />
             <Pressable style={styles.btn} onPress={() => void act(async () => {
               if (!f.a.trim()) return;
-              const { error: e } = await supabase.from('event_tasks').insert({ event_id: eventId, text: f.a.trim(), completed: false, due_date: newTaskDueDate.trim() || null, priority: newTaskPriority, assignee_name: newTaskAssignee.trim() || null, position: data.tasks.length });
+              const { error: e } = await supabase.from('event_tasks').insert({ event_id: eventId, text: f.a.trim(), notes: newTaskNotes.trim() || null, completed: false, due_date: newTaskDueDate.trim() || null, priority: newTaskPriority, assignee_name: newTaskAssignee.trim() || null, position: data.tasks.length } as never);
               if (e) throw new Error(e.message);
               setF((s) => ({ ...s, a: '' }));
               setNewTaskDueDate('');
+              setNewTaskNotes('');
               setNewTaskAssignee('');
               setNewTaskPriority('normal');
               setComposer(null);
             })}><Text style={styles.btnText}>Adicionar tarefa</Text></Pressable>
+          </EventFormSheet>
+          <EventFormSheet visible={Boolean(selectedTask)} title={String(selectedTask?.text ?? 'Detalhes da tarefa')} subtitle="Revise as informações sem perder o contexto." onClose={() => setSelectedTask(null)}>
+            <Text style={styles.formLabel}>Anotações</Text>
+            <TextInput style={[styles.input, styles.area]} value={taskNotesDraft} onChangeText={setTaskNotesDraft} placeholder="Adicione informações úteis para quem vai executar" multiline />
+            <Text style={styles.formLabel}>Prazo</Text>
+            <PtBrDateField value={String(selectedTask?.due_date ?? '').slice(0, 10)} onChange={(value) => setSelectedTask((current: any) => ({ ...current, due_date: value }))} />
+            <Pressable style={styles.btn} onPress={() => void act(async () => {
+              if (!selectedTask?.id) return;
+              const { error: e } = await supabase.from('event_tasks').update({ notes: taskNotesDraft.trim() || null, due_date: selectedTask.due_date || null } as never).eq('id', selectedTask.id);
+              if (e) throw new Error(e.message);
+              setSelectedTask(null);
+            })}><Text style={styles.btnText}>Salvar alterações</Text></Pressable>
           </EventFormSheet>
         </EventModuleShell>
       )}
@@ -2275,12 +2356,14 @@ export function EventDetailsScreen() {
           description="Despesas e pagamentos ligados a este evento."
           icon="wallet-outline"
           metrics={[
-            { label: 'Previsto', value: brl(filteredExpenses.reduce((sum, expense) => sum + Number(expense.value ?? 0), 0)), tone: 'gold' },
-            { label: 'Pago', value: brl(filteredPayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0)), tone: 'success' },
+            { label: 'Orçamento disponível', value: hideFinancialValues ? 'R$ ••••••' : brl(budgetTotal), tone: 'gold' },
+            { label: 'Investido', value: hideFinancialValues ? 'R$ ••••••' : brl(totalExpenses), tone: 'neutral' },
+            { label: 'Ainda disponível', value: hideFinancialValues ? 'R$ ••••••' : brl(budgetTotal - totalExpenses), tone: budgetTotal - totalExpenses < 0 ? 'danger' : 'success' },
           ]}
           actionLabel="Nova despesa"
           onAction={() => setComposer('budget')}
         >
+          <View style={styles.financePrivacyRow}><View style={styles.formGrow}><Text style={styles.subtitle}>Dinheiro do evento</Text><Text style={styles.caption}>Valores que o casal reservou e já comprometeu.</Text></View><PrivacyToggle hidden={hideFinancialValues} onPress={() => setHideFinancialValues((value) => !value)} /></View>
           {budgetVendorFilter ? (
             <Pressable style={styles.activeFilter} onPress={() => setBudgetVendorFilter('')} accessibilityRole="button">
               <Text style={styles.activeFilterText}>Fornecedor: {data.vendors.find((vendor) => String(vendor.id) === budgetVendorFilter)?.name ?? 'selecionado'}</Text>
@@ -2308,9 +2391,9 @@ export function EventDetailsScreen() {
           ))}
           <EventFormSheet visible={composer === 'budget'} title="Nova despesa" subtitle="Vincule ao fornecedor quando fizer sentido." onClose={() => setComposer(null)}>
             <Text style={styles.formLabel}>Descrição</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Ex.: Buffet" />
-            <Text style={styles.formLabel}>Valor</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="0,00" keyboardType="decimal-pad" />
+            <Text style={styles.formLabel}>Valor</Text><MoneyField value={f.b} onChangeValue={(v) => setF((s) => ({ ...s, b: v }))} />
             {data.vendors.length ? <><Text style={styles.formLabel}>Fornecedor (opcional)</Text><EventFilterChips selected={budgetVendorInput} onSelect={setBudgetVendorInput} options={[{ value: '', label: 'Sem vínculo' }, ...data.vendors.map((vendor) => ({ value: String(vendor.id), label: String(vendor.name) }))]} /></> : null}
-            <Pressable style={styles.btn} onPress={() => void act(async () => { const val = Number(f.b.replace(',', '.')); if (!f.a.trim() || !Number.isFinite(val)) return; const { error: e } = await supabase.from('event_expenses').insert({ event_id: eventId, name: f.a.trim(), value: val, color: '#D4AF37', status: 'pending', vendor_id: budgetVendorInput || null }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '', b: '' })); setBudgetVendorInput(''); setComposer(null); })}><Text style={styles.btnText}>Adicionar despesa</Text></Pressable>
+            <Pressable style={styles.btn} onPress={() => void act(async () => { const val = parseBrlInput(f.b); if (!f.a.trim() || !Number.isFinite(val) || val <= 0) return; const { error: e } = await supabase.from('event_expenses').insert({ event_id: eventId, name: f.a.trim(), value: val, color: '#D4AF37', status: 'pending', vendor_id: budgetVendorInput || null }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '', b: '' })); setBudgetVendorInput(''); setComposer(null); })}><Text style={styles.btnText}>Adicionar despesa</Text></Pressable>
           </EventFormSheet>
           <EventFormSheet visible={Boolean(paymentExpenseId)} title="Registrar pagamento" subtitle={filteredExpenses.find((expense) => String(expense.id) === paymentExpenseId)?.name} onClose={() => setPaymentExpenseId(null)}>
             <Text style={styles.formLabel}>Forma de pagamento</Text><EventFilterChips selected={budgetPaymentMethod} onSelect={(value) => setBudgetPaymentMethod(value as PaymentMethod)} options={[{ value: 'pix', label: 'Pix' }, { value: 'dinheiro', label: 'Dinheiro' }, { value: 'credito', label: 'Crédito' }, { value: 'debito', label: 'Débito' }, { value: 'transferencia', label: 'Transferência' }]} />
@@ -2570,6 +2653,7 @@ export function EventDetailsScreen() {
 
       {activeTab === 'team' && (
         <EventModuleShell title="Equipe" description="Quem faz o evento acontecer e como entrar em contato." icon="people-circle-outline" metrics={[{ label: 'Pessoas', value: data.team.length, tone: 'info' }]} actionLabel="Adicionar à equipe" onAction={() => setComposer('team')}>
+          {teamDirectory.length ? <View style={styles.directoryBlock}><View style={styles.rowBetween}><View style={styles.formGrow}><Text style={styles.subtitle}>Sua equipe cadastrada</Text><Text style={styles.caption}>Escale uma equipe completa ou apenas uma pessoa, sem redigitar dados.</Text></View><Pressable onPress={() => router.push('/mais/equipe' as never)}><Text style={styles.directoryLink}>Gerenciar</Text></Pressable></View>{teamDirectory.map((team) => <View key={team.id} style={styles.directoryTeam}><View style={styles.rowBetween}><View style={styles.formGrow}><Text style={styles.directoryTitle}>{team.name}</Text><Text style={styles.caption}>{team.members.length} pessoa{team.members.length === 1 ? '' : 's'}</Text></View><Pressable style={styles.directoryAssign} onPress={() => void act(() => assignDirectoryMembers(team, team.members))}><Text style={styles.directoryAssignText}>Escalar equipe</Text></Pressable></View><View style={styles.directoryPeople}>{team.members.map((member: any) => <Pressable key={member.id} style={styles.directoryPerson} onPress={() => void act(() => assignDirectoryMembers(team, [member]))}><Ionicons name="add-circle-outline" size={16} color={colors.gold700} /><Text style={styles.directoryPersonText}>{member.name}</Text></Pressable>)}</View></View>)}</View> : <Pressable style={styles.directoryEmpty} onPress={() => router.push('/mais/equipe' as never)}><Ionicons name="people-circle-outline" size={25} color={colors.gold700} /><View style={styles.formGrow}><Text style={styles.directoryTitle}>Cadastre sua equipe fixa</Text><Text style={styles.caption}>Depois, escale as pessoas certas em poucos toques.</Text></View><Ionicons name="chevron-forward" size={18} color={colors.mutedText} /></Pressable>}
           <EventSectionTitle title="Equipe escalada" />
           {data.team.length === 0 ? <EventEmptyState icon="people-circle-outline" title="Equipe ainda não definida" description="Adicione cerimonialistas e profissionais responsáveis pela operação." actionLabel="Adicionar pessoa" onAction={() => setComposer('team')} /> : null}
           {data.team.map((m) => (
@@ -3082,6 +3166,18 @@ function fmt(v: string | null | undefined) {
 }
 
 const styles = StyleSheet.create({
+  financeTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  financePrivacyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.border },
+  directoryBlock: { gap: 10, padding: 14, borderRadius: 17, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.border },
+  directoryTeam: { gap: 9, padding: 12, borderRadius: 14, backgroundColor: colors.card },
+  directoryTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  directoryLink: { color: colors.primaryStrong, fontSize: 12, fontWeight: '800' },
+  directoryAssign: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, backgroundColor: '#111318' },
+  directoryAssignText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
+  directoryPeople: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  directoryPerson: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: colors.border },
+  directoryPersonText: { color: colors.text, fontSize: 11, fontWeight: '700' },
+  directoryEmpty: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 14, borderRadius: 16, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.border },
   page: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, gap: 10, paddingBottom: 28 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
@@ -3154,6 +3250,53 @@ const styles = StyleSheet.create({
   metricTrack: { height: 8, borderRadius: 999, backgroundColor: '#E5E7EB', overflow: 'hidden' },
   metricFill: { height: '100%', borderRadius: 999 },
   metricEditWrap: { gap: 8 },
+  overviewFinanceHero: {
+    gap: 14,
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: '#E8C75A',
+    borderWidth: 1,
+    borderColor: '#D2AC31',
+    shadowColor: '#8A6812',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  overviewFinanceHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  overviewEyebrow: { color: '#6F5310', fontSize: 10, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
+  overviewFinanceTitle: { color: '#15120B', fontSize: 18, lineHeight: 23, fontWeight: '900' },
+  overviewFinanceCopy: { color: '#5D4B20', fontSize: 12, lineHeight: 17, fontWeight: '600' },
+  overviewMoneySplit: { flexDirection: 'row', padding: 12, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.62)' },
+  overviewMoneyItem: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  overviewMoneyDivider: { width: 1, marginHorizontal: 10, backgroundColor: 'rgba(63,48,11,0.16)' },
+  overviewMoneyDot: { width: 9, height: 9, borderRadius: 5 },
+  overviewMoneyDotSpent: { backgroundColor: '#E11D48' },
+  overviewMoneyDotAvailable: { backgroundColor: '#059669' },
+  overviewMoneyLabel: { color: '#6B5A31', fontSize: 10, fontWeight: '700' },
+  overviewMoneyValue: { color: '#17140C', fontSize: 12, fontWeight: '900' },
+  overviewProgressTrack: { height: 7, overflow: 'hidden', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.62)' },
+  overviewProgressFill: { height: '100%', borderRadius: 999, backgroundColor: '#111318' },
+  overviewFinanceActions: { flexDirection: 'row', gap: 10 },
+  overviewSecondaryAction: { flex: 1, minHeight: 44, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(31,26,13,0.18)', backgroundColor: 'rgba(255,255,255,0.62)' },
+  overviewSecondaryActionText: { color: '#17140C', fontSize: 12, fontWeight: '800' },
+  overviewPrimaryAction: { flex: 1, minHeight: 44, flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#111318' },
+  overviewPrimaryActionText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  overviewSectionHeading: { marginTop: 6, paddingHorizontal: 2 },
+  overviewSectionTitle: { color: colors.text, fontSize: 17, fontWeight: '900' },
+  overviewActionStack: { gap: 8 },
+  overviewActionCard: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 12, borderRadius: 17, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  overviewActionIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  overviewActionIconRose: { backgroundColor: '#FCE7F3' },
+  overviewActionIconBlue: { backgroundColor: '#DBEAFE' },
+  overviewActionIconGreen: { backgroundColor: '#D1FAE5' },
+  overviewActionTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
+  overviewActionCopy: { color: colors.mutedText, fontSize: 11, lineHeight: 15 },
+  overviewActionValueWrap: { alignItems: 'flex-end' },
+  overviewActionValue: { color: colors.text, fontSize: 18, fontWeight: '900' },
+  overviewActionUnit: { color: colors.mutedText, fontSize: 9, fontWeight: '700' },
+  overviewActionCounter: { color: colors.text, fontSize: 14, fontWeight: '900' },
   chartRows: { gap: 8 },
   chartRowItem: { gap: 4 },
   chartLabel: { color: colors.text, fontSize: 12, fontWeight: '600' },

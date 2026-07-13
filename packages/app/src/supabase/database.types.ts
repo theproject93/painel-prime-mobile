@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admin_audit_logs: {
@@ -49,6 +74,111 @@ export type Database = {
           {
             foreignKeyName: "admin_audit_logs_target_tenant_id_fkey"
             columns: ["target_tenant_id"]
+            isOneToOne: false
+            referencedRelation: "platform_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      advisor_team_members: {
+        Row: {
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          photo_file_id: string | null
+          photo_url: string | null
+          role: string | null
+          team_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          photo_file_id?: string | null
+          photo_url?: string | null
+          role?: string | null
+          team_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          photo_file_id?: string | null
+          photo_url?: string | null
+          role?: string | null
+          team_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advisor_team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "advisor_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "advisor_team_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "platform_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      advisor_teams: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          leader_member_id: string | null
+          name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          leader_member_id?: string | null
+          name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          leader_member_id?: string | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advisor_teams_leader_member_id_fkey"
+            columns: ["leader_member_id"]
+            isOneToOne: false
+            referencedRelation: "advisor_team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "advisor_teams_tenant_id_fkey"
+            columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "platform_tenants"
             referencedColumns: ["id"]
@@ -748,6 +878,9 @@ export type Database = {
           created_at: string
           id: string
           position: number
+          priority: string
+          source: string | null
+          source_playbook_id: string | null
           tenant_id: string | null
           title: string
           updated_at: string
@@ -759,6 +892,9 @@ export type Database = {
           created_at?: string
           id?: string
           position?: number
+          priority?: string
+          source?: string | null
+          source_playbook_id?: string | null
           tenant_id?: string | null
           title: string
           updated_at?: string
@@ -770,6 +906,9 @@ export type Database = {
           created_at?: string
           id?: string
           position?: number
+          priority?: string
+          source?: string | null
+          source_playbook_id?: string | null
           tenant_id?: string | null
           title?: string
           updated_at?: string
@@ -781,6 +920,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_client_checklist_items_source_playbook_id_fkey"
+            columns: ["source_playbook_id"]
+            isOneToOne: false
+            referencedRelation: "crm_playbooks"
             referencedColumns: ["id"]
           },
           {
@@ -798,6 +944,7 @@ export type Database = {
           advisor_ip: string | null
           advisor_name: string | null
           advisor_signature_hash_sha256: string | null
+          advisor_signature_image: string | null
           advisor_signed_at: string | null
           advisor_user_agent: string | null
           advisor_user_id: string | null
@@ -821,6 +968,8 @@ export type Database = {
           signed_at: string | null
           source_data_snapshot: Json
           status: string
+          template_id: string | null
+          template_version: number | null
           template_version_id: string | null
           tenant_id: string | null
           title: string
@@ -832,6 +981,7 @@ export type Database = {
           advisor_ip?: string | null
           advisor_name?: string | null
           advisor_signature_hash_sha256?: string | null
+          advisor_signature_image?: string | null
           advisor_signed_at?: string | null
           advisor_user_agent?: string | null
           advisor_user_id?: string | null
@@ -855,6 +1005,8 @@ export type Database = {
           signed_at?: string | null
           source_data_snapshot?: Json
           status?: string
+          template_id?: string | null
+          template_version?: number | null
           template_version_id?: string | null
           tenant_id?: string | null
           title: string
@@ -866,6 +1018,7 @@ export type Database = {
           advisor_ip?: string | null
           advisor_name?: string | null
           advisor_signature_hash_sha256?: string | null
+          advisor_signature_image?: string | null
           advisor_signed_at?: string | null
           advisor_user_agent?: string | null
           advisor_user_id?: string | null
@@ -889,6 +1042,8 @@ export type Database = {
           signed_at?: string | null
           source_data_snapshot?: Json
           status?: string
+          template_id?: string | null
+          template_version?: number | null
           template_version_id?: string | null
           tenant_id?: string | null
           title?: string
@@ -908,6 +1063,13 @@ export type Database = {
             columns: ["pdf_file_id"]
             isOneToOne: false
             referencedRelation: "stored_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_client_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "crm_document_templates"
             referencedColumns: ["id"]
           },
           {
@@ -1059,6 +1221,7 @@ export type Database = {
           lost_reason: string | null
           name: string
           notes: string | null
+          papermark_score: number | null
           phone: string | null
           stage: string
           stage_changed_at: string | null
@@ -1079,6 +1242,7 @@ export type Database = {
           lost_reason?: string | null
           name: string
           notes?: string | null
+          papermark_score?: number | null
           phone?: string | null
           stage?: string
           stage_changed_at?: string | null
@@ -1099,6 +1263,7 @@ export type Database = {
           lost_reason?: string | null
           name?: string
           notes?: string | null
+          papermark_score?: number | null
           phone?: string | null
           stage?: string
           stage_changed_at?: string | null
@@ -1237,6 +1402,161 @@ export type Database = {
           },
         ]
       }
+      crm_data_rooms: {
+        Row: {
+          client_id: string
+          created_at: string
+          external_dataroom_id: string | null
+          external_link_id: string | null
+          external_provider: string
+          external_url: string | null
+          id: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          external_dataroom_id?: string | null
+          external_link_id?: string | null
+          external_provider?: string
+          external_url?: string | null
+          id?: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          external_dataroom_id?: string | null
+          external_link_id?: string | null
+          external_provider?: string
+          external_url?: string | null
+          id?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_data_rooms_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_data_rooms_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "platform_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_dataroom_documents: {
+        Row: {
+          added_at: string
+          dataroom_id: string
+          document_id: string | null
+          document_type: string
+          external_document_id: string | null
+          external_provider: string
+          id: string
+          title: string
+        }
+        Insert: {
+          added_at?: string
+          dataroom_id: string
+          document_id?: string | null
+          document_type: string
+          external_document_id?: string | null
+          external_provider?: string
+          id?: string
+          title: string
+        }
+        Update: {
+          added_at?: string
+          dataroom_id?: string
+          document_id?: string | null
+          document_type?: string
+          external_document_id?: string | null
+          external_provider?: string
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_dataroom_documents_dataroom_id_fkey"
+            columns: ["dataroom_id"]
+            isOneToOne: false
+            referencedRelation: "crm_data_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_dataroom_documents_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "crm_client_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_document_templates: {
+        Row: {
+          content: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          tenant_id: string
+          type: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          tenant_id: string
+          type: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          tenant_id?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_document_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "platform_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_followup_rules: {
         Row: {
           active: boolean
@@ -1327,6 +1647,116 @@ export type Database = {
           },
         ]
       }
+      crm_integration_alerts: {
+        Row: {
+          acknowledged: boolean
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          consecutive_failures: number
+          created_at: string
+          event_type: string
+          id: string
+          last_error_message: string | null
+          last_failed_at: string
+          provider: string
+          tenant_id: string
+        }
+        Insert: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          consecutive_failures?: number
+          created_at?: string
+          event_type: string
+          id?: string
+          last_error_message?: string | null
+          last_failed_at?: string
+          provider: string
+          tenant_id: string
+        }
+        Update: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          consecutive_failures?: number
+          created_at?: string
+          event_type?: string
+          id?: string
+          last_error_message?: string | null
+          last_failed_at?: string
+          provider?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_integration_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "platform_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_integration_events: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          error_message: string | null
+          event_type: string
+          external_id: string | null
+          id: string
+          metadata: Json
+          payload_hash: string
+          provider: string
+          status: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          external_id?: string | null
+          id?: string
+          metadata?: Json
+          payload_hash: string
+          provider: string
+          status: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          external_id?: string | null
+          id?: string
+          metadata?: Json
+          payload_hash?: string
+          provider?: string
+          status?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_integration_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_integration_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "platform_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_lead_interactions: {
         Row: {
           channel: string
@@ -1377,6 +1807,116 @@ export type Database = {
           },
           {
             foreignKeyName: "crm_lead_interactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "platform_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_playbook_executions: {
+        Row: {
+          action_executed: boolean
+          action_result: Json | null
+          client_id: string | null
+          error_message: string | null
+          executed_at: string
+          id: string
+          playbook_id: string
+          trigger_data: Json | null
+          trigger_event: string | null
+        }
+        Insert: {
+          action_executed?: boolean
+          action_result?: Json | null
+          client_id?: string | null
+          error_message?: string | null
+          executed_at?: string
+          id?: string
+          playbook_id: string
+          trigger_data?: Json | null
+          trigger_event?: string | null
+        }
+        Update: {
+          action_executed?: boolean
+          action_result?: Json | null
+          client_id?: string | null
+          error_message?: string | null
+          executed_at?: string
+          id?: string
+          playbook_id?: string
+          trigger_data?: Json | null
+          trigger_event?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_playbook_executions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_playbook_executions_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "crm_playbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_playbooks: {
+        Row: {
+          action_config: Json
+          action_type: string
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          last_run_at: string | null
+          name: string
+          run_count: number
+          tenant_id: string
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_config?: Json
+          action_type: string
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          name: string
+          run_count?: number
+          tenant_id: string
+          trigger_config?: Json
+          trigger_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_config?: Json
+          action_type?: string
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          run_count?: number
+          tenant_id?: string
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_playbooks_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "platform_tenants"
@@ -1702,6 +2242,7 @@ export type Database = {
           external_recipient_id: string | null
           external_signing_token: string | null
           external_status: string | null
+          external_url: string | null
           hash_validacao_sha256: string | null
           id: string
           ip_cliente: string | null
@@ -1732,6 +2273,7 @@ export type Database = {
           external_recipient_id?: string | null
           external_signing_token?: string | null
           external_status?: string | null
+          external_url?: string | null
           hash_validacao_sha256?: string | null
           id?: string
           ip_cliente?: string | null
@@ -1762,6 +2304,7 @@ export type Database = {
           external_recipient_id?: string | null
           external_signing_token?: string | null
           external_status?: string | null
+          external_url?: string | null
           hash_validacao_sha256?: string | null
           id?: string
           ip_cliente?: string | null
@@ -1846,6 +2389,75 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      crm_webhook_retry_queue: {
+        Row: {
+          acknowledged: boolean
+          client_id: string | null
+          created_at: string
+          event_type: string
+          headers: Json
+          id: string
+          last_error: string | null
+          last_retried_at: string | null
+          max_retries: number
+          next_retry_at: string
+          payload: Json
+          provider: string
+          retry_count: number
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          acknowledged?: boolean
+          client_id?: string | null
+          created_at?: string
+          event_type: string
+          headers?: Json
+          id?: string
+          last_error?: string | null
+          last_retried_at?: string | null
+          max_retries?: number
+          next_retry_at?: string
+          payload: Json
+          provider: string
+          retry_count?: number
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          acknowledged?: boolean
+          client_id?: string | null
+          created_at?: string
+          event_type?: string
+          headers?: Json
+          id?: string
+          last_error?: string | null
+          last_retried_at?: string | null
+          max_retries?: number
+          next_retry_at?: string
+          payload?: Json
+          provider?: string
+          retry_count?: number
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_webhook_retry_queue_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_webhook_retry_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "platform_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       document_extraction_drafts: {
         Row: {
@@ -3194,6 +3806,7 @@ export type Database = {
           due_date: string | null
           event_id: string
           id: string
+          notes: string | null
           position: number
           priority: string | null
           tenant_id: string | null
@@ -3207,6 +3820,7 @@ export type Database = {
           due_date?: string | null
           event_id: string
           id?: string
+          notes?: string | null
           position?: number
           priority?: string | null
           tenant_id?: string | null
@@ -3220,6 +3834,7 @@ export type Database = {
           due_date?: string | null
           event_id?: string
           id?: string
+          notes?: string | null
           position?: number
           priority?: string | null
           tenant_id?: string | null
@@ -3245,38 +3860,70 @@ export type Database = {
       event_team_members: {
         Row: {
           address: string | null
+          advisor_team_id: string | null
+          advisor_team_member_id: string | null
           created_at: string
           created_by: string | null
           event_id: string
           id: string
+          is_leader: boolean
           name: string
           phone: string | null
+          photo_file_id: string | null
+          photo_url: string | null
           role: string | null
+          team_name: string | null
           tenant_id: string | null
         }
         Insert: {
           address?: string | null
+          advisor_team_id?: string | null
+          advisor_team_member_id?: string | null
           created_at?: string
           created_by?: string | null
           event_id: string
           id?: string
+          is_leader?: boolean
           name: string
           phone?: string | null
+          photo_file_id?: string | null
+          photo_url?: string | null
           role?: string | null
+          team_name?: string | null
           tenant_id?: string | null
         }
         Update: {
           address?: string | null
+          advisor_team_id?: string | null
+          advisor_team_member_id?: string | null
           created_at?: string
           created_by?: string | null
           event_id?: string
           id?: string
+          is_leader?: boolean
           name?: string
           phone?: string | null
+          photo_file_id?: string | null
+          photo_url?: string | null
           role?: string | null
+          team_name?: string | null
           tenant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "event_team_members_advisor_team_id_fkey"
+            columns: ["advisor_team_id"]
+            isOneToOne: false
+            referencedRelation: "advisor_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_team_members_advisor_team_member_id_fkey"
+            columns: ["advisor_team_member_id"]
+            isOneToOne: false
+            referencedRelation: "advisor_team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_team_members_event_id_fkey"
             columns: ["event_id"]
@@ -3446,6 +4093,7 @@ export type Database = {
       }
       event_vendors: {
         Row: {
+          catalog_vendor_id: string | null
           category: string
           contract_document_id: string | null
           control_token: string | null
@@ -3467,6 +4115,7 @@ export type Database = {
           tenant_id: string | null
         }
         Insert: {
+          catalog_vendor_id?: string | null
           category: string
           contract_document_id?: string | null
           control_token?: string | null
@@ -3488,6 +4137,7 @@ export type Database = {
           tenant_id?: string | null
         }
         Update: {
+          catalog_vendor_id?: string | null
           category?: string
           contract_document_id?: string | null
           control_token?: string | null
@@ -3509,6 +4159,13 @@ export type Database = {
           tenant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "event_vendors_catalog_vendor_id_fkey"
+            columns: ["catalog_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_vendors_contract_document_id_fkey"
             columns: ["contract_document_id"]
@@ -3542,6 +4199,7 @@ export type Database = {
       event_website_settings: {
         Row: {
           address: string | null
+          allow_client_editing: boolean
           canva_dns_configured_at: string | null
           canva_dns_error: string | null
           canva_dns_reverted_at: string | null
@@ -3552,10 +4210,12 @@ export type Database = {
           color_secondary: string
           end_time: string | null
           event_id: string
+          features_option: string
           font_body: string
           font_family: string
           font_title: string
           gift_pix_description: string | null
+          gift_pix_key: string | null
           gift_pix_qr_file_id: string | null
           gift_pix_qr_image_url: string | null
           hero_image_url: string | null
@@ -3578,6 +4238,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          allow_client_editing?: boolean
           canva_dns_configured_at?: string | null
           canva_dns_error?: string | null
           canva_dns_reverted_at?: string | null
@@ -3588,10 +4249,12 @@ export type Database = {
           color_secondary?: string
           end_time?: string | null
           event_id: string
+          features_option?: string
           font_body?: string
           font_family?: string
           font_title?: string
           gift_pix_description?: string | null
+          gift_pix_key?: string | null
           gift_pix_qr_file_id?: string | null
           gift_pix_qr_image_url?: string | null
           hero_image_url?: string | null
@@ -3614,6 +4277,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          allow_client_editing?: boolean
           canva_dns_configured_at?: string | null
           canva_dns_error?: string | null
           canva_dns_reverted_at?: string | null
@@ -3624,10 +4288,12 @@ export type Database = {
           color_secondary?: string
           end_time?: string | null
           event_id?: string
+          features_option?: string
           font_body?: string
           font_family?: string
           font_title?: string
           gift_pix_description?: string | null
+          gift_pix_key?: string | null
           gift_pix_qr_file_id?: string | null
           gift_pix_qr_image_url?: string | null
           hero_image_url?: string | null
@@ -3949,6 +4615,7 @@ export type Database = {
           confirmed_at: string | null
           created_at: string
           event_id: string
+          guest_message: string | null
           guest_name: string
           guest_phone: string
           id: string
@@ -3959,6 +4626,7 @@ export type Database = {
           confirmed_at?: string | null
           created_at?: string
           event_id: string
+          guest_message?: string | null
           guest_name: string
           guest_phone: string
           id?: string
@@ -3969,6 +4637,7 @@ export type Database = {
           confirmed_at?: string | null
           created_at?: string
           event_id?: string
+          guest_message?: string | null
           guest_name?: string
           guest_phone?: string
           id?: string
@@ -5460,6 +6129,7 @@ export type Database = {
       user_onboarding_state: {
         Row: {
           auth_provider: string
+          avatar_file_id: string | null
           avatar_url: string | null
           created_at: string
           display_name: string | null
@@ -5475,6 +6145,7 @@ export type Database = {
         }
         Insert: {
           auth_provider?: string
+          avatar_file_id?: string | null
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
@@ -5490,6 +6161,7 @@ export type Database = {
         }
         Update: {
           auth_provider?: string
+          avatar_file_id?: string | null
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
@@ -5721,6 +6393,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      webhook_logs: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string | null
+          id: string
+          payload: Json | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          payload?: Json | null
+          status?: string | null
+        }
+        Relationships: []
       }
       whatsapp_rsvp_messages: {
         Row: {
@@ -6027,6 +6726,7 @@ export type Database = {
           confirmed_at: string
           created_at: string
           event_id: string
+          guest_message: string
           guest_name: string
           guest_phone: string
           id: string
@@ -6062,6 +6762,7 @@ export type Database = {
       create_gift_intention_by_slug: {
         Args: {
           p_amount: number
+          p_guest_message?: string
           p_guest_name: string
           p_guest_phone: string
           p_slug: string
@@ -6070,6 +6771,7 @@ export type Database = {
           amount: number
           event_id: string
           gift_pix_description: string
+          gift_pix_key: string
           gift_pix_qr_image_url: string
           intention_id: string
           status: string
@@ -6087,6 +6789,20 @@ export type Database = {
           created_at: string
           id: string
           message: string
+        }[]
+      }
+      create_template_version: {
+        Args: {
+          p_content: string
+          p_description: string
+          p_name: string
+          p_tenant_id: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: {
+          id: string
+          version: number
         }[]
       }
       current_user_access_role: {
@@ -6124,6 +6840,19 @@ export type Database = {
       }
       delete_event_cascade: { Args: { p_event_id: string }; Returns: boolean }
       delete_vendor: { Args: { p_vendor_id: string }; Returns: boolean }
+      enqueue_webhook_retry: {
+        Args: {
+          p_client_id?: string
+          p_error?: string
+          p_event_type: string
+          p_headers?: Json
+          p_payload: Json
+          p_provider: string
+          p_tenant_id?: string
+          p_user_id?: string
+        }
+        Returns: string
+      }
       ensure_crm_playbook_defaults: { Args: never; Returns: number }
       event_access_resolution: {
         Args: { p_event_id: string; p_user_id?: string }
@@ -6144,6 +6873,18 @@ export type Database = {
       export_crm_client_data: { Args: { p_client_id: string }; Returns: Json }
       generate_crm_followups: { Args: never; Returns: number }
       generate_crm_stage_playbook_tasks: { Args: never; Returns: number }
+      get_active_template: {
+        Args: { p_tenant_id: string; p_type: string }
+        Returns: {
+          content: string
+          created_at: string
+          description: string
+          id: string
+          name: string
+          type: string
+          version: number
+        }[]
+      }
       get_admin_help_tickets: {
         Args: never
         Returns: {
@@ -6194,6 +6935,22 @@ export type Database = {
         }
         Returns: Json
       }
+      get_billing_access_context: {
+        Args: { p_user_id?: string }
+        Returns: Json
+      }
+      get_client_data_room: {
+        Args: { p_client_id: string }
+        Returns: {
+          created_at: string
+          documents: Json
+          external_dataroom_id: string
+          external_link_id: string
+          external_url: string
+          id: string
+          status: string
+        }[]
+      }
       get_client_event_invitation_experience_by_token: {
         Args: { p_event_id: string; p_token: string }
         Returns: {
@@ -6215,13 +6972,16 @@ export type Database = {
           event_location: string
           event_name: string
           event_type: string
+          features_option: string
           font_body: string
           font_title: string
           gift_pix_description: string
+          gift_pix_key: string
           gift_pix_qr_file_id: string
           gift_pix_qr_image_url: string
           hero_image_url: string
           hero_position: string
+          invite_hosting_mode: string
           is_published: boolean
           maps_url: string
           overlay_intensity: number
@@ -6241,9 +7001,22 @@ export type Database = {
           confirmed_at: string
           created_at: string
           event_id: string
+          guest_message: string
           guest_name: string
           guest_phone: string
           id: string
+          status: string
+        }[]
+      }
+      get_client_integration_events: {
+        Args: { p_client_id: string }
+        Returns: {
+          created_at: string
+          error_message: string
+          event_type: string
+          id: string
+          metadata: Json
+          provider: string
           status: string
         }[]
       }
@@ -6340,6 +7113,7 @@ export type Database = {
           confirmed_at: string
           created_at: string
           event_id: string
+          guest_message: string
           guest_name: string
           guest_phone: string
           id: string
@@ -6482,6 +7256,7 @@ export type Database = {
         Args: { p_slug: string }
         Returns: {
           address: string
+          allow_client_editing: boolean
           color_primary: string
           color_secondary: string
           end_time: string
@@ -6490,12 +7265,17 @@ export type Database = {
           event_location: string
           event_name: string
           event_type: string
+          features_option: string
           font_body: string
           font_title: string
           gift_pix_description: string
+          gift_pix_key: string
+          gift_pix_qr_file_id: string
           gift_pix_qr_image_url: string
           hero_image_url: string
           hero_position: string
+          invitation_experience: Json
+          invite_hosting_mode: string
           is_published: boolean
           maps_url: string
           overlay_intensity: number
@@ -6607,6 +7387,37 @@ export type Database = {
         Returns: undefined
       }
       is_super_admin: { Args: { p_user_id?: string }; Returns: boolean }
+      link_catalog_vendor_to_event: {
+        Args: { p_event_id: string; p_vendor_id: string }
+        Returns: {
+          catalog_vendor_id: string | null
+          category: string
+          contract_document_id: string | null
+          control_token: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          event_id: string
+          expected_arrival_time: string | null
+          expected_done_time: string | null
+          id: string
+          import_draft_id: string | null
+          import_review_reason: string | null
+          import_review_status: string
+          is_self_vendor: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          status: string | null
+          tenant_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "event_vendors"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       mark_current_user_soft_email_verified: { Args: never; Returns: Json }
       match_plan_ia_knowledge: {
         Args: {
@@ -6878,6 +7689,67 @@ export type Database = {
           }
         | {
             Args: {
+              p_address?: string
+              p_color_secondary?: string
+              p_end_time?: string
+              p_event_id: string
+              p_features_option?: string
+              p_font_body?: string
+              p_font_title?: string
+              p_gift_pix_description?: string
+              p_gift_pix_key?: string
+              p_gift_pix_qr_file_id?: string
+              p_gift_pix_qr_image_url?: string
+              p_hero_image_url?: string
+              p_hero_position?: string
+              p_invite_hosting_mode?: string
+              p_is_published?: boolean
+              p_maps_url?: string
+              p_overlay_intensity?: number
+              p_sections_visible?: Json
+              p_site_name?: string
+              p_start_time?: string
+              p_story_image_url?: string
+              p_story_text?: string
+              p_subdomain_slug?: string
+              p_theme?: string
+              p_theme_color?: string
+              p_token: string
+            }
+            Returns: {
+              address: string
+              color_primary: string
+              color_secondary: string
+              end_time: string
+              event_date: string
+              event_id: string
+              event_location: string
+              event_name: string
+              event_type: string
+              features_option: string
+              font_body: string
+              font_title: string
+              gift_pix_description: string
+              gift_pix_key: string
+              gift_pix_qr_file_id: string
+              gift_pix_qr_image_url: string
+              hero_image_url: string
+              hero_position: string
+              invite_hosting_mode: string
+              is_published: boolean
+              maps_url: string
+              overlay_intensity: number
+              recent_messages: Json
+              sections_visible: Json
+              start_time: string
+              story_image_url: string
+              story_text: string
+              subdomain_slug: string
+              theme: string
+            }[]
+          }
+        | {
+            Args: {
               p_event_id: string
               p_font_family?: string
               p_hero_image_url?: string
@@ -6895,6 +7767,67 @@ export type Database = {
               theme_color: string
             }[]
           }
+      upsert_client_event_website_settings_v2_by_token: {
+        Args: {
+          p_address?: string
+          p_color_secondary?: string
+          p_end_time?: string
+          p_event_id: string
+          p_features_option?: string
+          p_font_body?: string
+          p_font_title?: string
+          p_gift_pix_description?: string
+          p_gift_pix_key?: string
+          p_gift_pix_qr_file_id?: string
+          p_gift_pix_qr_image_url?: string
+          p_hero_image_url?: string
+          p_hero_position?: string
+          p_invite_hosting_mode?: string
+          p_is_published?: boolean
+          p_maps_url?: string
+          p_overlay_intensity?: number
+          p_sections_visible?: Json
+          p_site_name?: string
+          p_start_time?: string
+          p_story_image_url?: string
+          p_story_text?: string
+          p_subdomain_slug?: string
+          p_theme?: string
+          p_theme_color?: string
+          p_token: string
+        }
+        Returns: {
+          address: string
+          color_primary: string
+          color_secondary: string
+          end_time: string
+          event_date: string
+          event_id: string
+          event_location: string
+          event_name: string
+          event_type: string
+          features_option: string
+          font_body: string
+          font_title: string
+          gift_pix_description: string
+          gift_pix_key: string
+          gift_pix_qr_file_id: string
+          gift_pix_qr_image_url: string
+          hero_image_url: string
+          hero_position: string
+          invite_hosting_mode: string
+          is_published: boolean
+          maps_url: string
+          overlay_intensity: number
+          recent_messages: Json
+          sections_visible: Json
+          start_time: string
+          story_image_url: string
+          story_text: string
+          subdomain_slug: string
+          theme: string
+        }[]
+      }
       upsert_client_guest_group_by_token: {
         Args: {
           p_group_id?: string
@@ -6969,6 +7902,10 @@ export type Database = {
       }
       user_can_access_vendor_catalog: {
         Args: { p_user_id?: string; p_vendor_id: string }
+        Returns: boolean
+      }
+      user_has_dashboard_access: {
+        Args: { p_user_id?: string }
         Returns: boolean
       }
       user_has_tenant_membership: {
@@ -7123,6 +8060,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       client_document_status: ["draft", "ready", "approved", "archived"],

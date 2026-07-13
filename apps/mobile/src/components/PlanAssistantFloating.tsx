@@ -788,6 +788,7 @@ export function PlanAssistantFloating() {
   const isOpenRef = useRef(false);
   const fabBoundsRef = useRef<{ minX: number; maxX: number; minY: number; maxY: number } | null>(null);
   const fabPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const proactiveShownThisSessionRef = useRef(false);
 
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -1210,7 +1211,7 @@ export function PlanAssistantFloating() {
           const nowMs = Date.now();
           const visibleHints = selected.filter(
             (hint) => !shouldTemporarilyHideHint(nextMap[hint.id], nowMs),
-          );
+          ).slice(0, 1);
           setHints(visibleHints);
           setHintStateMap(nextMap);
           setProactiveHint((previous) => {
@@ -1242,7 +1243,7 @@ export function PlanAssistantFloating() {
   }, [currentPath, userId]);
 
   useEffect(() => {
-    if (!userId || isOpen || hints.length === 0) return;
+    if (!userId || isOpen || hints.length === 0 || proactiveShownThisSessionRef.current) return;
     const top = hints[0];
     const state = hintStateMap[top.id];
     const now = Date.now();
@@ -1254,6 +1255,7 @@ export function PlanAssistantFloating() {
 
     setProactiveHint(top);
     setShowProactiveBubble(true);
+    proactiveShownThisSessionRef.current = true;
     void registerHintAction(top, 'shown');
   }, [hintStateMap, hints, isOpen, registerHintAction, userId]);
 

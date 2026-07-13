@@ -7,6 +7,8 @@ export type StorageEntityType =
   | 'event_photo'
   | 'event_invite_whatsapp_image'
   | 'event_team_member_photo'
+  | 'advisor_team_member_photo'
+  | 'user_avatar'
   | 'crm_portfolio_pdf'
   | 'couple_update_photo';
 

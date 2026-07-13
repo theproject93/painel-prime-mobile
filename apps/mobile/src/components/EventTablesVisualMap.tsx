@@ -20,6 +20,7 @@ import * as Sentry from '@sentry/react-native';
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../features/events/eventPresentation';
 import { colors } from '../theme/colors';
+import { PrimeLogoLoader } from './PrimeLogoLoader';
 
 type TableRow = {
   id: string;
@@ -73,6 +74,8 @@ type Props = {
   onReload: () => Promise<void>;
   onTablePositionLocalUpdate?: (tableId: string, x: number, y: number) => void;
 };
+
+type AutosaveState = 'saved' | 'saving' | 'error';
 
 const MAP_WIDTH = 1200;
 const MAP_HEIGHT = 780;
@@ -207,6 +210,7 @@ export function EventTablesVisualMap({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasCustomLabelColumn, setHasCustomLabelColumn] = useState(true);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [autosaveState, setAutosaveState] = useState<AutosaveState>('saved');
   const mapCaptureRef = useRef<View>(null);
   const exportingPdfRef = useRef(false);
   const lastPdfExportAtRef = useRef(0);
@@ -421,11 +425,17 @@ export function EventTablesVisualMap({
       [tableId]: snapped,
     }));
     onTablePositionLocalUpdate?.(tableId, snapped.x, snapped.y);
+    setAutosaveState('saving');
     const { error } = await supabase
       .from('event_tables')
       .update({ posx: snapped.x, posy: snapped.y })
       .eq('id', tableId);
-    if (error) onError(friendlyMapError(error, 'Não foi possível salvar a posição da mesa.'));
+    if (error) {
+      setAutosaveState('error');
+      onError(friendlyMapError(error, 'Não foi possível salvar a posição da mesa.'));
+      return;
+    }
+    setAutosaveState('saved');
   }
 
   async function persistFixturePosition(fixtureId: string) {
@@ -446,14 +456,21 @@ export function EventTablesVisualMap({
           : fixture,
       ),
     );
+    setAutosaveState('saving');
     const { error } = await supabase
       .from('event_map_fixtures')
       .update({ x: snapped.x, y: snapped.y })
       .eq('id', fixtureId);
-    if (error) onError(friendlyMapError(error, 'Não foi possível salvar a posição do item.'));
+    if (error) {
+      setAutosaveState('error');
+      onError(friendlyMapError(error, 'Não foi possível salvar a posição do item.'));
+      return;
+    }
+    setAutosaveState('saved');
   }
 
   async function addFixture(type: FixtureType) {
+    setAutosaveState('saving');
     const cfg = FIXTURE_LIBRARY[type];
     const baseX = 60 + (fixtures.length % 5) * 180;
     const baseY = 50 + Math.floor(fixtures.length / 5) * 120;
@@ -478,6 +495,7 @@ export function EventTablesVisualMap({
       .maybeSingle();
 
     if (res.error || !res.data) {
+      setAutosaveState('error');
       if (__DEV__) console.warn('event_map_fixtures insert failed', res.error);
       onError(friendlyMapError(res.error, 'Não foi possível adicionar este item ao mapa. Tente novamente.'));
       return;
@@ -507,14 +525,17 @@ export function EventTablesVisualMap({
         custom_label: typeof fixtureData.custom_label === 'string' ? fixtureData.custom_label : null,
       },
     ]);
+    setAutosaveState('saved');
   }
 
   async function deleteFixture(fixtureId: string) {
+    setAutosaveState('saving');
     const { error } = await supabase
       .from('event_map_fixtures')
       .delete()
       .eq('id', fixtureId);
     if (error) {
+      setAutosaveState('error');
       onError(error.message);
       return;
     }
@@ -522,6 +543,7 @@ export function EventTablesVisualMap({
     if (selectedFixtureId === fixtureId) {
       setSelectedFixtureId(null);
     }
+    setAutosaveState('saved');
   }
 
   async function saveFixtureLabel() {
@@ -534,12 +556,14 @@ export function EventTablesVisualMap({
     const fallback = FIXTURE_LIBRARY[selectedFixture.type].label;
     const customLabel = nextLabel && nextLabel !== fallback ? nextLabel : null;
     setSavingFixtureLabel(true);
+    setAutosaveState('saving');
     const { error } = await supabase
       .from('event_map_fixtures')
       .update({ custom_label: customLabel })
       .eq('id', selectedFixture.id);
     setSavingFixtureLabel(false);
     if (error) {
+      setAutosaveState('error');
       onError(error.message);
       return;
     }
@@ -554,19 +578,83 @@ export function EventTablesVisualMap({
       ),
     );
     setSelectedFixtureId(null);
+    setAutosaveState('saved');
   }
 
   async function resetMap() {
+    setAutosaveState('saving');
     const { error } = await supabase
       .from('event_map_fixtures')
       .delete()
       .eq('event_id', eventId);
     if (error) {
+      setAutosaveState('error');
       onError(error.message);
       return;
     }
     setFixtures([]);
     setSelectedFixtureId(null);
+    setAutosaveState('saved');
+  }
+
+  function renderAutosaveStatus() {
+    const isSaving = autosaveState === 'saving';
+    const hasError = autosaveState === 'error';
+    return (
+      <View
+        style={[
+          styles.autosavePill,
+          hasError ? styles.autosavePillError : null,
+        ]}
+      >
+        <MaterialCommunityIcons
+          name={hasError ? 'cloud-alert' : isSaving ? 'cloud-sync-outline' : 'cloud-check-outline'}
+          size={17}
+          color={hasError ? '#B91C1C' : isSaving ? colors.primaryStrong : '#047857'}
+        />
+        <View style={styles.autosaveCopy}>
+          <Text style={[styles.autosaveTitle, hasError ? styles.autosaveTextError : null]}>
+            {hasError
+              ? 'Não foi possível salvar'
+              : isSaving
+                ? 'Salvando alterações…'
+                : 'Tudo salvo automaticamente'}
+          </Text>
+          <Text style={styles.autosaveCaption}>
+            {hasError
+              ? 'Tente mover ou adicionar o item novamente.'
+              : 'Você não precisa exportar para salvar.'}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  function renderFixtureTools(compact = false) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={compact ? styles.fullscreenToolsContent : styles.fixtureLibrary}
+      >
+        {(Object.keys(FIXTURE_LIBRARY) as FixtureType[]).map((type) => {
+          const cfg = FIXTURE_LIBRARY[type];
+          return (
+            <Pressable
+              key={type}
+              style={[styles.fixtureChip, compact ? styles.fullscreenToolChip : null]}
+              onPress={() => void addFixture(type)}
+            >
+              <MaterialCommunityIcons name={cfg.iconName} size={17} color={cfg.iconColor} />
+              <Text style={styles.fixtureChipText}>{cfg.label}</Text>
+              {compact ? (
+                <MaterialCommunityIcons name="plus-circle" size={16} color={colors.primaryStrong} />
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    );
   }
 
   function buildMapLines() {
@@ -690,7 +778,11 @@ export function EventTablesVisualMap({
 
   function renderMapSurface(captureForExport = false) {
     return (
-    <View style={styles.mapFrame} ref={captureForExport ? mapCaptureRef : undefined} collapsable={false}>
+    <View
+      style={[styles.mapFrame, captureForExport ? styles.fullscreenMapFrame : null]}
+      ref={captureForExport ? mapCaptureRef : undefined}
+      collapsable={false}
+    >
       <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}>
         <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
           <View style={styles.gridWrap}>
@@ -790,44 +882,13 @@ export function EventTablesVisualMap({
       <View style={styles.headerRow}>
         <Text style={styles.title}>Mapa visual das mesas</Text>
         <View style={styles.actionsRow}>
-          <Pressable style={styles.ghostBtn} onPress={() => setIsFullscreen(true)}>
-            <Text style={styles.ghostBtnText}>Tela cheia</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.ghostBtn, exportingPdf ? styles.ghostBtnDisabled : null]}
-            disabled={exportingPdf}
-            onPress={() => void exportMapPdf()}
-          >
-            {exportingPdf ? (
-              <View style={styles.inlineLoadingWrap}>
-                <ActivityIndicator size="small" color={colors.primaryStrong} />
-                <Text style={styles.ghostBtnText}>Exportando PDF...</Text>
-              </View>
-            ) : (
-              <Text style={styles.ghostBtnText}>Exportar PDF (A4)</Text>
-            )}
-          </Pressable>
           <Pressable style={styles.warnBtn} onPress={() => void resetMap()}>
             <Text style={styles.warnBtnText}>Redefinir</Text>
           </Pressable>
         </View>
       </View>
 
-      <View style={styles.fixtureLibrary}>
-        {(Object.keys(FIXTURE_LIBRARY) as FixtureType[]).map((type) => {
-          const cfg = FIXTURE_LIBRARY[type];
-          return (
-            <Pressable key={type} style={styles.fixtureChip} onPress={() => void addFixture(type)}>
-              <MaterialCommunityIcons
-                name={cfg.iconName}
-                size={15}
-                color={cfg.iconColor}
-              />
-              <Text style={styles.fixtureChipText}>{cfg.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {renderFixtureTools()}
 
       {selectedFixture ? (
         <View style={styles.editRow}>
@@ -854,10 +915,7 @@ export function EventTablesVisualMap({
       ) : null}
 
       {loadingFixtures ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.primaryStrong} />
-          <Text style={styles.caption}>Carregando mapa...</Text>
-        </View>
+        <PrimeLogoLoader variant="inline" label="Preparando o mapa" />
       ) : fixtureError ? (
         <View style={styles.loadingWrap}>
           <Text style={styles.caption}>{fixtureError}</Text>
@@ -865,9 +923,7 @@ export function EventTablesVisualMap({
             <Text style={styles.primaryBtnText}>Tentar novamente</Text>
           </Pressable>
         </View>
-      ) : (
-        !isFullscreen ? renderMapSurface(true) : null
-      )}
+      ) : <Pressable style={styles.mapLaunchCard} onPress={() => setIsFullscreen(true)}><View style={styles.mapLaunchIcon}><MaterialCommunityIcons name="floor-plan" size={28} color={colors.primaryStrong} /></View><View style={styles.mapLaunchCopy}><Text style={styles.mapLaunchTitle}>Abrir editor visual</Text><Text style={styles.caption}>Organize mesas e itens do salão em uma área ampla, sem alongar esta tela.</Text></View><MaterialCommunityIcons name="arrow-expand" size={20} color={colors.mutedText} /></Pressable>}
 
       <View style={styles.actionsRow}>
         <Pressable style={styles.ghostBtn} onPress={() => void onReload()}>
@@ -878,12 +934,47 @@ export function EventTablesVisualMap({
       <Modal visible={isFullscreen} animationType="slide">
         <View style={styles.modalPage}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Mapa visual - tela cheia</Text>
+            <View style={styles.modalHeadingCopy}>
+              <Text style={styles.modalTitle}>Editor do salão</Text>
+              <Text style={styles.modalSubtitle}>
+                Toque para adicionar. Depois, arraste cada item para o lugar certo.
+              </Text>
+            </View>
             <Pressable style={styles.ghostBtn} onPress={() => setIsFullscreen(false)}>
               <Text style={styles.ghostBtnText}>Fechar</Text>
             </Pressable>
           </View>
-          {renderMapSurface(false)}
+          {renderAutosaveStatus()}
+          <View style={styles.fullscreenToolsWrap}>
+            <Text style={styles.fullscreenToolsTitle}>Adicionar ao mapa</Text>
+            {renderFixtureTools(true)}
+          </View>
+          {selectedFixture ? (
+            <View style={styles.fullscreenEditRow}>
+              <TextInput
+                style={[styles.input, styles.fullscreenEditInput]}
+                value={fixtureLabelDraft}
+                onChangeText={setFixtureLabelDraft}
+                placeholder="Nome do item selecionado"
+              />
+              <Pressable style={styles.primaryBtn} onPress={() => void saveFixtureLabel()}>
+                <Text style={styles.primaryBtnText}>
+                  {savingFixtureLabel ? 'Salvando…' : 'Salvar nome'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {renderMapSurface(true)}
+          <Pressable
+            style={[styles.exportBtn, exportingPdf ? styles.ghostBtnDisabled : null]}
+            disabled={exportingPdf}
+            onPress={() => void exportMapPdf()}
+          >
+            <MaterialCommunityIcons name="file-pdf-box" size={18} color={colors.text} />
+            <Text style={styles.exportBtnText}>
+              {exportingPdf ? 'Gerando cópia…' : 'Exportar uma cópia em PDF'}
+            </Text>
+          </Pressable>
         </View>
       </Modal>
     </View>
@@ -891,6 +982,10 @@ export function EventTablesVisualMap({
 }
 
 const styles = StyleSheet.create({
+  mapLaunchCard: { minHeight: 128, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 16, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.border },
+  mapLaunchIcon: { width: 52, height: 52, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+  mapLaunchCopy: { flex: 1, gap: 4 },
+  mapLaunchTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
   card: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -989,6 +1084,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minHeight: 420,
   },
+  fullscreenMapFrame: { flex: 1, minHeight: 0 },
   gridWrap: {
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
@@ -1069,6 +1165,42 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  modalTitle: { color: colors.text, fontSize: 16, fontWeight: '700' },
+  modalHeadingCopy: { flex: 1, gap: 2 },
+  modalTitle: { color: colors.text, fontSize: 19, fontWeight: '800' },
+  modalSubtitle: { color: colors.mutedText, fontSize: 11, lineHeight: 15 },
+  autosavePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  autosavePillError: { borderColor: '#FECACA', backgroundColor: '#FEF2F2' },
+  autosaveCopy: { flex: 1 },
+  autosaveTitle: { color: '#047857', fontSize: 12, fontWeight: '800' },
+  autosaveCaption: { color: colors.mutedText, fontSize: 10, marginTop: 1 },
+  autosaveTextError: { color: '#B91C1C' },
+  fullscreenToolsWrap: { gap: 6 },
+  fullscreenToolsTitle: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  fullscreenToolsContent: { gap: 8, paddingRight: 16 },
+  fullscreenToolChip: { minHeight: 38, backgroundColor: colors.card },
+  fullscreenEditRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  fullscreenEditInput: { flex: 1, paddingVertical: 7 },
+  exportBtn: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  exportBtnText: { color: colors.text, fontSize: 12, fontWeight: '700' },
 });
 
