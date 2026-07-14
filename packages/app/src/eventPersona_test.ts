@@ -34,6 +34,8 @@ Deno.test('returns complete wedding copy', () => {
   assertEquals(copy.budgetTitle, 'Quanto o casal pode investir');
   assertEquals(copy.budgetEditDescription, 'Informe o limite que o casal separou para realizar este evento.');
   assertEquals(copy.timelineActivityPlaceholder, 'Ex.: Entrada dos noivos');
+  assertEquals(copy.tableNamePlaceholder, 'Nome da mesa (ex.: Família dos noivos)');
+  assertEquals(copy.analyticsRecipient, 'ao casal');
 });
 
 Deno.test('returns complete debutante copy', () => {
@@ -41,6 +43,8 @@ Deno.test('returns complete debutante copy', () => {
   assertEquals(copy.principalNamePlaceholder, 'Nome da debutante');
   assertEquals(copy.budgetTitle, 'Quanto foi reservado para a debutante');
   assertEquals(copy.timelineActivityPlaceholder, 'Ex.: Entrada da debutante');
+  assertEquals(copy.analyticsRecipient, 'à debutante');
+  assertEquals(copy.giftManagementDescription, 'A debutante ou seus responsáveis registram o QR Code e confirmam manualmente o recebimento depois de conferir o extrato Pix.');
 });
 
 Deno.test('returns complete birthday copy without inferring gender', () => {
@@ -48,6 +52,7 @@ Deno.test('returns complete birthday copy without inferring gender', () => {
   assertEquals(copy.principalNamePlaceholder, 'Nome do aniversariante');
   assertEquals(copy.budgetTitle, 'Orçamento disponível para o aniversário');
   assertEquals(copy.budgetEditDescription, 'Informe o limite reservado para realizar este aniversário.');
+  assertEquals(copy.analyticsRecipient, 'ao aniversariante');
 });
 
 Deno.test('returns complete corporate copy', () => {
@@ -55,4 +60,5 @@ Deno.test('returns complete corporate copy', () => {
   assertEquals(copy.principalNamePlaceholder, 'Nome do cliente ou empresa');
   assertEquals(copy.budgetTitle, 'Quanto o cliente pode investir');
   assertEquals(copy.timelineActivityPlaceholder, 'Ex.: Chegada dos representantes');
+  assertEquals(copy.tableNamePlaceholder, 'Nome da mesa (ex.: Diretoria)');
 });

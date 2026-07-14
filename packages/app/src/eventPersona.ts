@@ -17,6 +17,9 @@ export type EventPersonaCopy = Readonly<{
   budgetEditDescription: string;
   budgetContextDescription: string;
   timelineActivityPlaceholder: string;
+  tableNamePlaceholder: string;
+  analyticsRecipient: string;
+  giftManagementDescription: string;
 }>;
 
 const EVENT_KIND_ALIASES: Readonly<Record<string, InternalEventKind>> = {
@@ -61,6 +64,9 @@ const COPY_BY_KIND: Readonly<Record<InternalEventKind, EventPersonaCopy>> = {
     budgetEditDescription: 'Informe o limite que o casal separou para realizar este evento.',
     budgetContextDescription: 'Valores que o casal reservou e já comprometeu.',
     timelineActivityPlaceholder: 'Ex.: Entrada dos noivos',
+    tableNamePlaceholder: 'Nome da mesa (ex.: Família dos noivos)',
+    analyticsRecipient: 'ao casal',
+    giftManagementDescription: 'Os noivos registram o QR Code e confirmam manualmente o recebimento depois de conferir o extrato Pix.',
   },
   debutante: {
     kind: 'debutante',
@@ -74,6 +80,9 @@ const COPY_BY_KIND: Readonly<Record<InternalEventKind, EventPersonaCopy>> = {
     budgetEditDescription: 'Informe o limite reservado para realizar esta celebração de 15 anos.',
     budgetContextDescription: 'Valores reservados para a debutante e já comprometidos.',
     timelineActivityPlaceholder: 'Ex.: Entrada da debutante',
+    tableNamePlaceholder: 'Nome da mesa (ex.: Família da debutante)',
+    analyticsRecipient: 'à debutante',
+    giftManagementDescription: 'A debutante ou seus responsáveis registram o QR Code e confirmam manualmente o recebimento depois de conferir o extrato Pix.',
   },
   birthday: {
     kind: 'birthday',
@@ -87,6 +96,9 @@ const COPY_BY_KIND: Readonly<Record<InternalEventKind, EventPersonaCopy>> = {
     budgetEditDescription: 'Informe o limite reservado para realizar este aniversário.',
     budgetContextDescription: 'Valores reservados para o aniversário e já comprometidos.',
     timelineActivityPlaceholder: 'Ex.: Entrada do aniversariante',
+    tableNamePlaceholder: 'Nome da mesa (ex.: Família do aniversariante)',
+    analyticsRecipient: 'ao aniversariante',
+    giftManagementDescription: 'O aniversariante ou seus responsáveis registram o QR Code e confirmam manualmente o recebimento depois de conferir o extrato Pix.',
   },
   corporate: {
     kind: 'corporate',
@@ -100,6 +112,9 @@ const COPY_BY_KIND: Readonly<Record<InternalEventKind, EventPersonaCopy>> = {
     budgetEditDescription: 'Informe o limite aprovado pelo cliente para realizar este evento.',
     budgetContextDescription: 'Valores aprovados pelo cliente e já comprometidos.',
     timelineActivityPlaceholder: 'Ex.: Chegada dos representantes',
+    tableNamePlaceholder: 'Nome da mesa (ex.: Diretoria)',
+    analyticsRecipient: 'ao cliente',
+    giftManagementDescription: 'O cliente ou seus representantes registram o QR Code e confirmam manualmente o recebimento depois de conferir o extrato Pix.',
   },
   generic: {
     kind: 'generic',
@@ -113,6 +128,9 @@ const COPY_BY_KIND: Readonly<Record<InternalEventKind, EventPersonaCopy>> = {
     budgetEditDescription: 'Informe o limite reservado para realizar este evento.',
     budgetContextDescription: 'Valores reservados para o evento e já comprometidos.',
     timelineActivityPlaceholder: 'Ex.: Entrada principal',
+    tableNamePlaceholder: 'Nome da mesa (ex.: Família ou grupo)',
+    analyticsRecipient: 'ao cliente',
+    giftManagementDescription: 'O cliente ou seus responsáveis registram o QR Code e confirmam manualmente o recebimento depois de conferir o extrato Pix.',
   },
 };
 
