@@ -42,7 +42,7 @@ jobs:
 
       - name: Build official APK
         working-directory: apps/mobile
-        run: eas build --platform android --profile release-apk --local --non-interactive --output=../../painel-prime-android-1.4.0-build8.apk
+        run: eas build --platform android --profile release-apk --local --non-interactive --output=../../painel-prime-android-1.4.1-build9.apk
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -57,27 +57,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK="painel-prime-android-1.4.0-build8.apk"
+          APK="painel-prime-android-1.4.1-build9.apk"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
           test -f "$APK"
           "$APKSIGNER" verify --print-certs "$APK" | tee apk-signature.txt
           grep -qi "bf524e07f7cb2457aa8cd183aa38b8454f2addd6a6e229ecf858778965bec82b" apk-signature.txt
-          sha256sum "$APK" | tee painel-prime-android-1.4.0-build8.sha256
+          sha256sum "$APK" | tee painel-prime-android-1.4.1-build9.sha256
 
       - name: Upload official APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: painel-prime-android-1.4.0-build8
+          name: painel-prime-android-1.4.1-build9
           path: |
-            painel-prime-android-1.4.0-build8.apk
-            painel-prime-android-1.4.0-build8.sha256
+            painel-prime-android-1.4.1-build9.apk
+            painel-prime-android-1.4.1-build9.sha256
           if-no-files-found: error
 
       - name: Publish to Firebase App Distribution
         run: |
-          npx --yes firebase-tools@15.23.0 appdistribution:distribute painel-prime-android-1.4.0-build8.apk \
+          npx --yes firebase-tools@15.23.0 appdistribution:distribute painel-prime-android-1.4.1-build9.apk \
             --app "${{ secrets.FIREBASE_APP_ID }}" \
             --groups "testers" \
-            --release-notes-file docs/ANDROID_1_4_RELEASE_NOTES.txt
+            --release-notes-file docs/ANDROID_1_4_1_RELEASE_NOTES.txt
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

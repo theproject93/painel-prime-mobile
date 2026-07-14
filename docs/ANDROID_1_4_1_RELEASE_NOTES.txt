@@ -1,0 +1,14 @@
+Painel Prime Android 1.4.1 (build 9)
+
+A comunicação do app agora acompanha a modalidade real de cada evento:
+
+- Casamentos continuam usando linguagem de casal e noivos.
+- Eventos de 15 anos usam linguagem própria para a debutante.
+- Aniversários passam a se referir corretamente ao aniversariante.
+- Eventos corporativos usam cliente, empresa e representantes.
+- Eventos antigos ou sem modalidade definida recebem textos neutros, sem assumir casamento.
+- Resumo financeiro, orçamento, edição do evento, cronograma e mesas foram contextualizados.
+- A prévia dos modelos comerciais não pressupõe mais nomes de casal.
+- Android e Web compartilham a mesma regra de linguagem para evitar divergências futuras.
+
+Esta atualização não altera Portal do Cliente, convites ou sites públicos já publicados.
