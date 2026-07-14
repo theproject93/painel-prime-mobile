@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -128,6 +128,7 @@ async function functionErrorMessage(error: unknown) {
 }
 
 export function ClientsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [clients, setClients] = useState<ClientRow[]>([]);
@@ -269,16 +270,7 @@ export function ClientsScreen() {
   const selectedClient = clients.find((client) => client.id === selectedClientId) ?? null;
 
   function openDetails(client: ClientRow) {
-    setSelectedClientId(client.id);
-    setForm({
-      name: client.name,
-      email: client.email ?? '',
-      phone: client.phone ?? '',
-      eventType: client.event_type ?? '',
-      eventDate: client.event_date_expected ?? '',
-      budget: client.budget_expected ? String(client.budget_expected) : '',
-      notes: client.notes ?? '',
-    });
+    router.push(`/(app)/(tabs)/clientes/${client.id}` as never);
   }
 
   function closeEditor() {
@@ -482,13 +474,10 @@ export function ClientsScreen() {
           </View>
         </View>
 
-        <Button
-          title="Novo cliente"
-          onPress={() => {
-            setForm(EMPTY_FORM);
-            setCreateOpen(true);
-          }}
-        />
+        <View style={styles.primaryActionsRow}>
+          <View style={styles.primaryActionGrow}><Button title="Novo cliente" onPress={() => { setForm(EMPTY_FORM); setCreateOpen(true); }} /></View>
+          <Pressable style={styles.templatesButton} onPress={() => router.push('/(app)/(tabs)/clientes/modelos' as never)}><Ionicons name="color-wand-outline" size={19} color={colors.primaryStrong} /><Text style={styles.templatesButtonText}>Modelos</Text></Pressable>
+        </View>
 
         {error ? (
           <View style={styles.errorBanner}>
@@ -703,6 +692,10 @@ const styles = StyleSheet.create({
   heroCopy: { flex: 1, gap: 3 },
   heroTitle: { color: colors.card, fontSize: fontSize.lg, fontWeight: fontWeight.bold },
   heroSubtitle: { color: '#C9CED8', fontSize: fontSize.xs, lineHeight: 18 },
+  primaryActionsRow: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.sm },
+  primaryActionGrow: { flex: 1 },
+  templatesButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: spacing.md, borderRadius: radii.md, borderWidth: 1, borderColor: colors.primaryStrong, backgroundColor: colors.card },
+  templatesButtonText: { color: colors.primaryStrong, fontSize: fontSize.sm, fontWeight: fontWeight.bold },
   summaryRow: { flexDirection: 'row', gap: spacing.sm },
   summaryMetric: { flex: 1, minWidth: 0, gap: 3 },
   summaryValue: { color: colors.primary, fontSize: fontSize.xl, fontWeight: fontWeight.extrabold },

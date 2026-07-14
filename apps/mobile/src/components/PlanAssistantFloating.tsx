@@ -20,6 +20,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../contexts/AuthContext';
+import {
+  createPlanChatSnapshot,
+  planChatStorageKey,
+  restorePlanChatSnapshot,
+  type PersistedPlanChatMessage,
+} from '../features/plan/planChatPersistence';
 import { getVisibleSegments, normalizeSingleParam } from '../lib/router';
 import { supabase } from '../lib/supabase';
 import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
@@ -42,6 +48,14 @@ type ChatMessage = {
   ctaLabel?: string;
   ctaPath?: string;
 };
+
+const DEFAULT_PLAN_MESSAGES: ChatMessage[] = [
+  {
+    id: 'welcome',
+    role: 'bot',
+    text: 'Olá! Eu sou a Plan. Posso responder dúvidas da plataforma e ajudar com prioridades.',
+  },
+];
 
 type MessageHistoryItem = {
   role: 'assistant' | 'user';
@@ -789,6 +803,7 @@ export function PlanAssistantFloating() {
   const fabBoundsRef = useRef<{ minX: number; maxX: number; minY: number; maxY: number } | null>(null);
   const fabPositionRef = useRef<{ x: number; y: number } | null>(null);
   const proactiveShownThisSessionRef = useRef(false);
+  const hydratedChatUserRef = useRef<string | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -796,13 +811,7 @@ export function PlanAssistantFloating() {
   const [loadingHints, setLoadingHints] = useState(false);
   const [proactiveHint, setProactiveHint] = useState<PlanHint | null>(null);
   const [showProactiveBubble, setShowProactiveBubble] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'bot',
-      text: 'Olá! Eu sou a Plan. Posso responder dúvidas da plataforma e ajudar com prioridades.',
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(DEFAULT_PLAN_MESSAGES);
   const [isReplying, setIsReplying] = useState(false);
   const [hintStateMap, setHintStateMap] = useState<Record<string, HintStateRow>>({});
   const [fabPosition, setFabPosition] = useState<{ x: number; y: number } | null>(null);
@@ -814,6 +823,43 @@ export function PlanAssistantFloating() {
   }
 
   const userId = user?.id ?? null;
+
+  useEffect(() => {
+    if (!userId) {
+      hydratedChatUserRef.current = null;
+      setMessages(DEFAULT_PLAN_MESSAGES);
+      setInput('');
+      return;
+    }
+    let active = true;
+    hydratedChatUserRef.current = null;
+    void AsyncStorage.getItem(planChatStorageKey(userId))
+      .then((raw) => {
+        if (!active) return;
+        const snapshot = restorePlanChatSnapshot(raw, DEFAULT_PLAN_MESSAGES);
+        setMessages(snapshot.messages as ChatMessage[]);
+        setInput(snapshot.draft);
+        hydratedChatUserRef.current = userId;
+      })
+      .catch((error) => {
+        console.warn('Plan chat restore failed', error);
+        if (active) hydratedChatUserRef.current = userId;
+      });
+    return () => { active = false; };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || hydratedChatUserRef.current !== userId) return;
+    const timeout = setTimeout(() => {
+      const snapshot = createPlanChatSnapshot({
+        messages: messages as PersistedPlanChatMessage[],
+        draft: input,
+      });
+      void AsyncStorage.setItem(planChatStorageKey(userId), JSON.stringify(snapshot))
+        .catch((error) => console.warn('Plan chat persistence failed', error));
+    }, 180);
+    return () => clearTimeout(timeout);
+  }, [input, messages, userId]);
   const userName = useMemo(() => {
     const metadata = (user?.user_metadata as Record<string, unknown> | undefined) ?? {};
     const nameFromMetadata =
@@ -1301,7 +1347,7 @@ export function PlanAssistantFloating() {
       let data: PlanAssistantApiResponse | null = null;
       let firstError: unknown = null;
       let secondError: unknown = null;
-      let accessToken: string | null = await getPlanAssistantAccessToken(true);
+      let accessToken: string | null = await getPlanAssistantAccessToken(false);
 
       try {
         const result = await invokePlanAssistantChat(payload, accessToken);
