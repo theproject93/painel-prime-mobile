@@ -1,19 +1,29 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { getHumanGreeting, pickMotivationalQuote } from '@painel-prime/app';
+import { getEventPersonaCopy, getHumanGreeting, pickMotivationalQuote } from '@painel-prime/app';
 
 import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { Screen } from '../components/Screen';
 import { useAuth } from '../contexts/AuthContext';
+import { eventStatusLabel } from '../features/events/eventPresentation';
 import { getPrivateFileDownloadUrl, uploadPrivateAsset } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
 import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
 import { colors } from '../theme/colors';
 
-type EventRow = { id: string; name: string; event_date: string; status: string | null };
+type EventRow = {
+  id: string;
+  name: string;
+  event_date: string;
+  location: string | null;
+  status: string | null;
+  event_type: string | null;
+  couple_photo_url: string | null;
+  couple_photo_file_id: string | null;
+};
 type TaskRow = {
   event_id: string;
   due_date: string | null;
@@ -30,6 +40,14 @@ const SHORTCUTS: Shortcut[] = [
   { id: 'timeline', label: 'Montar o grande dia', description: 'Preparar o cronograma do dia do evento.', tab: 'timeline', icon: 'time-outline' },
   { id: 'budget', label: 'Revisar investimento', description: 'Conferir orçamento, despesas e pagamentos.', tab: 'budget', icon: 'wallet-outline' },
 ];
+
+const EVENT_COVER_FALLBACKS: Readonly<Record<string, string>> = {
+  wedding: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=900&q=60',
+  birthday: 'https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?auto=format&fit=crop&w=900&q=60',
+  debutante: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=60',
+  corporate: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=900&q=60',
+  generic: 'https://images.unsplash.com/photo-1507501336603-6e31db2be093?auto=format&fit=crop&w=900&q=60',
+};
 
 function isoToday() {
   const now = new Date();
@@ -49,18 +67,28 @@ export function DashboardScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [quote] = useState(() => pickMotivationalQuote(Date.now()));
   const [shortcutModal, setShortcutModal] = useState<{ open: boolean; shortcut: Shortcut | null; eventId: string }>({ open: false, shortcut: null, eventId: '' });
+  const [eventPickerSearch, setEventPickerSearch] = useState('');
 
   const load = useCallback(async () => {
     if (!user?.id) { setLoading(false); return; }
     setLoading(true);
     setError('');
     const [eventsRes, clientsRes, profileRes] = await Promise.all([
-      supabase.from('events').select('id,name,event_date,status').or('status.is.null,status.neq.deleted').order('event_date', { ascending: true }),
+      supabase.from('events').select('id,name,event_date,location,status,event_type,couple_photo_url,couple_photo_file_id').or('status.is.null,status.neq.deleted').order('event_date', { ascending: true }),
       supabase.from('crm_clients').select('id', { count: 'exact', head: true }).neq('stage', 'closed_lost'),
       supabase.from('user_onboarding_state').select('display_name,avatar_url,avatar_file_id').eq('user_id', user.id).maybeSingle(),
     ]);
     if (eventsRes.error) { setError(eventsRes.error.message); setLoading(false); return; }
-    const nextEvents = (eventsRes.data ?? []) as EventRow[];
+    const nextEvents = await Promise.all(
+      ((eventsRes.data ?? []) as EventRow[]).map(async (event) => {
+        if (!event.couple_photo_file_id) return event;
+        try {
+          return { ...event, couple_photo_url: await getPrivateFileDownloadUrl(event.couple_photo_file_id) };
+        } catch {
+          return event;
+        }
+      }),
+    );
     setEvents(nextEvents);
     setClientsCount(clientsRes.count ?? 0);
     const nextProfile = (profileRes.data as ProfileRow | null) ?? null;
@@ -82,6 +110,11 @@ export function DashboardScreen() {
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const activeEvents = useMemo(() => events.filter((item) => !['completed', 'cancelled', 'deleted'].includes(String(item.status ?? 'active').toLowerCase())), [events]);
+  const eventPickerEvents = useMemo(() => {
+    const term = eventPickerSearch.trim().toLocaleLowerCase('pt-BR');
+    if (!term) return activeEvents;
+    return activeEvents.filter((item) => `${item.name} ${item.location ?? ''}`.toLocaleLowerCase('pt-BR').includes(term));
+  }, [activeEvents, eventPickerSearch]);
   const today = isoToday();
   const openTasks = tasks.filter((task) => !task.completed);
   const overdueTasks = openTasks.filter((task) => task.due_date && task.due_date < today);
@@ -104,6 +137,7 @@ export function DashboardScreen() {
 
   function openShortcut(shortcut: Shortcut) {
     if (activeEvents.length === 1) { goToEventTab(activeEvents[0].id, shortcut.tab); return; }
+    setEventPickerSearch('');
     setShortcutModal({ open: true, shortcut, eventId: activeEvents[0]?.id ?? '' });
   }
 
@@ -168,8 +202,58 @@ export function DashboardScreen() {
       <View style={styles.sectionHeader}><Text style={styles.cardTitle}>Ações rápidas</Text><Text style={styles.cardDescription}>Escolha o que você quer avançar agora.</Text></View>
       <View style={styles.shortcutGrid}>{SHORTCUTS.map((shortcut) => <Pressable key={shortcut.id} style={styles.shortcut} onPress={() => openShortcut(shortcut)}><View style={styles.shortcutIcon}><Ionicons name={shortcut.icon} size={21} color={colors.primaryStrong} /></View><Text style={styles.shortcutTitle}>{shortcut.label}</Text><Text style={styles.shortcutDescription}>{shortcut.description}</Text></Pressable>)}</View>
 
-      <Modal visible={shortcutModal.open} transparent animationType="fade" onRequestClose={() => setShortcutModal({ open: false, shortcut: null, eventId: '' })}>
-        <View style={styles.modalOverlay}><View style={styles.modalCard}><Text style={styles.modalTitle}>Em qual evento?</Text><Text style={styles.cardDescription}>Escolha o evento que você quer organizar.</Text>{activeEvents.map((item) => <Pressable key={item.id} style={[styles.eventChoice, shortcutModal.eventId === item.id && styles.eventChoiceOn]} onPress={() => setShortcutModal((current) => ({ ...current, eventId: item.id }))}><Text style={styles.eventChoiceText}>{item.name}</Text><Ionicons name={shortcutModal.eventId === item.id ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={colors.primaryStrong} /></Pressable>)}<View style={styles.modalActions}><Pressable style={styles.ghostButton} onPress={() => setShortcutModal({ open: false, shortcut: null, eventId: '' })}><Text style={styles.ghostText}>Cancelar</Text></Pressable><Pressable style={styles.primaryButton} onPress={() => { if (shortcutModal.shortcut && shortcutModal.eventId) goToEventTab(shortcutModal.eventId, shortcutModal.shortcut.tab); setShortcutModal({ open: false, shortcut: null, eventId: '' }); }}><Text style={styles.primaryText}>Continuar</Text></Pressable></View></View></View>
+      <Modal visible={shortcutModal.open} animationType="slide" onRequestClose={() => setShortcutModal({ open: false, shortcut: null, eventId: '' })}>
+        <View style={styles.eventPickerPage}>
+          <View style={styles.eventPickerHeader}>
+            <View>
+              <Text style={styles.eventPickerTitle}>Eventos</Text>
+              <Text style={styles.eventPickerSubtitle}>Escolha onde avançar agora</Text>
+            </View>
+            <Pressable style={styles.eventPickerClose} onPress={() => setShortcutModal({ open: false, shortcut: null, eventId: '' })} accessibilityLabel="Fechar seleção de eventos">
+              <Ionicons name="close" size={20} color={colors.text} />
+            </Pressable>
+          </View>
+          <TextInput
+            style={styles.eventPickerSearch}
+            placeholder="Buscar por nome/local"
+            placeholderTextColor={colors.mutedText}
+            value={eventPickerSearch}
+            onChangeText={setEventPickerSearch}
+          />
+          <ScrollView contentContainerStyle={styles.eventPickerList} showsVerticalScrollIndicator={false}>
+              {eventPickerEvents.map((item) => {
+                const persona = getEventPersonaCopy(item.event_type);
+                const coverUri = item.couple_photo_url?.trim() || EVENT_COVER_FALLBACKS[persona.kind];
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={styles.eventPickerCard}
+                    onPress={() => {
+                      if (shortcutModal.shortcut) goToEventTab(item.id, shortcutModal.shortcut.tab);
+                      setShortcutModal({ open: false, shortcut: null, eventId: '' });
+                    }}
+                  >
+                    <Image source={{ uri: coverUri }} style={styles.eventPickerCover} />
+                    <Text style={styles.eventPickerName}>{item.name}</Text>
+                    <Text style={styles.eventPickerMeta} numberOfLines={2}>
+                        {new Date(`${item.event_date}T12:00:00`).toLocaleDateString('pt-BR')}
+                        {item.location?.trim() ? ` · ${item.location.trim()}` : ''}
+                    </Text>
+                    <View style={styles.eventPickerFooter}>
+                      <Text style={styles.eventPickerStatus}>{eventStatusLabel(item.status)}</Text>
+                      <Text style={styles.eventPickerType}>{persona.eventTypeLabel}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+              {eventPickerEvents.length === 0 ? (
+                <View style={styles.eventPickerEmpty}>
+                  <Text style={styles.eventPickerEmptyTitle}>Nenhum evento encontrado</Text>
+                  <Text style={styles.cardDescription}>Tente buscar pelo nome ou local do evento.</Text>
+                </View>
+              ) : null}
+          </ScrollView>
+        </View>
       </Modal>
     </Screen>
   );
@@ -212,12 +296,22 @@ const styles = StyleSheet.create({
   shortcutIcon: { width: 39, height: 39, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   shortcutTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
   shortcutDescription: { color: colors.mutedText, fontSize: 11, lineHeight: 16 },
-  modalOverlay: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(7,9,14,0.62)' },
-  modalCard: { padding: 18, borderRadius: 24, backgroundColor: colors.card, gap: 10 },
-  modalTitle: { color: colors.text, fontSize: 22, fontWeight: '800' },
-  eventChoice: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
-  eventChoiceOn: { backgroundColor: colors.primarySoft, borderColor: colors.primaryStrong },
-  eventChoiceText: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  eventPickerPage: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16, paddingTop: 42 },
+  eventPickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  eventPickerTitle: { color: colors.text, fontSize: 26, fontWeight: '800' },
+  eventPickerSubtitle: { color: colors.mutedText, fontSize: 13 },
+  eventPickerClose: { width: 42, height: 42, borderRadius: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  eventPickerSearch: { height: 43, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, color: colors.text, backgroundColor: colors.card, marginBottom: 10 },
+  eventPickerList: { gap: 10, paddingBottom: 28 },
+  eventPickerCard: { backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 10, gap: 6 },
+  eventPickerCover: { width: '100%', height: 120, borderRadius: 10, backgroundColor: colors.primarySoft },
+  eventPickerName: { color: colors.text, fontSize: 16, fontWeight: '700' },
+  eventPickerMeta: { color: colors.mutedText, fontSize: 13, lineHeight: 18 },
+  eventPickerFooter: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  eventPickerStatus: { alignSelf: 'flex-start', backgroundColor: colors.primarySoft, color: colors.primaryStrong, fontSize: 11, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, overflow: 'hidden' },
+  eventPickerType: { color: colors.mutedText, fontSize: 11, fontWeight: '700' },
+  eventPickerEmpty: { paddingVertical: 42, alignItems: 'center', gap: 4 },
+  eventPickerEmptyTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
   ghostButton: { flex: 1, minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   ghostText: { color: colors.text, fontWeight: '700' },

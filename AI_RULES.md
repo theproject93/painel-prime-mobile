@@ -412,4 +412,14 @@ O workflow `ci.yml` já instala Deno antes de executar `pnpm test`. O script `te
 
 ---
 
-**Última atualização:** 2026-07-13 — operação de eventos Web/Android, fornecedores reutilizáveis, recepção offline e smoke final agrupado.
+## 15. LINGUAGEM CONTEXTUAL POR MODALIDADE
+
+- Textos de áreas autenticadas que mencionem casal, noivos, debutante, aniversariante ou cliente devem ser derivados de `event_type` com `getEventPersonaCopy()` de `@painel-prime/app/eventPersona`.
+- É proibido gravar linguagem matrimonial diretamente em componentes compartilhados ou telas que atendam mais de uma modalidade.
+- Valores `null`, vazios ou desconhecidos devem usar o fallback neutro `generic`; nunca assumir casamento.
+- Android e Web devem consumir a mesma fonte de copy no pacote compartilhado. Não criar tabelas locais concorrentes.
+- Portal do Cliente, convites e sites públicos têm domínio próprio e não podem ser alterados junto com ajustes de copy interna sem autorização explícita.
+
+---
+
+**Última atualização:** 2026-07-14 — linguagem contextual por modalidade em áreas autenticadas Web/Android.

@@ -10,6 +10,7 @@
     "./auth": "./src/auth/index.ts",
     "./billingPlans": "./src/billingPlans.ts",
     "./eventAssignees": "./src/eventAssignees.ts",
+    "./eventPersona": "./src/eventPersona.ts",
     "./navigation": "./src/navigation.ts",
     "./premiumWorkspace": "./src/premiumWorkspace.ts",
     "./routes": "./src/routes/index.ts",
