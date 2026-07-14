@@ -1,6 +1,7 @@
 export * from './auth';
 export * from './billingPlans';
 export * from './eventAssignees';
+export * from './eventPersona';
 export * from './navigation';
 export * from './premiumWorkspace';
 export * from './routes';

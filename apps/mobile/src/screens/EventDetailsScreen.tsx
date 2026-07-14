@@ -5,6 +5,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { getEventPersonaCopy } from '@painel-prime/app/eventPersona';
 
 import { EventTablesVisualMap } from '../components/EventTablesVisualMap';
 import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
@@ -50,6 +51,7 @@ type EventRow = {
   event_date: string;
   location: string | null;
   status: string | null;
+  event_type: string | null;
   budget_total: number | null;
   invite_message_template: string | null;
   invite_dress_code: string | null;
@@ -194,6 +196,7 @@ export function EventDetailsScreen() {
     requestAnimationFrame(() => pageRef.current?.scrollTo({ y: 0, animated: false }));
   }, [activeTab]);
   const [event, setEvent] = useState<EventRow | null>(null);
+  const eventPersona = useMemo(() => getEventPersonaCopy(event?.event_type), [event?.event_type]);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const [loadingTab, setLoadingTab] = useState(false);
   const [loadingMore, setLoadingMore] = useState<DataKey | null>(null);
@@ -307,7 +310,7 @@ export function EventDetailsScreen() {
       setLoadingEvent(true);
       const { data: row, error: e } = await supabase
         .from('events')
-        .select('id,name,couple,couple_photo_url,couple_photo_file_id,event_date,location,status,budget_total,invite_message_template,invite_dress_code,whatsapp_image_file_id,whatsapp_image_url,created_at')
+        .select('id,name,couple,couple_photo_url,couple_photo_file_id,event_date,location,status,event_type,budget_total,invite_message_template,invite_dress_code,whatsapp_image_file_id,whatsapp_image_url,created_at')
         .eq('id', eventId)
         .single();
       if (e) setError(e.message);
@@ -1676,7 +1679,7 @@ export function EventDetailsScreen() {
                 style={styles.input}
                 value={basicDraft.couple}
                 onChangeText={(value) => setBasicDraft((prev) => ({ ...prev, couple: value }))}
-                placeholder="Nome do casal"
+                placeholder={eventPersona.principalNamePlaceholder}
               />
               <TextInput
                 style={styles.input}
@@ -1758,15 +1761,15 @@ export function EventDetailsScreen() {
             <View style={styles.overviewFinanceHeader}>
               <View style={styles.formGrow}>
                 <Text style={styles.overviewEyebrow}>Planejamento financeiro</Text>
-                <Text style={styles.overviewFinanceTitle}>Quanto o casal pode investir</Text>
-                <Text style={styles.overviewFinanceCopy}>O valor total reservado para realizar este evento.</Text>
+                <Text style={styles.overviewFinanceTitle}>{eventPersona.budgetTitle}</Text>
+                <Text style={styles.overviewFinanceCopy}>{eventPersona.budgetDescription}</Text>
               </View>
               <PrivacyToggle hidden={hideFinancialValues} onPress={() => setHideFinancialValues((value) => !value)} />
             </View>
 
             {isBudgetCardEditing ? (
               <View style={styles.metricEditWrap}>
-                <Text style={styles.overviewFinanceCopy}>Informe o limite que o casal separou para realizar este evento.</Text>
+                <Text style={styles.overviewFinanceCopy}>{eventPersona.budgetEditDescription}</Text>
                 <MoneyField value={budgetCardDraft} onChangeValue={setBudgetCardDraft} />
                 <View style={styles.overviewFinanceActions}>
                   <Pressable
@@ -2363,7 +2366,7 @@ export function EventDetailsScreen() {
           actionLabel="Nova despesa"
           onAction={() => setComposer('budget')}
         >
-          <View style={styles.financePrivacyRow}><View style={styles.formGrow}><Text style={styles.subtitle}>Dinheiro do evento</Text><Text style={styles.caption}>Valores que o casal reservou e já comprometeu.</Text></View><PrivacyToggle hidden={hideFinancialValues} onPress={() => setHideFinancialValues((value) => !value)} /></View>
+          <View style={styles.financePrivacyRow}><View style={styles.formGrow}><Text style={styles.subtitle}>Dinheiro do evento</Text><Text style={styles.caption}>{eventPersona.budgetContextDescription}</Text></View><PrivacyToggle hidden={hideFinancialValues} onPress={() => setHideFinancialValues((value) => !value)} /></View>
           {budgetVendorFilter ? (
             <Pressable style={styles.activeFilter} onPress={() => setBudgetVendorFilter('')} accessibilityRole="button">
               <Text style={styles.activeFilterText}>Fornecedor: {data.vendors.find((vendor) => String(vendor.id) === budgetVendorFilter)?.name ?? 'selecionado'}</Text>
@@ -2499,7 +2502,7 @@ export function EventDetailsScreen() {
           )}
           <EventFormSheet visible={composer === 'timeline'} title="Adicionar ao cronograma do dia" subtitle="Registre apenas o que acontece no dia deste evento." onClose={() => setComposer(null)}>
             <Text style={styles.formLabel}>Horário</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="HH:MM" />
-            <Text style={styles.formLabel}>Atividade</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="Ex.: Entrada dos noivos" />
+            <Text style={styles.formLabel}>Atividade</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder={eventPersona.timelineActivityPlaceholder} />
             <Text style={styles.formLabel}>Responsável (opcional)</Text>
             <EventFilterChips selected={f.c} onSelect={(value) => setF((state) => ({ ...state, c: value }))} options={assigneeOptions.map((option) => ({ value: option.value, label: option.label }))} />
             <TextInput style={styles.input} value={f.c} onChangeText={(v) => setF((s) => ({ ...s, c: v }))} placeholder="Ou escreva outro nome" />
