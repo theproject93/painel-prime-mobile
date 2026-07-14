@@ -1,0 +1,13 @@
+Painel Prime Android 1.4.0 (build 8)
+
+Seu atendimento comercial agora continua com a mesma experiência premium da organização dos eventos:
+
+- Plan IA mais estável: enviar uma pergunta não aciona bloqueio biométrico indevido.
+- Conversas e rascunhos da Plan IA são preservados ao fechar e reabrir o assistente.
+- Novo workspace individual do cliente com dados comerciais, orçamento, contrato e próxima ação em uma única tela.
+- Métricas do Papermark por cliente, incluindo visualizações, tempo de leitura, último acesso e página de maior interesse.
+- Novo estúdio de modelos para editar orçamentos e contratos diretamente no Android.
+- Modelos versionados e compartilhados com a plataforma Web, preservando a identidade visual da assessoria.
+- Melhor tratamento de sessão: renovação de autenticação somente quando necessária.
+
+Esta versão mantém as integrações do Painel Prime com Supabase, Papermark, Documenso, Cloudflare R2, Sentry e Firebase App Distribution.

@@ -6,7 +6,13 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { useAuth } from './AuthContext';
 import { BiometricLockScreen } from '../components/BiometricLockScreen';
 import { BiometricOptInModal } from '../components/BiometricOptInModal';
-import { biometricOfferKey, biometricPreferenceKey, shouldRelock } from '../security/biometricPolicy';
+import {
+  biometricOfferKey,
+  biometricPreferenceKey,
+  shouldInitializeBiometricForUser,
+  shouldRelock,
+  shouldStartBackgroundTimer,
+} from '../security/biometricPolicy';
 
 type BiometricAccessValue = {
   available: boolean;
@@ -27,9 +33,11 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
   const [offerVisible, setOfferVisible] = useState(false);
   const backgroundedAt = useRef<number | null>(null);
   const authenticationInFlight = useRef(false);
+  const initializedUserId = useRef<string | null>(null);
+  const userId = user?.id ?? null;
 
   const authenticate = useCallback(async () => {
-    if (!user || authenticationInFlight.current) return false;
+    if (!userId || authenticationInFlight.current) return false;
     authenticationInFlight.current = true;
     setBusy(true);
     try {
@@ -48,39 +56,52 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
       authenticationInFlight.current = false;
       setBusy(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
-    if (loading || !user) {
+    if (loading) return;
+    if (!userId) {
+      initializedUserId.current = null;
       setLocked(false);
       setEnabled(false);
       setOfferVisible(false);
       return;
     }
+    if (!shouldInitializeBiometricForUser(initializedUserId.current, userId)) return;
+    initializedUserId.current = userId;
     let active = true;
     void (async () => {
-      const [hasHardware, enrolled, stored, offered] = await Promise.all([
-        LocalAuthentication.hasHardwareAsync(),
-        LocalAuthentication.isEnrolledAsync(),
-        SecureStore.getItemAsync(biometricPreferenceKey(user.id)),
-        SecureStore.getItemAsync(biometricOfferKey(user.id)),
-      ]);
-      if (!active) return;
-      const canUse = hasHardware && enrolled;
-      const isEnabled = canUse && stored === 'true';
-      setAvailable(canUse);
-      setEnabled(isEnabled);
-      setLocked(isEnabled);
-      setOfferVisible(canUse && !isEnabled && offered !== 'seen');
-      if (isEnabled) void authenticate();
+      try {
+        const [hasHardware, enrolled, stored, offered] = await Promise.all([
+          LocalAuthentication.hasHardwareAsync(),
+          LocalAuthentication.isEnrolledAsync(),
+          SecureStore.getItemAsync(biometricPreferenceKey(userId)),
+          SecureStore.getItemAsync(biometricOfferKey(userId)),
+        ]);
+        if (!active) return;
+        const canUse = hasHardware && enrolled;
+        const isEnabled = canUse && stored === 'true';
+        setAvailable(canUse);
+        setEnabled(isEnabled);
+        setLocked(isEnabled);
+        setOfferVisible(canUse && !isEnabled && offered !== 'seen');
+        if (isEnabled) void authenticate();
+      } catch (error) {
+        console.warn('Biometric initialization failed', error);
+        if (!active) return;
+        initializedUserId.current = null;
+        setAvailable(false);
+        setEnabled(false);
+        setLocked(false);
+      }
     })();
     return () => { active = false; };
-  }, [authenticate, loading, user]);
+  }, [authenticate, loading, userId]);
 
   useEffect(() => {
     const handleState = (nextState: AppStateStatus) => {
       if (!enabled || authenticationInFlight.current) return;
-      if (nextState === 'inactive' || nextState === 'background') {
+      if (shouldStartBackgroundTimer(nextState)) {
         backgroundedAt.current = Date.now();
         return;
       }
@@ -97,28 +118,28 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
   }, [authenticate, enabled]);
 
   const enable = useCallback(async () => {
-    if (!user || !available) return false;
+    if (!userId || !available) return false;
     const success = await authenticate();
     if (!success) return false;
-    await SecureStore.setItemAsync(biometricPreferenceKey(user.id), 'true');
-    await SecureStore.setItemAsync(biometricOfferKey(user.id), 'seen');
+    await SecureStore.setItemAsync(biometricPreferenceKey(userId), 'true');
+    await SecureStore.setItemAsync(biometricOfferKey(userId), 'seen');
     setEnabled(true);
     setOfferVisible(false);
     return true;
-  }, [authenticate, available, user]);
+  }, [authenticate, available, userId]);
 
   const disable = useCallback(async () => {
-    if (!user) return;
-    await SecureStore.deleteItemAsync(biometricPreferenceKey(user.id));
-    await SecureStore.setItemAsync(biometricOfferKey(user.id), 'seen');
+    if (!userId) return;
+    await SecureStore.deleteItemAsync(biometricPreferenceKey(userId));
+    await SecureStore.setItemAsync(biometricOfferKey(userId), 'seen');
     setEnabled(false);
     setLocked(false);
-  }, [user]);
+  }, [userId]);
 
   const dismissOffer = useCallback(async () => {
-    if (user) await SecureStore.setItemAsync(biometricOfferKey(user.id), 'seen');
+    if (userId) await SecureStore.setItemAsync(biometricOfferKey(userId), 'seen');
     setOfferVisible(false);
-  }, [user]);
+  }, [userId]);
 
   const usePassword = useCallback(async () => {
     setLocked(false);

@@ -307,6 +307,9 @@ Quando o dispositivo Android estiver explicitamente indisponível e o responsáv
 - O loader bloqueante deve ocupar toda a área disponível (`flex: 1`) e centralizar marca e texto nos dois eixos. É proibido posicioná-lo com margem fixa ou deixá-lo como filho direto de um `ScrollView`, pois isso o empurra para o topo em telas altas.
 - A biometria é uma trava local sobre uma sessão Supabase válida já persistida pelo SecureStore. É proibido salvar, criptografar, repetir ou reconstruir a senha do usuário.
 - Sessão expirada sempre volta ao login normal. Cancelar biometria mantém o conteúdo sensível coberto e oferece “Usar e-mail e senha”.
+- A inicialização biométrica deve ser vinculada ao valor estável de `user.id`, nunca à identidade do objeto `user`. Renovação de JWT/token para o mesmo usuário não pode bloquear a tela nem abrir novo prompt biométrico.
+- Apenas a transição real para `background` inicia o prazo de bloqueio. O estado transitório `inactive` (incluindo diálogos do sistema) não equivale a saída do aplicativo.
+- Conversas e rascunhos da Plan IA podem ser persistidos localmente por `user.id` para sobreviver a remount/background, limitados ao histórico necessário e sem JWTs, senhas ou outros secrets.
 - Preferências biométricas são isoladas por `user.id`; outro usuário nunca herda a configuração do aparelho.
 
 ### Primeiro acesso humano no mobile

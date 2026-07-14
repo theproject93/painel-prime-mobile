@@ -11,3 +11,14 @@ export function biometricOfferKey(userId: string) {
 export function shouldRelock(backgroundedAt: number | null, now: number) {
   return backgroundedAt !== null && now - backgroundedAt >= BIOMETRIC_RELOCK_AFTER_MS;
 }
+
+export function shouldStartBackgroundTimer(nextState: string) {
+  return nextState === 'background';
+}
+
+export function shouldInitializeBiometricForUser(
+  initializedUserId: string | null,
+  currentUserId: string | null,
+) {
+  return currentUserId !== null && initializedUserId !== currentUserId;
+}
