@@ -60,6 +60,7 @@ export function useTableMapModel(params: Params) {
       setFixtureError('');
       try {
         const full = await withTimeout(
+          // egress-guard: allow-unbounded -- every event-scoped fixture is required to reconstruct the map.
           supabase.from('event_map_fixtures').select('id,type,x,y,w,h,custom_label').eq('event_id', eventId).order('created_at', { ascending: true }),
           12_000,
         );
@@ -69,6 +70,7 @@ export function useTableMapModel(params: Params) {
           rows = (full.data ?? []) as Array<Record<string, unknown>>;
         } else {
           const fallback = await withTimeout(
+            // egress-guard: allow-unbounded -- legacy schema fallback must reconstruct the complete event map.
             supabase.from('event_map_fixtures').select('id,type,x,y,w,h').eq('event_id', eventId).order('created_at', { ascending: true }),
             12_000,
           );
