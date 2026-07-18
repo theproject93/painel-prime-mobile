@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { getEventPersonaCopy } from '@painel-prime/app/eventPersona';
 
@@ -14,8 +12,6 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   deleteStoredFile,
   getPrivateFileDownloadUrl,
-  linkStoredFile,
-  uploadPrivateAsset,
 } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
 import { isEventDetailsInitialTab, EVENT_MODULES } from '../navigation/eventRouteTypes';
@@ -39,25 +35,21 @@ import {
 } from '../features/events/eventWorkspaceUtils';
 import { useEventFilters } from '../features/events/useEventFilters';
 import { useEventDetailsData } from '../features/events/useEventDetailsData';
+import { useEventUploads } from '../features/events/useEventUploads';
+import { useEventTimeline } from '../features/events/useEventTimeline';
+import { useEventCommandCenter } from '../features/events/useEventCommandCenter';
 import { styles } from '../features/events/eventDetailsStyles';
 import type { EventDataKey as DataKey, EventDetailsTab } from '../features/events/eventDetailsData';
 import type {
-  CommandComputedAlert,
-  CommandConfig,
-  CommandIncidentRow,
-  CommandStatusRow,
-  CommandVendorStatus,
   EventRow,
   HistoryKind,
   OverviewAlert,
   PaymentMethod,
   ProjectMilestone,
-  SmartTimelineSuggestion,
   VisibleKey,
 } from '../features/events/eventDetailsTypes';
 import {
   brl,
-  combineDateTime,
   composePaymentNote,
   fmt,
   getMilestoneColor,
@@ -65,7 +57,6 @@ import {
   isThisWeekDate,
   isTodayDate,
   labelVendorStatus,
-  normalizeAiSuggestion,
   normalizePaymentMethod,
   parsePaymentNote,
   paymentMethodLabel,
@@ -159,18 +150,10 @@ export function EventDetailsScreen() {
     documents: 40,
     timeline: 40,
   });
-  const [uploadingDoc, setUploadingDoc] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [uploadingInviteImage, setUploadingInviteImage] = useState(false);
-  const [uploadingTeamMemberId, setUploadingTeamMemberId] = useState<string | null>(null);
   const [teamDirectory, setTeamDirectory] = useState<any[]>([]);
   const [catalogVendors, setCatalogVendors] = useState<any[]>([]);
   const [loadingCatalogVendors, setLoadingCatalogVendors] = useState(false);
   const [tablesViewMode, setTablesViewMode] = useState<'list' | 'map'>('list');
-  const [loadingAiTimelineSuggestions, setLoadingAiTimelineSuggestions] = useState(false);
-  const [aiTimelineError, setAiTimelineError] = useState<string | null>(null);
-  const [lastAiTimelineRunAt, setLastAiTimelineRunAt] = useState<string | null>(null);
-  const [aiTimelineSuggestions, setAiTimelineSuggestions] = useState<SmartTimelineSuggestion[]>([]);
   const [historyFilter, setHistoryFilter] = useState<'all' | HistoryKind>('all');
   const [budgetPaymentMethod, setBudgetPaymentMethod] = useState<PaymentMethod>('pix');
   const [budgetPaymentReceiptDocId, setBudgetPaymentReceiptDocId] = useState('');
@@ -200,25 +183,6 @@ export function EventDetailsScreen() {
     eventDate: '',
     location: '',
   });
-  const [commandStatuses, setCommandStatuses] = useState<CommandStatusRow[]>([]);
-  const [commandIncidents, setCommandIncidents] = useState<CommandIncidentRow[]>([]);
-  const [commandConfig, setCommandConfig] = useState<CommandConfig>({
-    lead_minutes: [60, 30, 15],
-    late_grace_minutes: 10,
-  });
-  const [commandLeadInput, setCommandLeadInput] = useState('60,30,15');
-  const [commandGraceInput, setCommandGraceInput] = useState('10');
-  const [savingCommandConfig, setSavingCommandConfig] = useState(false);
-  const [savingCommandIncident, setSavingCommandIncident] = useState(false);
-  const [resolvingIncidentId, setResolvingIncidentId] = useState<string | null>(null);
-  const [commandIncidentForm, setCommandIncidentForm] = useState({
-    vendor_id: '',
-    severity: 'warning' as 'warning' | 'critical',
-    title: '',
-    action_plan: '',
-    note: '',
-  });
-
   useEffect(() => {
     void (async () => {
       setLoadingEvent(true);
@@ -265,66 +229,6 @@ export function EventDetailsScreen() {
     }
   }, [eventId, initialTabParam]);
 
-  useEffect(() => {
-    setCommandStatuses([]);
-    setCommandIncidents([]);
-    setCommandConfig({ lead_minutes: [60, 30, 15], late_grace_minutes: 10 });
-    setCommandLeadInput('60,30,15');
-    setCommandGraceInput('10');
-    setCommandIncidentForm({
-      vendor_id: '',
-      severity: 'warning',
-      title: '',
-      action_plan: '',
-      note: '',
-    });
-  }, [eventId]);
-
-  async function loadCommandCenterData() {
-    const [statusRes, incidentsRes, configRes] = await Promise.all([
-      supabase
-        .from('event_vendor_status')
-        .select('vendor_id,status,created_at,updated_by,note')
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: false })
-        .limit(240),
-      supabase
-        .from('event_command_incidents')
-        .select('id,event_id,vendor_id,severity,status,title,note,action_plan,created_at,resolved_at,vendor:event_vendors(name,category)')
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: false })
-        .limit(40),
-      supabase
-        .from('event_command_config')
-        .select('lead_minutes,late_grace_minutes')
-        .eq('event_id', eventId)
-        .maybeSingle(),
-    ]);
-
-    if (!statusRes.error) {
-      setCommandStatuses((statusRes.data as CommandStatusRow[]) ?? []);
-    }
-    if (!incidentsRes.error) {
-      setCommandIncidents((incidentsRes.data as CommandIncidentRow[]) ?? []);
-    }
-    if (!configRes.error && configRes.data) {
-      const loaded = configRes.data as CommandConfig;
-      const lead = Array.isArray(loaded.lead_minutes) ? loaded.lead_minutes : [60, 30, 15];
-      const grace = Number(loaded.late_grace_minutes ?? 10);
-      setCommandConfig({
-        lead_minutes: lead,
-        late_grace_minutes: Number.isFinite(grace) ? grace : 10,
-      });
-      setCommandLeadInput(lead.join(','));
-      setCommandGraceInput(String(Number.isFinite(grace) ? grace : 10));
-    }
-  }
-
-  useEffect(() => {
-    if (loadingEvent || activeTab !== 'command') return;
-    void loadCommandCenterData();
-  }, [activeTab, loadingEvent, eventId]);
-
   async function act(fn: () => Promise<void>, reload = true) {
     setError('');
     try {
@@ -334,6 +238,26 @@ export function EventDetailsScreen() {
       setError(e?.message ?? 'Erro');
     }
   }
+
+  const {
+    uploadingDoc,
+    uploadingPhoto,
+    uploadingInviteImage,
+    uploadingTeamMemberId,
+    pickAndUploadDocument,
+    pickAndUploadPhoto,
+    pickAndUploadInviteImage,
+    pickAndUploadTeamPhoto,
+  } = useEventUploads({ eventId, event, setEvent, setData, setError, loadTab });
+
+  const {
+    loadingAiTimelineSuggestions,
+    aiTimelineError,
+    lastAiTimelineRunAt,
+    timelineSuggestions,
+    applySmartTimelineSuggestion,
+    generateHybridTimelineSuggestions,
+  } = useEventTimeline({ eventId, event, data, act });
 
   function confirmBatchDelete(message: string, action: () => Promise<void>) {
     Alert.alert('Confirmar exclusão', message, [
@@ -415,6 +339,37 @@ export function EventDetailsScreen() {
   );
   const budgetTotal = Number(event?.budget_total ?? 0);
   const budgetProgress = budgetTotal > 0 ? Math.min((totalExpenses / budgetTotal) * 100, 100) : 0;
+  const {
+    commandLeadInput,
+    setCommandLeadInput,
+    commandGraceInput,
+    setCommandGraceInput,
+    savingCommandConfig,
+    commandIncidentForm,
+    setCommandIncidentForm,
+    savingCommandIncident,
+    resolvingIncidentId,
+    commandIncidents,
+    latestCommandVendorStatus,
+    commandSlaAlerts,
+    incidentStats,
+    command,
+    saveCommandRules,
+    updateVendorOperationalStatus,
+    createCommandIncident,
+    resolveCommandIncident,
+  } = useEventCommandCenter({
+    eventId,
+    activeTab,
+    loadingEvent,
+    event,
+    data,
+    userId: user?.id,
+    budgetTotal,
+    totalExpenses,
+    setError,
+    act,
+  });
   const completedTasks = useMemo(() => data.tasks.filter((x) => Boolean(x.completed)).length, [data.tasks]);
   const tasksProgress = data.tasks.length > 0 ? (completedTasks / data.tasks.length) * 100 : 0;
   const daysRemaining = useMemo(() => {
@@ -741,179 +696,6 @@ export function EventDetailsScreen() {
   const visibleGuests = useMemo(() => filteredGuests.slice(0, visible.guests), [filteredGuests, visible.guests]);
   const visibleVendors = useMemo(() => filteredVendors.slice(0, visible.vendors), [filteredVendors, visible.vendors]);
   const visibleDocuments = useMemo(() => filteredDocuments.slice(0, visible.documents), [filteredDocuments, visible.documents]);
-  const latestCommandVendorStatus = useMemo(() => {
-    const map = new Map<string, CommandStatusRow>();
-    commandStatuses.forEach((row) => {
-      if (!map.has(row.vendor_id)) map.set(row.vendor_id, row);
-    });
-    return map;
-  }, [commandStatuses]);
-  const commandSlaAlerts = useMemo<CommandComputedAlert[]>(() => {
-    if (!event?.event_date) return [];
-    const now = new Date();
-    const leadMinutes = (commandConfig.lead_minutes ?? [60, 30, 15])
-      .map((value) => Number(value))
-      .filter((value) => Number.isFinite(value) && value >= 0)
-      .sort((a, b) => b - a);
-    const lateGrace = Number(commandConfig.late_grace_minutes ?? 10);
-    const out: CommandComputedAlert[] = [];
-
-    data.vendors.forEach((vendor) => {
-      const currentStatus = latestCommandVendorStatus.get(vendor.id)?.status ?? 'pending';
-      const expectedArrival = combineDateTime(event.event_date, vendor.expected_arrival_time ?? null);
-      const expectedDone = combineDateTime(event.event_date, vendor.expected_done_time ?? null);
-
-      if (expectedArrival && currentStatus !== 'arrived' && currentStatus !== 'done') {
-        leadMinutes.forEach((minutes) => {
-          const trigger = new Date(expectedArrival.getTime() - minutes * 60 * 1000);
-          if (now >= trigger && now < expectedArrival) {
-            const severity: CommandComputedAlert['severity'] =
-              minutes <= 15 ? 'critical' : minutes <= 30 ? 'warning' : 'info';
-            out.push({
-              vendor_id: vendor.id,
-              alert_type: 'arrival_pre_alert',
-              severity,
-              message: `${vendor.name || 'Fornecedor'}: faltam ${minutes} min para a chegada prevista.`,
-              dedupe_key: `${event.id}:${vendor.id}:arrival_pre:${minutes}`,
-            });
-          }
-        });
-        const lateAt = new Date(expectedArrival.getTime() + lateGrace * 60 * 1000);
-        if (now >= lateAt) {
-          out.push({
-            vendor_id: vendor.id,
-            alert_type: 'arrival_late',
-            severity: 'critical',
-            message: `${vendor.name || 'Fornecedor'}: chegada atrasada (previsto ${vendor.expected_arrival_time ?? '--:--'}).`,
-            dedupe_key: `${event.id}:${vendor.id}:arrival_late`,
-          });
-        }
-      }
-
-      if (expectedDone && currentStatus !== 'done') {
-        const doneLateAt = new Date(expectedDone.getTime() + lateGrace * 60 * 1000);
-        if (now >= doneLateAt) {
-          out.push({
-            vendor_id: vendor.id,
-            alert_type: 'done_late',
-            severity: 'warning',
-            message: `${vendor.name || 'Fornecedor'}: finalização atrasada (previsto ${vendor.expected_done_time ?? '--:--'}).`,
-            dedupe_key: `${event.id}:${vendor.id}:done_late`,
-          });
-        }
-      }
-    });
-
-    const seen = new Set<string>();
-    return out.filter((item) => {
-      if (seen.has(item.dedupe_key)) return false;
-      seen.add(item.dedupe_key);
-      return true;
-    });
-  }, [commandConfig.late_grace_minutes, commandConfig.lead_minutes, data.vendors, event?.event_date, event?.id, latestCommandVendorStatus]);
-  const incidentStats = useMemo(() => {
-    const open = commandIncidents.filter((row) => row.status === 'open').length;
-    const resolved = commandIncidents.filter((row) => row.status === 'resolved').length;
-    return { open, resolved };
-  }, [commandIncidents]);
-  const command = useMemo(() => {
-    const pendingTasksCount = data.tasks.filter((t) => !t.completed).length;
-    const pendingVendors = data.vendors.filter((v) => (v.status ?? 'pending') !== 'confirmed').length;
-    const pendingRsvp = data.guests.filter((g) => (g.rsvp_status ?? 'pending') === 'pending').length;
-    const negativeBalance = budgetTotal - totalExpenses < 0;
-    const criticalTimeline = data.timeline
-      .filter((item) => !item.assignee_name || String(item.assignee_name).trim().length === 0)
-      .slice(0, 5);
-    const overdueCount = data.tasks.filter((item) => !item.completed && isOverdueDate(item.due_date)).length;
-    const score = Math.max(
-      0,
-      100 -
-        pendingTasksCount * 2 -
-        pendingVendors * 6 -
-        Math.round(pendingRsvp * 0.4) -
-        (negativeBalance ? 18 : 0) -
-        overdueCount * 3 -
-        criticalTimeline.length * 4 -
-        Math.min(24, incidentStats.open * 8) -
-        Math.min(16, commandSlaAlerts.filter((row) => row.severity !== 'info').length * 2),
-    );
-    return { pendingTasks: pendingTasksCount, pendingVendors, pendingRsvp, negativeBalance, criticalTimeline, score, overdueCount };
-  }, [budgetTotal, commandSlaAlerts, data.guests, data.tasks, data.timeline, data.vendors, incidentStats.open, totalExpenses]);
-
-  const smartTimelineSuggestions = useMemo<SmartTimelineSuggestion[]>(() => {
-    const out: SmartTimelineSuggestion[] = [];
-    const pendingTasks = data.tasks.filter((item) => !item.completed);
-    const pendingVendors = data.vendors.filter((item) => (item.status ?? 'pending') !== 'confirmed');
-    const pendingGuests = data.guests.filter((item) => (item.rsvp_status ?? 'pending') === 'pending');
-
-    if (pendingTasks.length >= 8) {
-      out.push({
-        id: 'rules-tasks',
-        title: 'Bloco de execução de tarefas',
-        reason: 'Muitas tarefas abertas para o evento.',
-        activity: 'Reunião de alinhamento da equipe e distribuição de prioridades',
-        time: '08:30',
-        assignee: 'Assessoria',
-        priority: 'high',
-        source: 'rules',
-      });
-    }
-
-    if (pendingVendors.length > 0) {
-      out.push({
-        id: 'rules-vendors',
-        title: 'Checklist com fornecedores',
-        reason: 'Existem fornecedores sem confirmação.',
-        activity: 'Confirmar chegada e responsavel de todos os fornecedores pendentes',
-        time: '09:30',
-        assignee: 'Coordenação',
-        priority: 'high',
-        source: 'rules',
-      });
-    }
-
-    if (pendingGuests.length >= 10) {
-      out.push({
-        id: 'rules-rsvp',
-        title: 'Virada de RSVP',
-        reason: 'Lista de convidados com alto volume pendente.',
-        activity: 'Executar disparo final de RSVP e registrar retorno',
-        time: '11:00',
-        assignee: 'Recepcao',
-        priority: 'normal',
-        source: 'rules',
-      });
-    }
-
-    if (data.timeline.length === 0) {
-      out.push({
-        id: 'rules-base',
-        title: 'Estruturar cronograma do dia',
-        reason: 'Evento sem itens na timeline.',
-        activity: 'Montar cronograma base de operação do evento',
-        time: '08:00',
-        assignee: 'Assessoria',
-        priority: 'high',
-        source: 'rules',
-      });
-    }
-
-    return out;
-  }, [data.guests, data.tasks, data.timeline.length, data.vendors]);
-
-  const timelineSuggestions = useMemo(() => {
-    const out: SmartTimelineSuggestion[] = [];
-    const seen = new Set<string>();
-    [...aiTimelineSuggestions, ...smartTimelineSuggestions].forEach((item) => {
-      const key = `${item.title}|${item.activity}|${item.time}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        out.push(item);
-      }
-    });
-    return out;
-  }, [aiTimelineSuggestions, smartTimelineSuggestions]);
-
   const tableOccupancy = useMemo(() => {
     return data.tables.map((table) => {
       const allocated = data.guests.filter((guest) => guest.table_id === table.id).length;
@@ -923,265 +705,6 @@ export function EventDetailsScreen() {
       return { table, allocated, seats, free, ratio };
     });
   }, [data.guests, data.tables]);
-
-  async function createTimelineItem(payload: {
-    time: string;
-    activity: string;
-    assignee: string | null;
-  }) {
-    const { error: insertError } = await supabase.from('event_timeline').insert({
-      event_id: eventId,
-      time: payload.time,
-      activity: payload.activity,
-      assignee_name: payload.assignee,
-      position: data.timeline.length,
-    });
-    if (insertError) throw new Error(insertError.message);
-  }
-
-  async function applySmartTimelineSuggestion(suggestion: SmartTimelineSuggestion) {
-    await act(async () => {
-      await createTimelineItem({
-        time: suggestion.time,
-        activity: suggestion.activity,
-        assignee: suggestion.assignee || null,
-      });
-      setAiTimelineSuggestions((prev) => prev.filter((item) => item.id !== suggestion.id));
-    });
-  }
-
-  async function generateHybridTimelineSuggestions() {
-    if (!event) return;
-    setLoadingAiTimelineSuggestions(true);
-    setAiTimelineError(null);
-    try {
-      const payload = {
-        event: {
-          id: event.id,
-          name: event.name,
-          couple: event.couple,
-          event_date: event.event_date,
-          location: event.location,
-        },
-        metrics: {
-          pending_tasks: data.tasks.filter((item) => !item.completed).length,
-          pending_vendors: data.vendors.filter((item) => (item.status ?? 'pending') !== 'confirmed').length,
-          pending_rsvp: data.guests.filter((item) => (item.rsvp_status ?? 'pending') === 'pending').length,
-        },
-        current_timeline: data.timeline.slice(0, 20).map((item) => ({
-          time: item.time,
-          activity: item.activity,
-          assignee: item.assignee_name ?? '',
-        })),
-        rules_suggestions: smartTimelineSuggestions.map((item) => ({
-          title: item.title,
-          reason: item.reason,
-          activity: item.activity,
-          time: item.time,
-          assignee: item.assignee,
-          priority: item.priority,
-        })),
-      };
-
-      const { data: aiData, error: invokeError } = await supabase.functions.invoke('timeline-ai', {
-        body: payload,
-      });
-      if (invokeError) {
-        throw new Error(invokeError.message);
-      }
-
-      const rawJson = aiData as unknown;
-      const suggestionsRaw: unknown[] = Array.isArray(rawJson)
-        ? rawJson
-        : rawJson && typeof rawJson === 'object' && Array.isArray((rawJson as Record<string, unknown>).suggestions)
-          ? ((rawJson as Record<string, unknown>).suggestions as unknown[])
-          : [];
-
-      const parsed = suggestionsRaw
-        .map((raw, index) => normalizeAiSuggestion(raw, index))
-        .filter((item): item is SmartTimelineSuggestion => Boolean(item));
-
-      if (parsed.length === 0) {
-        setAiTimelineError('A IA não retornou sugestões válidas. Mantendo sugestões locais.');
-      }
-      setAiTimelineSuggestions(parsed);
-      setLastAiTimelineRunAt(new Date().toISOString());
-    } catch (aiError: any) {
-      setAiTimelineError(aiError?.message ?? 'Falha ao gerar sugestoes da IA.');
-      setAiTimelineSuggestions([]);
-    } finally {
-      setLoadingAiTimelineSuggestions(false);
-    }
-  }
-
-  async function pickAndUploadDocument() {
-    if (uploadingDoc) return;
-    setUploadingDoc(true);
-    setError('');
-    let uploadFileId: string | null = null;
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        copyToCacheDirectory: true,
-        multiple: false,
-        type: [
-          'application/pdf',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'image/*',
-        ],
-      });
-      if (result.canceled || result.assets.length === 0) {
-        setUploadingDoc(false);
-        return;
-      }
-
-      const asset = result.assets[0];
-      const safeName = asset.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const upload = await uploadPrivateAsset({
-        uri: asset.uri,
-        fileName: `${eventId}-${Date.now()}-${safeName}`,
-        contentType: asset.mimeType ?? 'application/octet-stream',
-        byteSize: asset.size ?? null,
-        entityType: 'event_document',
-        entityId: eventId,
-      });
-      uploadFileId = upload.fileId;
-
-      const { data: inserted, error: insertError } = await supabase
-        .from('event_documents')
-        .insert({
-          event_id: eventId,
-          name: asset.name,
-          file_url: upload.objectKey,
-          file_id: upload.fileId,
-          file_type: asset.mimeType ?? null,
-          category: 'Outros',
-        })
-        .select('id')
-        .maybeSingle();
-      if (insertError) throw new Error(insertError.message);
-      if (inserted?.id) {
-        void linkStoredFile(upload.fileId, inserted.id).catch(() => {
-          // Best effort only.
-        });
-      }
-
-      await loadTab('documents', true);
-    } catch (uploadError: any) {
-      if (uploadFileId) {
-        void deleteStoredFile(uploadFileId).catch(() => {
-          // Best effort only.
-        });
-      }
-      setError(uploadError?.message ?? 'Erro ao fazer upload do documento.');
-    } finally {
-      setUploadingDoc(false);
-    }
-  }
-
-  async function pickAndUploadPhoto() {
-    if (uploadingPhoto || !event) return;
-    setUploadingPhoto(true);
-    setError('');
-    let nextFileId: string | null = null;
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        throw new Error('Permissao de galeria negada.');
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-      });
-      if (result.canceled || result.assets.length === 0) {
-        setUploadingPhoto(false);
-        return;
-      }
-
-      const asset = result.assets[0];
-      const ext = (asset.fileName?.split('.').pop() ?? 'jpg').toLowerCase();
-      const previousFileId = event.couple_photo_file_id ?? null;
-      const upload = await uploadPrivateAsset({
-        uri: asset.uri,
-        fileName: `${eventId}-${Date.now()}.${ext}`,
-        contentType: asset.mimeType ?? 'image/jpeg',
-        byteSize: asset.fileSize ?? null,
-        entityType: 'event_photo',
-        entityId: eventId,
-      });
-      nextFileId = upload.fileId;
-      const signedUrl = await getPrivateFileDownloadUrl(upload.fileId);
-      const { error: updateError } = await supabase
-        .from('events')
-        .update({ couple_photo_url: null, couple_photo_file_id: upload.fileId })
-        .eq('id', eventId);
-      if (updateError) throw new Error(updateError.message);
-
-      if (previousFileId) {
-        void deleteStoredFile(previousFileId).catch(() => {
-          // Best effort only.
-        });
-      }
-      setEvent((prev) => (prev ? { ...prev, couple_photo_url: signedUrl, couple_photo_file_id: upload.fileId } : prev));
-    } catch (photoError: any) {
-      if (nextFileId) {
-        void deleteStoredFile(nextFileId).catch(() => {
-          // Best effort only.
-        });
-      }
-      setError(photoError?.message ?? 'Erro ao fazer upload da foto.');
-    } finally {
-      setUploadingPhoto(false);
-    }
-  }
-
-  async function pickAndUploadInviteImage() {
-    if (uploadingInviteImage || !event) return;
-    setUploadingInviteImage(true);
-    let nextFileId: string | null = null;
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) throw new Error('Permissão de galeria negada.');
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.82 });
-      if (result.canceled || result.assets.length === 0) return;
-      const asset = result.assets[0];
-      const extension = (asset.fileName?.split('.').pop() ?? 'jpg').toLowerCase();
-      const upload = await uploadPrivateAsset({ uri: asset.uri, fileName: `convite-${eventId}-${Date.now()}.${extension}`, contentType: asset.mimeType ?? 'image/jpeg', byteSize: asset.fileSize ?? null, entityType: 'event_invite_whatsapp_image', entityId: eventId });
-      nextFileId = upload.fileId;
-      const signedUrl = await getPrivateFileDownloadUrl(upload.fileId);
-      const { error: updateError } = await supabase.from('events').update({ whatsapp_image_file_id: upload.fileId, whatsapp_image_url: null }).eq('id', eventId);
-      if (updateError) throw new Error(updateError.message);
-      if (event.whatsapp_image_file_id) void deleteStoredFile(event.whatsapp_image_file_id).catch(() => undefined);
-      setEvent((current) => current ? { ...current, whatsapp_image_file_id: upload.fileId, whatsapp_image_url: signedUrl } : current);
-    } catch (uploadError: any) {
-      if (nextFileId) void deleteStoredFile(nextFileId).catch(() => undefined);
-      setError(uploadError?.message ?? 'Não foi possível enviar a imagem do convite.');
-    } finally { setUploadingInviteImage(false); }
-  }
-
-  async function pickAndUploadTeamPhoto(member: any) {
-    if (uploadingTeamMemberId) return;
-    setUploadingTeamMemberId(String(member.id));
-    let nextFileId: string | null = null;
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) throw new Error('Permissão de galeria negada.');
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
-      if (result.canceled || result.assets.length === 0) return;
-      const asset = result.assets[0];
-      const extension = (asset.fileName?.split('.').pop() ?? 'jpg').toLowerCase();
-      const upload = await uploadPrivateAsset({ uri: asset.uri, fileName: `equipe-${member.id}-${Date.now()}.${extension}`, contentType: asset.mimeType ?? 'image/jpeg', byteSize: asset.fileSize ?? null, entityType: 'event_team_member_photo', entityId: eventId });
-      nextFileId = upload.fileId;
-      const signedUrl = await getPrivateFileDownloadUrl(upload.fileId);
-      const { error: updateError } = await supabase.from('event_team_members').update({ photo_file_id: upload.fileId, photo_url: null }).eq('id', member.id).eq('event_id', eventId);
-      if (updateError) throw new Error(updateError.message);
-      if (member.photo_file_id) void deleteStoredFile(String(member.photo_file_id)).catch(() => undefined);
-      setData((current) => ({ ...current, team: current.team.map((item) => item.id === member.id ? { ...item, photo_file_id: upload.fileId, photo_url: signedUrl } : item) }));
-    } catch (uploadError: any) {
-      if (nextFileId) void deleteStoredFile(nextFileId).catch(() => undefined);
-      setError(uploadError?.message ?? 'Não foi possível enviar a foto da equipe.');
-    } finally { setUploadingTeamMemberId(null); }
-  }
 
   async function linkCatalogVendor(vendorId: string) {
     const { error: linkError } = await supabase.rpc('link_catalog_vendor_to_event', { p_event_id: eventId, p_vendor_id: vendorId });
@@ -1305,107 +828,6 @@ export function EventDetailsScreen() {
       setError(saveError?.message ?? 'Erro ao salvar dados do evento.');
     } finally {
       setSavingBasics(false);
-    }
-  }
-
-  async function saveCommandRules() {
-    const parsedLead = commandLeadInput
-      .split(',')
-      .map((row) => Number(row.trim()))
-      .filter((row) => Number.isFinite(row) && row >= 0);
-    const uniqueLead = Array.from(new Set(parsedLead)).sort((a, b) => b - a);
-    const grace = Number(commandGraceInput);
-    const safeGrace = Number.isFinite(grace) && grace >= 0 ? grace : 10;
-    setSavingCommandConfig(true);
-    setError('');
-    try {
-      const { error: upsertError } = await supabase.from('event_command_config').upsert({
-        event_id: eventId,
-        lead_minutes: uniqueLead.length > 0 ? uniqueLead : [60, 30, 15],
-        late_grace_minutes: safeGrace,
-        updated_at: new Date().toISOString(),
-      });
-      if (upsertError) throw new Error(upsertError.message);
-      setCommandConfig({
-        lead_minutes: uniqueLead.length > 0 ? uniqueLead : [60, 30, 15],
-        late_grace_minutes: safeGrace,
-      });
-    } catch (saveError: any) {
-      setError(saveError?.message ?? 'Não foi possível salvar regras da torre.');
-    } finally {
-      setSavingCommandConfig(false);
-    }
-  }
-
-  async function updateVendorOperationalStatus(vendorId: string, status: CommandVendorStatus) {
-    await act(async () => {
-      const { error: insertError } = await supabase.from('event_vendor_status').insert({
-        event_id: eventId,
-        vendor_id: vendorId,
-        status,
-        updated_by: 'assessoria',
-      });
-      if (insertError) throw new Error(insertError.message);
-      await loadCommandCenterData();
-    }, false);
-  }
-
-  async function createCommandIncident() {
-    const title = commandIncidentForm.title.trim();
-    if (!title || savingCommandIncident) return;
-    setSavingCommandIncident(true);
-    setError('');
-    try {
-      const payload: Record<string, unknown> = {
-        event_id: eventId,
-        vendor_id: commandIncidentForm.vendor_id || null,
-        severity: commandIncidentForm.severity,
-        title,
-        action_plan: commandIncidentForm.action_plan.trim() || null,
-        note: commandIncidentForm.note.trim() || null,
-      };
-      if (user?.id) {
-        payload.created_by = user.id;
-      }
-      const { error: insertError } = await supabase.from('event_command_incidents').insert(payload);
-      if (insertError) throw new Error(insertError.message);
-      setCommandIncidentForm({
-        vendor_id: '',
-        severity: 'warning',
-        title: '',
-        action_plan: '',
-        note: '',
-      });
-      await loadCommandCenterData();
-    } catch (incidentError: any) {
-      setError(incidentError?.message ?? 'Não foi possível registrar incidente.');
-    } finally {
-      setSavingCommandIncident(false);
-    }
-  }
-
-  async function resolveCommandIncident(incidentId: string) {
-    if (resolvingIncidentId) return;
-    setResolvingIncidentId(incidentId);
-    setError('');
-    try {
-      const payload: Record<string, unknown> = {
-        status: 'resolved',
-        resolved_at: new Date().toISOString(),
-      };
-      if (user?.id) {
-        payload.resolved_by = user.id;
-      }
-      const { error: resolveError } = await supabase
-        .from('event_command_incidents')
-        .update(payload)
-        .eq('id', incidentId);
-      if (resolveError) throw new Error(resolveError.message);
-      await loadCommandCenterData();
-    } catch (resolveError: any) {
-      setError(resolveError?.message ?? 'Não foi possível resolver incidente.');
-    } finally {
-      setResolvingIncidentId(null);
     }
   }
 
