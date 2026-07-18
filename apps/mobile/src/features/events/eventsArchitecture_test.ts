@@ -1,0 +1,3 @@
+import { assert, assertEquals } from 'jsr:@std/assert';
+const root = new URL('../../', import.meta.url);
+Deno.test('events screen delegates pagination and prevents reset append races', async () => { const screen = await Deno.readTextFile(new URL('screens/EventsScreen.tsx', root)); const hook = await Deno.readTextFile(new URL('features/events/useEventsData.ts', root)); assert(screen.split(/\r?\n/).length <= 450); assertEquals(screen.includes("../lib/supabase"), false); assert(hook.includes('resetInFlight.current || appendInFlight.current')); assert(hook.includes('coverCache.current.get')); assert(screen.includes('data.insert(created as EventItem)')); assertEquals(screen.includes('force: true'), false); });
