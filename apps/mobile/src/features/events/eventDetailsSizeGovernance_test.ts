@@ -2,11 +2,11 @@ import { assert, assertFalse } from 'jsr:@std/assert@1';
 
 const screenUrl = new URL('../../screens/EventDetailsScreen.tsx', import.meta.url);
 
-Deno.test('EventDetailsScreen respects the action-hooks decomposition budget', async () => {
+Deno.test('EventDetailsScreen respects the simple-tabs decomposition budget', async () => {
   const screen = await Deno.readTextFile(screenUrl);
   const lineCount = screen.split(/\r?\n/).length;
 
-  assert(lineCount <= 2_200, `EventDetailsScreen has ${lineCount} lines; PR 2 budget is 2200`);
+  assert(lineCount <= 1_650, `EventDetailsScreen has ${lineCount} lines; PR 3 budget is 1650`);
 });
 
 Deno.test('EventDetailsScreen delegates static types, helpers and styles', async () => {
@@ -26,4 +26,11 @@ Deno.test('EventDetailsScreen delegates uploads, timeline intelligence and comma
   assertFalse(screen.includes('DocumentPicker.getDocumentAsync('));
   assertFalse(screen.includes("supabase.functions.invoke('timeline-ai'"));
   assertFalse(screen.includes("supabase.from('event_command_config')"));
+});
+
+Deno.test('EventDetailsScreen delegates the simple event tabs', async () => {
+  const screen = await Deno.readTextFile(screenUrl);
+
+  assert(screen.includes('<SimpleEventTabs'));
+  assertFalse(screen.includes('function PresentesTabContent('));
 });

@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Image, Linking, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getEventPersonaCopy } from '@painel-prime/app/eventPersona';
 
-import { EventTablesVisualMap } from '../components/EventTablesVisualMap';
 import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { MeetingCenter } from '../features/meetings/MeetingCenter';
 import { useAuth } from '../contexts/AuthContext';
@@ -38,14 +37,17 @@ import { useEventDetailsData } from '../features/events/useEventDetailsData';
 import { useEventUploads } from '../features/events/useEventUploads';
 import { useEventTimeline } from '../features/events/useEventTimeline';
 import { useEventCommandCenter } from '../features/events/useEventCommandCenter';
+import { useEventGifts } from '../features/events/useEventGifts';
+import { useEventSimpleActions } from '../features/events/useEventSimpleActions';
+import { SimpleEventTabs } from '../features/events/tabs/SimpleEventTabs';
+import { Card, CommandLine, Danger, Item, Small, TaskSegment } from '../features/events/EventDetailsParts';
+import { useEventHistory } from '../features/events/useEventHistory';
 import { styles } from '../features/events/eventDetailsStyles';
 import type { EventDataKey as DataKey, EventDetailsTab } from '../features/events/eventDetailsData';
 import type {
   EventRow,
-  HistoryKind,
   OverviewAlert,
   PaymentMethod,
-  ProjectMilestone,
   VisibleKey,
 } from '../features/events/eventDetailsTypes';
 import {
@@ -150,11 +152,8 @@ export function EventDetailsScreen() {
     documents: 40,
     timeline: 40,
   });
-  const [teamDirectory, setTeamDirectory] = useState<any[]>([]);
   const [catalogVendors, setCatalogVendors] = useState<any[]>([]);
   const [loadingCatalogVendors, setLoadingCatalogVendors] = useState(false);
-  const [tablesViewMode, setTablesViewMode] = useState<'list' | 'map'>('list');
-  const [historyFilter, setHistoryFilter] = useState<'all' | HistoryKind>('all');
   const [budgetPaymentMethod, setBudgetPaymentMethod] = useState<PaymentMethod>('pix');
   const [budgetPaymentReceiptDocId, setBudgetPaymentReceiptDocId] = useState('');
   const [budgetPaymentNote, setBudgetPaymentNote] = useState('');
@@ -174,7 +173,6 @@ export function EventDetailsScreen() {
   const [isBudgetCardEditing, setIsBudgetCardEditing] = useState(false);
   const [savingBudgetCard, setSavingBudgetCard] = useState(false);
   const [hideFinancialValues, setHideFinancialValues] = useState(false);
-  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [editingBasics, setEditingBasics] = useState(false);
   const [savingBasics, setSavingBasics] = useState(false);
   const [basicDraft, setBasicDraft] = useState({
@@ -183,6 +181,7 @@ export function EventDetailsScreen() {
     eventDate: '',
     location: '',
   });
+  const { gifts, loadingGifts } = useEventGifts(eventId, activeTab === 'presentes');
   useEffect(() => {
     void (async () => {
       setLoadingEvent(true);
@@ -259,6 +258,21 @@ export function EventDetailsScreen() {
     generateHybridTimelineSuggestions,
   } = useEventTimeline({ eventId, event, data, act });
 
+  const simpleActions = useEventSimpleActions({
+    activeTab,
+    eventId,
+    data,
+    filteredGuests,
+    form: f,
+    setForm: setF,
+    setEvent,
+    setData,
+    setComposer,
+    act,
+    loadTab,
+    loadKey,
+  });
+
   function confirmBatchDelete(message: string, action: () => Promise<void>) {
     Alert.alert('Confirmar exclusão', message, [
       { text: 'Cancelar', style: 'cancel' },
@@ -276,6 +290,15 @@ export function EventDetailsScreen() {
     const couple = (event?.couple ?? '').trim();
     return couple || event?.name || 'Evento';
   }, [event?.couple, event?.name]);
+
+  const {
+    setHistoryFilter,
+    history,
+    historyTimelineNodes,
+    selectedHistoryId,
+    setSelectedHistoryId,
+    historyProgress,
+  } = useEventHistory({ activeTab, event, data, displayName });
 
   const assigneeOptions = useMemo(() => {
     const options: Array<{ value: string; label: string; group: string }> = [];
@@ -298,35 +321,6 @@ export function EventDetailsScreen() {
       } finally { setLoadingCatalogVendors(false); }
     })();
   }, [activeTab, eventId]);
-
-  const teamPhotoSignature = data.team.map((member) => `${member.id}:${member.photo_file_id ?? ''}`).join('|');
-  useEffect(() => {
-    const pending = data.team.filter((member) => member.photo_file_id);
-    if (pending.length === 0) return;
-    let cancelled = false;
-    void Promise.all(pending.map(async (member) => {
-      try { return [member.id, await getPrivateFileDownloadUrl(String(member.photo_file_id))] as const; }
-      catch { return [member.id, ''] as const; }
-    })).then((entries) => {
-      if (cancelled) return;
-      const urls = new Map(entries);
-      setData((current) => ({ ...current, team: current.team.map((member) => urls.get(member.id) ? { ...member, photo_url: urls.get(member.id) } : member) }));
-    });
-    return () => { cancelled = true; };
-  }, [activeTab, teamPhotoSignature]);
-
-  useEffect(() => {
-    if (activeTab !== 'team') return;
-    void (async () => {
-      const db = supabase as any;
-      const [teamsRes, membersRes] = await Promise.all([
-        db.from('advisor_teams').select('id,name,leader_member_id').order('created_at'),
-        db.from('advisor_team_members').select('id,team_id,name,role,phone,email,photo_file_id,photo_url').order('created_at'),
-      ]);
-      if (teamsRes.error || membersRes.error) return;
-      setTeamDirectory((teamsRes.data ?? []).map((team: any) => ({ ...team, members: (membersRes.data ?? []).filter((member: any) => member.team_id === team.id) })));
-    })();
-  }, [activeTab]);
 
   const totalPaid = useMemo(() => data.payments.reduce((s, x) => s + Number(x.amount ?? 0), 0), [data.payments]);
   const totalExpenses = useMemo(
@@ -394,207 +388,6 @@ export function EventDetailsScreen() {
     setIsBudgetCardEditing(false);
   }, [event?.id, event?.budget_total]);
 
-  const historyRows = useMemo(() => {
-    const rows: Array<{ at: string; kind: HistoryKind; text: string }> = [];
-    if (event?.created_at) rows.push({ at: event.created_at, kind: 'event', text: 'Evento criado' });
-    data.timeline.forEach((x) => x.created_at && rows.push({ at: x.created_at, kind: 'timeline', text: `Timeline: ${x.activity || ''}` }));
-    data.tasks.forEach((x) => x.created_at && rows.push({ at: x.created_at, kind: 'task', text: `Tarefa: ${x.text || ''}` }));
-    data.guests.forEach((x) => {
-      if (x.created_at) rows.push({ at: x.created_at, kind: 'guest', text: `Convidado: ${x.name || ''}` });
-      if (x.invited_at) rows.push({ at: x.invited_at, kind: 'invite', text: `Convite enviado: ${x.name || ''}` });
-      if (x.responded_at) rows.push({ at: x.responded_at, kind: 'rsvp', text: `RSVP ${String(x.rsvp_status ?? 'pending')}: ${x.name || ''}` });
-    });
-    data.vendors.forEach((x) => x.created_at && rows.push({ at: x.created_at, kind: 'vendor', text: `Fornecedor: ${x.name || ''}` }));
-    data.documents.forEach((x) => x.created_at && rows.push({ at: x.created_at, kind: 'document', text: `Documento: ${x.name || ''}` }));
-    data.expenses.forEach((x) => x.created_at && rows.push({ at: x.created_at, kind: 'expense', text: `Despesa: ${x.name || ''}` }));
-    data.payments.forEach((x) => {
-      const at = x.created_at || x.paid_at;
-      if (at) rows.push({ at, kind: 'payment', text: `Pagamento: ${brl(Number(x.amount ?? 0))}` });
-    });
-    return rows.sort((a, b) => +new Date(b.at) - +new Date(a.at)).slice(0, 180);
-  }, [data.documents, data.expenses, data.guests, data.payments, data.tasks, data.timeline, data.vendors, event?.created_at]);
-
-  const history = useMemo(() => {
-    if (historyFilter === 'all') return historyRows;
-    return historyRows.filter((row) => row.kind === historyFilter);
-  }, [historyRows, historyFilter]);
-
-  const projectMilestones = useMemo<ProjectMilestone[]>(() => {
-    const startDateText = event?.created_at ?? null;
-    if (!startDateText) return [];
-    const startDate = new Date(startDateText);
-    if (Number.isNaN(startDate.getTime())) return [];
-
-    const toDayNumber = (value: string | null | undefined) => {
-      if (!value) return 1;
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return 1;
-      const diffMs = date.getTime() - startDate.getTime();
-      return Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
-    };
-
-    const milestones: ProjectMilestone[] = [
-      {
-        id: `project-start-${event?.id ?? 'event'}`,
-        date: startDate,
-        dayNumber: 1,
-        title: 'Início do projeto',
-        detail: `Comecamos a trabalhar com ${displayName}.`,
-        kind: 'start',
-      },
-    ];
-
-    data.vendors.forEach((row) => {
-      if (!row.created_at) return;
-      const date = new Date(row.created_at);
-      if (Number.isNaN(date.getTime())) return;
-      milestones.push({
-        id: `vendor-${row.id}`,
-        date,
-        dayNumber: toDayNumber(row.created_at),
-        title: 'Fornecedor incluído',
-        detail: `${row.name || 'Fornecedor'} (${row.category || 'Sem categoria'}) foi adicionado.`,
-        kind: 'vendor',
-      });
-    });
-
-    data.guests.forEach((row) => {
-      if (row.created_at) {
-        const date = new Date(row.created_at);
-        if (!Number.isNaN(date.getTime())) {
-          milestones.push({
-            id: `guest-${row.id}`,
-            date,
-            dayNumber: toDayNumber(row.created_at),
-            title: 'Convidado incluído',
-            detail: `${row.name || 'Convidado'} entrou na lista.`,
-            kind: 'guest',
-          });
-        }
-      }
-      if (row.invited_at) {
-        const date = new Date(row.invited_at);
-        if (!Number.isNaN(date.getTime())) {
-          milestones.push({
-            id: `invite-${row.id}`,
-            date,
-            dayNumber: toDayNumber(row.invited_at),
-            title: 'Convite enviado',
-            detail: `Convite enviado para ${row.name || 'Convidado'}.`,
-            kind: 'invite',
-          });
-        }
-      }
-      if (row.responded_at) {
-        const date = new Date(row.responded_at);
-        if (!Number.isNaN(date.getTime())) {
-          const status = String(row.rsvp_status ?? 'pending');
-          const responseText = status === 'confirmed' ? 'confirmou presença' : status === 'declined' ? 'recusou presença' : 'respondeu o convite';
-          milestones.push({
-            id: `rsvp-${row.id}`,
-            date,
-            dayNumber: toDayNumber(row.responded_at),
-            title: 'RSVP atualizado',
-            detail: `${row.name || 'Convidado'} ${responseText}.`,
-            kind: 'rsvp',
-          });
-        }
-      }
-    });
-
-    data.expenses.forEach((row) => {
-      if (!row.created_at) return;
-      const date = new Date(row.created_at);
-      if (Number.isNaN(date.getTime())) return;
-      milestones.push({
-        id: `expense-${row.id}`,
-        date,
-        dayNumber: toDayNumber(row.created_at),
-        title: 'Lançamento financeiro',
-        detail: `${row.name || 'Despesa'} foi lançado (${brl(Number(row.value ?? 0))}).`,
-        kind: 'expense',
-      });
-    });
-
-    data.documents.forEach((row) => {
-      if (!row.created_at) return;
-      const date = new Date(row.created_at);
-      if (Number.isNaN(date.getTime())) return;
-      milestones.push({
-        id: `document-${row.id}`,
-        date,
-        dayNumber: toDayNumber(row.created_at),
-        title: 'Documento anexado',
-        detail: `${row.name || 'Documento'} foi anexado ao evento.`,
-        kind: 'document',
-      });
-    });
-
-    data.payments.forEach((row) => {
-      const createdAt = row.created_at ?? row.paid_at;
-      if (!createdAt) return;
-      const date = new Date(createdAt);
-      if (Number.isNaN(date.getTime())) return;
-      milestones.push({
-        id: `payment-${row.id}`,
-        date,
-        dayNumber: toDayNumber(createdAt),
-        title: 'Pagamento registrado',
-        detail: `Pagamento de ${brl(Number(row.amount ?? 0))} foi lancado.`,
-        kind: 'payment',
-      });
-    });
-
-    if (event?.event_date) {
-      const date = new Date(event.event_date);
-      if (!Number.isNaN(date.getTime())) {
-        milestones.push({
-          id: `event-day-${event.id}`,
-          date,
-          dayNumber: toDayNumber(event.event_date),
-          title: 'Data do evento',
-          detail: `Marco final: ${date.toLocaleDateString('pt-BR')}.`,
-          kind: 'start',
-        });
-      }
-    }
-
-    return milestones.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 140);
-  }, [data.documents, data.expenses, data.guests, data.payments, data.vendors, displayName, event?.created_at, event?.event_date, event?.id]);
-
-  const historyTimelineNodes = useMemo(() => projectMilestones, [projectMilestones]);
-  const selectedHistoryIndex = useMemo(() => {
-    if (!selectedHistoryId) return -1;
-    return historyTimelineNodes.findIndex((row) => row.id === selectedHistoryId);
-  }, [historyTimelineNodes, selectedHistoryId]);
-  const historyProgress = useMemo(() => {
-    if (historyTimelineNodes.length <= 1) return 100;
-    const index = Math.max(0, selectedHistoryIndex);
-    return (index / (historyTimelineNodes.length - 1)) * 100;
-  }, [historyTimelineNodes.length, selectedHistoryIndex]);
-
-  useEffect(() => {
-    if (historyTimelineNodes.length === 0) {
-      setSelectedHistoryId(null);
-      return;
-    }
-    const exists = historyTimelineNodes.some((row) => row.id === selectedHistoryId);
-    if (!selectedHistoryId || !exists) {
-      setSelectedHistoryId(historyTimelineNodes[0].id);
-    }
-  }, [historyTimelineNodes, selectedHistoryId]);
-
-  useEffect(() => {
-    if (activeTab !== 'history' || historyTimelineNodes.length <= 1) return;
-    const timer = setInterval(() => {
-      setSelectedHistoryId((previous) => {
-        const current = historyTimelineNodes.findIndex((row) => row.id === previous);
-        if (current < 0 || current >= historyTimelineNodes.length - 1) return historyTimelineNodes[0].id;
-        return historyTimelineNodes[current + 1].id;
-      });
-    }, 2200);
-    return () => clearInterval(timer);
-  }, [activeTab, historyTimelineNodes]);
   const guestSummary = useMemo(() => {
     const total = data.guests.length;
     const pending = data.guests.filter((g) => (g.rsvp_status ?? 'pending') === 'pending').length;
@@ -712,32 +505,6 @@ export function EventDetailsScreen() {
     await loadTab('vendors', true);
   }
 
-  async function dispatchWhatsApp(mode: 'bulk' | 'single', guestId?: string) {
-    const baseInviteUrl = process.env.EXPO_PUBLIC_BASE_INVITE_URL || 'https://app.painelprime.com.br/convite';
-    const { data: response, error: invokeError } = await supabase.functions.invoke('whatsapp-rsvp-dispatch', { body: { action: mode, baseInviteUrl, eventId, guestId } });
-    if (invokeError) throw new Error(invokeError.message);
-    const summary = (response as any)?.summary;
-    const sent = Number(summary?.sent ?? summary?.accepted ?? 0);
-    const failed = Number(summary?.failed ?? 0);
-    Alert.alert('Disparo concluído', `${sent} convite(s) enviado(s)${failed ? ` e ${failed} falha(s)` : ''}.`);
-    await loadTab('invites', true);
-  }
-
-  async function sendReceptionAccess(memberId: string) {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token;
-    if (!accessToken) throw new Error('Sua sessão expirou. Entre novamente.');
-    const { error: invokeError } = await supabase.functions.invoke('send-reception-access-link', { body: { accessToken, eventId, memberId } });
-    if (invokeError) throw new Error(invokeError.message);
-    Alert.alert('Acesso enviado', 'O link seguro da recepção foi enviado pelo WhatsApp.');
-  }
-
-  async function resendGuestQr(guestId: string) {
-    const { error: invokeError } = await supabase.functions.invoke('whatsapp-rsvp-review-action', { body: { action: 'resend_qr', eventId, guestId } });
-    if (invokeError) throw new Error(invokeError.message);
-    Alert.alert('QR Code enviado', 'O QR Code de entrada foi reenviado pelo WhatsApp.');
-  }
-
   async function openDocumentLink(documentRow: any) {
     try {
       if (documentRow.file_id) {
@@ -760,30 +527,6 @@ export function EventDetailsScreen() {
 
   function openModule(tab: EventDetailsInitialTab) {
     setActiveTab(tab);
-  }
-
-  async function reloadTablesModule() {
-    await Promise.all([loadKey('tables', 'reset'), loadKey('guests', 'reset')]);
-  }
-
-  async function assignDirectoryMembers(team: any, members: any[]) {
-    if (!members.length) return;
-    const existingIds = new Set(data.team.map((item) => String(item.advisor_team_member_id ?? '')));
-    const rows = members.filter((member) => !existingIds.has(String(member.id))).map((member) => ({
-      event_id: eventId,
-      advisor_team_id: team.id,
-      advisor_team_member_id: member.id,
-      team_name: team.name,
-      is_leader: team.leader_member_id === member.id,
-      name: member.name,
-      role: member.role || 'Assessoria',
-      phone: member.phone || null,
-      photo_file_id: member.photo_file_id || null,
-      photo_url: null,
-    }));
-    if (!rows.length) return;
-    const { error: insertError } = await (supabase as any).from('event_team_members').insert(rows);
-    if (insertError) throw new Error(insertError.message);
   }
 
   async function saveBudgetFromCard() {
@@ -1847,342 +1590,42 @@ export function EventDetailsScreen() {
         </EventModuleShell>
       )}
 
-      {activeTab === 'notes' && (
-        <EventModuleShell title="Notas" description="Lembretes rápidos que ficam junto do evento." icon="create-outline" metrics={[{ label: 'Anotações', value: data.notes.length, tone: 'gold' }]} actionLabel="Nova nota" onAction={() => setComposer('notes')}>
-          <EventSectionTitle title="Anotações do evento" />
-          {data.notes.length === 0 ? <EventEmptyState icon="create-outline" title="Nenhuma nota ainda" description="Registre uma observação importante para a equipe." actionLabel="Criar nota" onAction={() => setComposer('notes')} /> : null}
-          {data.notes.map((n) => (
-            <EventListCard key={n.id} title={String(n.content ?? 'Nota')} status="Nota" statusTone="gold" actions={[
-              { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_notes').delete().eq('id', n.id); if (e) throw new Error(e.message); }) },
-            ]} />
-          ))}
-          <EventFormSheet visible={composer === 'notes'} title="Nova nota" onClose={() => setComposer(null)}>
-            <Text style={styles.formLabel}>Observação</Text>
-            <TextInput style={[styles.input, styles.area]} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Escreva o que a equipe precisa lembrar" multiline />
-            <Pressable style={styles.btn} onPress={() => void act(async () => { if (!f.a.trim()) return; const { error: e } = await supabase.from('event_notes').insert({ event_id: eventId, content: f.a.trim(), color: '#FEF3C7' }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '' })); setComposer(null); })}><Text style={styles.btnText}>Salvar nota</Text></Pressable>
-          </EventFormSheet>
-        </EventModuleShell>
-      )}
-
-      {activeTab === 'team' && (
-        <EventModuleShell title="Equipe" description="Quem faz o evento acontecer e como entrar em contato." icon="people-circle-outline" metrics={[{ label: 'Pessoas', value: data.team.length, tone: 'info' }]} actionLabel="Adicionar à equipe" onAction={() => setComposer('team')}>
-          {teamDirectory.length ? <View style={styles.directoryBlock}><View style={styles.rowBetween}><View style={styles.formGrow}><Text style={styles.subtitle}>Sua equipe cadastrada</Text><Text style={styles.caption}>Escale uma equipe completa ou apenas uma pessoa, sem redigitar dados.</Text></View><Pressable onPress={() => router.push('/mais/equipe' as never)}><Text style={styles.directoryLink}>Gerenciar</Text></Pressable></View>{teamDirectory.map((team) => <View key={team.id} style={styles.directoryTeam}><View style={styles.rowBetween}><View style={styles.formGrow}><Text style={styles.directoryTitle}>{team.name}</Text><Text style={styles.caption}>{team.members.length} pessoa{team.members.length === 1 ? '' : 's'}</Text></View><Pressable style={styles.directoryAssign} onPress={() => void act(() => assignDirectoryMembers(team, team.members))}><Text style={styles.directoryAssignText}>Escalar equipe</Text></Pressable></View><View style={styles.directoryPeople}>{team.members.map((member: any) => <Pressable key={member.id} style={styles.directoryPerson} onPress={() => void act(() => assignDirectoryMembers(team, [member]))}><Ionicons name="add-circle-outline" size={16} color={colors.gold700} /><Text style={styles.directoryPersonText}>{member.name}</Text></Pressable>)}</View></View>)}</View> : <Pressable style={styles.directoryEmpty} onPress={() => router.push('/mais/equipe' as never)}><Ionicons name="people-circle-outline" size={25} color={colors.gold700} /><View style={styles.formGrow}><Text style={styles.directoryTitle}>Cadastre sua equipe fixa</Text><Text style={styles.caption}>Depois, escale as pessoas certas em poucos toques.</Text></View><Ionicons name="chevron-forward" size={18} color={colors.mutedText} /></Pressable>}
-          <EventSectionTitle title="Equipe escalada" />
-          {data.team.length === 0 ? <EventEmptyState icon="people-circle-outline" title="Equipe ainda não definida" description="Adicione cerimonialistas e profissionais responsáveis pela operação." actionLabel="Adicionar pessoa" onAction={() => setComposer('team')} /> : null}
-          {data.team.map((m) => (
-            <View key={m.id} style={styles.teamMemberWrap}>
-              <Pressable style={styles.teamPhotoButton} onPress={() => void pickAndUploadTeamPhoto(m)} accessibilityLabel={`Adicionar foto de ${m.name}`}>
-                {m.photo_url ? <Image source={{ uri: String(m.photo_url) }} style={styles.teamPhoto} /> : <Ionicons name="camera-outline" size={24} color={colors.gold700} />}
-                <Text style={styles.teamPhotoText}>{uploadingTeamMemberId === String(m.id) ? 'Enviando...' : m.photo_url ? 'Trocar foto' : 'Adicionar foto'}</Text>
-              </Pressable>
-              <View style={styles.formGrow}><EventListCard title={String(m.name ?? 'Pessoa da equipe')} subtitle={m.role || 'Função não informada'} meta={[m.phone || 'Telefone não informado']} status="Equipe" statusTone="info" actions={[
-                { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { const { error: e } = await supabase.from('event_team_members').delete().eq('id', m.id); if (e) throw new Error(e.message); }) },
-              ]} /></View>
-            </View>
-          ))}
-          <EventFormSheet visible={composer === 'team'} title="Adicionar à equipe" onClose={() => setComposer(null)}>
-            <Text style={styles.formLabel}>Nome</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Nome completo" />
-            <Text style={styles.formLabel}>Telefone</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="(11) 99999-9999" keyboardType="phone-pad" />
-            <Text style={styles.formLabel}>Função</Text><TextInput style={styles.input} value={f.c} onChangeText={(v) => setF((s) => ({ ...s, c: v }))} placeholder="Ex.: Cerimonialista" />
-            <Pressable style={styles.btn} onPress={() => void act(async () => { if (!f.a.trim()) return; const { error: e } = await supabase.from('event_team_members').insert({ event_id: eventId, name: f.a.trim(), phone: f.b.trim() || null, role: f.c.trim() || 'Cerimonialista' }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '', b: '', c: '' })); setComposer(null); })}><Text style={styles.btnText}>Adicionar à equipe</Text></Pressable>
-          </EventFormSheet>
-        </EventModuleShell>
-      )}
-
-      {activeTab === 'tables' && (
-        <EventModuleShell title="Mesas" description="Organize lugares e acompanhe a ocupação do salão." icon="restaurant-outline" metrics={[
-          { label: 'Mesas', value: data.tables.length, tone: 'gold' },
-          { label: 'Lugares', value: data.tables.reduce((sum, table) => sum + Number(table.seats ?? 0), 0), tone: 'neutral' },
-          { label: 'Alocados', value: data.guests.filter((guest) => guest.table_id).length, tone: 'success' },
-        ]} actionLabel="Adicionar mesa" onAction={() => setComposer('tables')}>
-          <EventFilterChips selected={tablesViewMode} onSelect={(value) => setTablesViewMode(value as typeof tablesViewMode)} options={[{ value: 'list', label: 'Lista' }, { value: 'map', label: 'Mapa visual' }]} />
-          {tablesViewMode === 'list' ? (
-            <>{data.tables.length === 0 ? <EventEmptyState icon="restaurant-outline" title="Mapa de mesas vazio" description="Crie as mesas para começar a distribuir os convidados." actionLabel="Criar mesa" onAction={() => setComposer('tables')} /> : null}{data.tables.map((t) => (
-              <EventListCard key={t.id} title={String(t.name ?? 'Mesa')} status={`${(data.guests ?? []).filter((g) => g.table_id === t.id).length}/${t.seats} lugares`} statusTone="gold" actions={[
-                { label: 'Alocar próximo', icon: 'person-add-outline', onPress: () => void act(async () => { const g = data.guests.find((x) => !x.table_id); if (!g) return; const { error: e } = await supabase.from('event_guests').update({ table_id: t.id }).eq('id', g.id); if (e) throw new Error(e.message); }) },
-                { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => void act(async () => { await supabase.from('event_guests').update({ table_id: null }).eq('table_id', t.id); const { error: e } = await supabase.from('event_tables').delete().eq('id', t.id); if (e) throw new Error(e.message); }) },
-              ]} />
-            ))}</>
-          ) : (
-            <EventTablesVisualMap
-              eventId={eventId}
-              tables={data.tables}
-              guests={data.guests}
-              onError={setError}
-              onReload={reloadTablesModule}
-              onTablePositionLocalUpdate={(tableId, x, y) => {
-                setData((prev) => ({
-                  ...prev,
-                  tables: prev.tables.map((table) =>
-                    table.id === tableId ? { ...table, posx: x, posy: y } : table,
-                  ),
-                }));
-              }}
-            />
-          )}
-          <EventFormSheet visible={composer === 'tables'} title="Adicionar mesa" subtitle="Você poderá posicioná-la depois no mapa visual." onClose={() => setComposer(null)}>
-            <Text style={styles.formLabel}>Nome da mesa</Text><TextInput style={styles.input} value={f.a} onChangeText={(v) => setF((s) => ({ ...s, a: v }))} placeholder="Ex.: Mesa 01" />
-            <Text style={styles.formLabel}>Quantidade de lugares</Text><TextInput style={styles.input} value={f.b} onChangeText={(v) => setF((s) => ({ ...s, b: v }))} placeholder="8" keyboardType="numeric" />
-            <Pressable style={styles.btn} onPress={() => void act(async () => { const seats = Number(f.b); if (!f.a.trim() || !Number.isFinite(seats) || seats < 1) return; const { error: e } = await supabase.from('event_tables').insert({ event_id: eventId, name: f.a.trim(), seats, shape: 'round' }); if (e) throw new Error(e.message); setF((s) => ({ ...s, a: '', b: '' })); setComposer(null); })}><Text style={styles.btnText}>Adicionar mesa</Text></Pressable>
-          </EventFormSheet>
-        </EventModuleShell>
-      )}
-
-      {activeTab === 'invites' && (
-        <EventModuleShell title="Convites" description="Envie o RSVP certo para cada convidado." icon="mail-outline" metrics={[
-          { label: 'Aguardando', value: guestSummary.pending, tone: 'warning' },
-          { label: 'Confirmados', value: guestSummary.confirmed, tone: 'success' },
-          { label: 'Não vão', value: guestSummary.declined, tone: 'danger' },
-        ]} actionLabel="Configurar convite" onAction={() => setComposer('invites')}>
-          <View style={styles.inviteHero}>
-            {event?.whatsapp_image_url ? <Image source={{ uri: event.whatsapp_image_url }} style={styles.inviteHeroImage} /> : <View style={styles.inviteHeroPlaceholder}><Ionicons name="image-outline" size={34} color={colors.gold700} /><Text style={styles.caption}>Imagem de destaque do WhatsApp</Text></View>}
-            <View style={styles.inviteHeroActions}>
-              <Pressable style={styles.btnGhost} onPress={() => void pickAndUploadInviteImage()}><Text style={styles.smallText}>{uploadingInviteImage ? 'Enviando...' : event?.whatsapp_image_file_id ? 'Trocar imagem' : 'Adicionar imagem'}</Text></Pressable>
-              <Pressable style={styles.btn} onPress={() => void act(() => dispatchWhatsApp('bulk'), false)}><Text style={styles.btnText}>Disparar pendentes no WhatsApp</Text></Pressable>
-            </View>
-          </View>
-          <TextInput style={styles.input} value={guestSearch} onChangeText={setGuestSearch} placeholder="Buscar convidado" />
-          <EventFilterChips selected={guestFilter} onSelect={(value) => setGuestFilter(value as typeof guestFilter)} options={[{ value: 'all', label: 'Todos' }, { value: 'pending', label: 'Aguardando' }, { value: 'confirmed', label: 'Confirmados' }, { value: 'declined', label: 'Não vão' }]} />
-          <EventSectionTitle title="Convidados" actionLabel="Compartilhar lista" onAction={() => void act(async () => {
-            const lines: string[] = [];
-            for (const g of filteredGuests) {
-              let token = g.invite_token;
-              if (!token) {
-                token = `${g.id}-${Date.now()}`;
-                const { error: e } = await supabase.from('event_guests').update({ invite_token: token }).eq('id', g.id);
-                if (e) throw new Error(e.message);
-              }
-              const base = process.env.EXPO_PUBLIC_BASE_INVITE_URL || 'https://painelprime.com.br/convite';
-              const link = `${base}/${token}`;
-              const msg = f.inviteTemplate.replaceAll('[Nome do Convidado]', g.name || 'Convidado').replaceAll('[LinkRSVP]', link);
-              lines.push(`${g.name}: ${msg}`);
-            }
-            await Share.share({ message: lines.join('\n\n') || 'Sem convidados filtrados.' });
-          })} />
-          {visibleGuests.map((g) => {
-            const base = process.env.EXPO_PUBLIC_BASE_INVITE_URL || 'https://painelprime.com.br/convite';
-            const link = g.invite_token ? `${base}/${g.invite_token}` : base;
-            const msg = f.inviteTemplate.replaceAll('[Nome do Convidado]', g.name || 'Convidado').replaceAll('[LinkRSVP]', link);
-            return (
-              <EventListCard key={g.id} title={String(g.name ?? 'Convidado')} subtitle={g.phone || 'Telefone não informado'} status={guestStatusLabel(g.rsvp_status)} statusTone={g.rsvp_status === 'confirmed' ? 'success' : g.rsvp_status === 'declined' ? 'danger' : 'warning'} actions={[
-                { label: 'Enviar WhatsApp', icon: 'logo-whatsapp', onPress: () => void act(() => dispatchWhatsApp('single', String(g.id)), false) },
-                ...(g.rsvp_status === 'confirmed' ? [{ label: 'Reenviar QR Code', icon: 'qr-code-outline' as const, onPress: () => void act(() => resendGuestQr(String(g.id)), false) }] : []),
-                { label: 'Compartilhar convite', icon: 'share-outline', onPress: () => void act(async () => {
-                  let token = g.invite_token;
-                  if (!token) {
-                    token = `${g.id}-${Date.now()}`;
-                    const { error: e } = await supabase.from('event_guests').update({ invite_token: token }).eq('id', g.id);
-                    if (e) throw new Error(e.message);
-                  }
-                  const finalLink = `${base}/${token}`;
-                  const finalMsg = f.inviteTemplate
-                    .replaceAll('[Nome do Convidado]', g.name || 'Convidado')
-                    .replaceAll('[LinkRSVP]', finalLink);
-                  await Share.share({ message: finalMsg });
-                }) },
-              ]} />
-            );
-          })}
-          {filteredGuests.length > visible.guests && (
-            <Pressable style={styles.btnGhostWide} onPress={() => showMore('guests')}>
-              <Text style={styles.smallText}>Mostrar mais ({filteredGuests.length - visible.guests} restantes)</Text>
-            </Pressable>
-          )}
-          {paging.guests.hasMore && (
-            <Pressable style={styles.btnGhostWide} onPress={() => void loadMoreKey('guests')}>
-              <Text style={styles.smallText}>{loadingMore === 'guests' ? 'Carregando...' : 'Carregar mais do servidor'}</Text>
-            </Pressable>
-          )}
-          <EventFormSheet visible={composer === 'invites'} title="Configurar convite" subtitle="Personalize a mensagem enviada aos convidados." onClose={() => setComposer(null)}>
-            <Text style={styles.formLabel}>Mensagem</Text><TextInput style={[styles.input, styles.area]} value={f.inviteTemplate} onChangeText={(v) => setF((s) => ({ ...s, inviteTemplate: v }))} placeholder="Use [Nome do Convidado] e [LinkRSVP]" multiline />
-            <Text style={styles.formLabel}>Código de vestimenta (opcional)</Text><TextInput style={styles.input} value={f.inviteDress} onChangeText={(v) => setF((s) => ({ ...s, inviteDress: v }))} placeholder="Ex.: Esporte fino" />
-            <Pressable style={styles.btn} onPress={() => void act(async () => { const { error: e } = await supabase.from('events').update({ invite_message_template: f.inviteTemplate.trim() || null, invite_dress_code: f.inviteDress.trim() || null }).eq('id', eventId); if (e) throw new Error(e.message); setEvent((s) => s ? { ...s, invite_message_template: f.inviteTemplate.trim() || null, invite_dress_code: f.inviteDress.trim() || null } : s); setComposer(null); }, false)}><Text style={styles.btnText}>Salvar configuração</Text></Pressable>
-          </EventFormSheet>
-        </EventModuleShell>
-      )}
-
-      {activeTab === 'reception' && (
-        <EventModuleShell title="Recepção e QR Code" description="Controle a entrada dos convidados, mesmo quando a internet estiver instável." icon="qr-code-outline" metrics={[
-          { label: 'Confirmados', value: data.guests.filter((guest) => guest.confirmed || guest.rsvp_status === 'confirmed').length, tone: 'info' },
-          { label: 'Já chegaram', value: data.guests.filter((guest) => Boolean(guest.checked_in_at)).length, tone: 'success' },
-          { label: 'Aguardados', value: Math.max(data.guests.filter((guest) => guest.confirmed || guest.rsvp_status === 'confirmed').length - data.guests.filter((guest) => Boolean(guest.checked_in_at)).length, 0), tone: 'gold' },
-        ]} actionLabel="Abrir scanner" onAction={() => void Linking.openURL(`https://app.painelprime.com.br/recepcao/${eventId}`)}>
-          <View style={styles.receptionHero}><Ionicons name="shield-checkmark-outline" size={38} color={colors.gold700} /><Text style={styles.subtitle}>Scanner offline pronto para a porta</Text><Text style={styles.caption}>A equipe escaneia o QR Code do convidado e as entradas sincronizam assim que a conexão voltar.</Text></View>
-          <EventSectionTitle title="Enviar acesso seguro à equipe" />
-          {data.team.length === 0 ? <EventEmptyState icon="people-outline" title="Adicione a equipe da recepção" description="Cadastre nome e WhatsApp na área Equipe antes de liberar o scanner." actionLabel="Abrir equipe" onAction={() => setActiveTab('team')} /> : data.team.map((member) => <EventListCard key={member.id} title={String(member.name)} subtitle={member.role || 'Equipe'} meta={[member.phone || 'WhatsApp não informado']} status={member.phone ? 'Pronto' : 'Sem telefone'} statusTone={member.phone ? 'success' : 'warning'} actions={member.phone ? [{ label: 'Enviar acesso', icon: 'logo-whatsapp', onPress: () => void act(() => sendReceptionAccess(String(member.id)), false) }] : []} />)}
-        </EventModuleShell>
-      )}
-
-      {activeTab === 'portal' && (
-        <EventModuleShell title="Portal do cliente" description="O espaço compartilhado com os responsáveis pelo evento." icon="person-circle-outline" actionLabel="Abrir portal do cliente" onAction={() => router.push(`/portal/${eventId}`)}>
-          <EventEmptyState icon="person-circle-outline" title="Tudo pronto para compartilhar" description="Abra o portal para revisar informações, documentos e aprovações visíveis ao cliente." />
-        </EventModuleShell>
-      )}
-
+      <SimpleEventTabs
+        activeTab={activeTab}
+        eventId={eventId}
+        event={event}
+        data={data}
+        form={f}
+        setForm={setF}
+        composer={composer}
+        setComposer={setComposer}
+        uploadingTeamMemberId={uploadingTeamMemberId}
+        uploadingInviteImage={uploadingInviteImage}
+        onUploadTeamPhoto={(member) => void pickAndUploadTeamPhoto(member)}
+        onUploadInviteImage={() => void pickAndUploadInviteImage()}
+        guestSummary={guestSummary}
+        visibleGuests={visibleGuests}
+        filteredGuestCount={filteredGuests.length}
+        visible={visible}
+        guestSearch={guestSearch}
+        setGuestSearch={setGuestSearch}
+        guestFilter={guestFilter}
+        setGuestFilter={setGuestFilter}
+        paging={paging}
+        loadingMore={loadingMore}
+        onShowMoreGuests={() => showMore('guests')}
+        onLoadMoreGuests={() => void loadMoreKey('guests')}
+        onError={setError}
+        onManageDirectory={() => router.push('/mais/equipe' as never)}
+        onOpenPortal={() => router.push(`/portal/${eventId}`)}
+        onOpenTeam={() => setActiveTab('team')}
+        actions={simpleActions}
+        gifts={gifts}
+        loadingGifts={loadingGifts}
+      />
       {activeTab === 'meetings' && <MeetingCenter eventId={eventId} />}
-
-      {activeTab === 'presentes' && (
-        <EventModuleShell title="Presentes" description="Acompanhe intenções e recebimentos ligados ao evento." icon="gift-outline">
-          <PresentesTabContent eventId={eventId} />
-        </EventModuleShell>
-      )}
-
-      {activeTab === 'analytics' && (
-        <EventModuleShell title="Relatório final" description="Presença, financeiro e aprendizados depois do evento." icon="bar-chart-outline">
-          <EventEmptyState icon="bar-chart-outline" title="Relatório disponível após o encerramento" description="Quando o evento terminar, este espaço reunirá os principais resultados." />
-        </EventModuleShell>
-      )}
         </View>
           </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function PresentesTabContent({ eventId }: { eventId: string }) {
-  const [gifts, setGifts] = useState<Array<{ id: string; guest_name: string; guest_phone: string; amount: number; status: string; created_at: string; confirmed_at: string | null }>>([]);
-  const [loadingGifts, setLoadingGifts] = useState(true);
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      setLoadingGifts(true);
-      supabase
-        .rpc('get_event_gift_intentions_for_owner', { p_event_id: eventId })
-        .then(({ data, error }) => {
-          if (!active) return;
-          if (!error && data) setGifts(data as typeof gifts);
-          setLoadingGifts(false);
-        });
-      return () => { active = false; };
-    }, [eventId]),
-  );
-
-  if (loadingGifts) {
-    return <ActivityIndicator color={colors.primaryStrong} />;
-  }
-
-  if (gifts.length === 0) {
-    return <Text style={styles.p}>Nenhuma intenção de presente registrada ainda.</Text>;
-  }
-
-  const pending = gifts.filter((g) => g.status === 'pending').length;
-  const received = gifts.filter((g) => g.status === 'received').length;
-  const totalAmount = gifts.reduce((acc, g) => acc + (g.amount || 0), 0);
-
-  return (
-    <>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-        <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 10, padding: 8, borderWidth: 1, borderColor: colors.border }}>
-          <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Pendentes</Text>
-          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>{pending}</Text>
-        </View>
-        <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 10, padding: 8, borderWidth: 1, borderColor: colors.border }}>
-          <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Recebidos</Text>
-          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>{received}</Text>
-        </View>
-        <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 10, padding: 8, borderWidth: 1, borderColor: colors.border }}>
-          <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Valor total</Text>
-          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>{totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</Text>
-        </View>
-      </View>
-      <View style={{ gap: 6 }}>
-        {gifts.map((g) => (
-          <View key={g.id} style={{ backgroundColor: colors.card, borderRadius: 8, padding: 8, borderWidth: 1, borderColor: colors.border }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>{g.guest_name}</Text>
-              <Text style={{ color: g.status === 'received' ? '#16A34A' : '#F59E0B', fontSize: 12, fontWeight: '700' }}>
-                {g.status === 'received' ? 'Recebido' : 'Pendente'}
-              </Text>
-            </View>
-            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{g.guest_phone}</Text>
-            <Text style={{ color: colors.text, fontSize: 13, marginTop: 4 }}>
-              {g.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </Text>
-            <Text style={{ color: colors.mutedText, fontSize: 11, marginTop: 2 }}>
-              {new Date(g.created_at).toLocaleDateString('pt-BR')}
-            </Text>
-          </View>
-        ))}
-      </View>
-    </>
-  );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return <View style={styles.card}><Text style={styles.subtitle}>{title}</Text>{children}</View>;
-}
-
-function CommandLine({
-  level,
-  text,
-}: {
-  level: 'low' | 'medium' | 'high';
-  text: string;
-}) {
-  const tone =
-    level === 'high'
-      ? styles.commandHigh
-      : level === 'medium'
-        ? styles.commandMedium
-        : styles.commandLow;
-
-  return (
-    <View style={[styles.commandLine, tone]}>
-      <Text style={styles.commandText}>{text}</Text>
-    </View>
-  );
-}
-
-function Item({ text, children }: { text: string; children: React.ReactNode }) {
-  return <View style={styles.item}><Text style={styles.row}>{text}</Text><View style={styles.rowBtns}>{children}</View></View>;
-}
-
-function Small({ onPress, children }: { onPress: () => void; children: React.ReactNode }) {
-  return <Pressable style={styles.btnGhost} onPress={onPress}><Text style={styles.smallText}>{children}</Text></Pressable>;
-}
-
-function Danger({ onPress, children }: { onPress: () => void; children: React.ReactNode }) {
-  return <Pressable style={styles.btnDelete} onPress={onPress}><Text style={styles.delText}>{children}</Text></Pressable>;
-}
-
-function TaskSegment({
-  title,
-  tone,
-  tasks,
-  onToggle,
-  limit = 3,
-}: {
-  title: string;
-  tone: 'error' | 'warning' | 'info' | 'neutral';
-  tasks: any[];
-  onToggle: (taskId: string, completed: boolean) => Promise<void>;
-  limit?: number;
-}) {
-  if (tasks.length === 0) return null;
-
-  const toneStyle =
-    tone === 'error'
-      ? styles.segmentError
-      : tone === 'warning'
-        ? styles.segmentWarning
-        : tone === 'info'
-          ? styles.segmentInfo
-          : styles.segmentNeutral;
-
-  return (
-    <View style={styles.segmentWrap}>
-      <Text style={[styles.segmentTitle, toneStyle]}>{title}</Text>
-      {tasks.slice(0, limit).map((task) => (
-        <View key={task.id} style={styles.segmentItem}>
-          <View style={styles.grow}>
-            <Text style={styles.row}>{String(task.text ?? 'Tarefa')}</Text>
-            <Text style={styles.caption}>{task.due_date ? new Date(task.due_date).toLocaleDateString('pt-BR') : 'Sem prazo'}</Text>
-          </View>
-          <Pressable style={styles.btnGhost} onPress={() => void onToggle(task.id, Boolean(task.completed))}>
-            <Text style={styles.smallText}>{task.completed ? 'Reabrir' : 'Concluir'}</Text>
-          </Pressable>
-        </View>
-      ))}
-    </View>
   );
 }
