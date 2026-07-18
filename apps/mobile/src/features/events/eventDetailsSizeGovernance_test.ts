@@ -2,11 +2,11 @@ import { assert, assertFalse } from 'jsr:@std/assert@1';
 
 const screenUrl = new URL('../../screens/EventDetailsScreen.tsx', import.meta.url);
 
-Deno.test('EventDetailsScreen respects the simple-tabs decomposition budget', async () => {
+Deno.test('EventDetailsScreen respects the operational-tabs decomposition budget', async () => {
   const screen = await Deno.readTextFile(screenUrl);
   const lineCount = screen.split(/\r?\n/).length;
 
-  assert(lineCount <= 1_650, `EventDetailsScreen has ${lineCount} lines; PR 3 budget is 1650`);
+  assert(lineCount <= 1_150, `EventDetailsScreen has ${lineCount} lines; PR 4 budget is 1150`);
 });
 
 Deno.test('EventDetailsScreen delegates static types, helpers and styles', async () => {
@@ -33,4 +33,12 @@ Deno.test('EventDetailsScreen delegates the simple event tabs', async () => {
 
   assert(screen.includes('<SimpleEventTabs'));
   assertFalse(screen.includes('function PresentesTabContent('));
+});
+
+Deno.test('EventDetailsScreen delegates the operational event tabs', async () => {
+  const screen = await Deno.readTextFile(screenUrl);
+
+  assert(screen.includes('<OperationalEventTabs'));
+  assertFalse(screen.includes("activeTab === 'tasks'"));
+  assertFalse(screen.includes("activeTab === 'documents'"));
 });
