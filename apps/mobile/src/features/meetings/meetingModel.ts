@@ -1,0 +1,6 @@
+export type MeetingMinute = { id: string; pdf_url: string | null; summary_markdown: string | null };
+export type Meeting = { id: string; event_id: string; title: string; room_url: string | null; status: string; notes: string | null; scheduled_at: string | null; updated_at: string | null; created_at: string; meeting_minutes: MeetingMinute[] | null };
+export function defaultMeetingSchedule() { const date = new Date(Date.now() + 60 * 60 * 1000), part = (value: number) => String(value).padStart(2, '0'); return `${part(date.getDate())}/${part(date.getMonth() + 1)}/${date.getFullYear()} ${part(date.getHours())}:${part(date.getMinutes())}`; }
+export function formatMeetingDateTime(value: string | null) { return value ? new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Horário não informado'; }
+export function meetingError(error: unknown, fallback: string) { return error instanceof Error && error.message ? error.message : fallback; }
+export function patchMeeting(rows: Meeting[], next: Meeting) { return [next, ...rows.filter(({ id }) => id !== next.id)].sort((a, b) => (b.scheduled_at ?? b.created_at).localeCompare(a.scheduled_at ?? a.created_at)); }
