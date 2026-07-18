@@ -1,0 +1,3 @@
+import { assert, assertEquals } from 'jsr:@std/assert';
+const root = new URL('../../', import.meta.url);
+Deno.test('analytics keeps valid RPCs and bounds the screen', async () => { const screen = await Deno.readTextFile(new URL('screens/ClientsAnalyticsScreen.tsx', root)); const hook = await Deno.readTextFile(new URL('features/client-analytics/useClientAnalytics.ts', root)); assert(screen.split(/\r?\n/).length <= 450); assertEquals(screen.includes("../lib/supabase"), false); assert(hook.includes('results.funnel.error ? fallback!.funnel : parseFunnel')); assert(hook.includes('results.forecast.error ? fallback!.forecast : parseForecast')); assertEquals((hook.match(/fallbackAnalytics\(/g) ?? []).length, 1); });
