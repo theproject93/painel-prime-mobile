@@ -5,6 +5,7 @@ import {
   filterEventExpenses,
   filterEventGuests,
   filterEventPayments,
+  filterEventTasks,
   filterEventVendors,
 } from './eventDetailsFilters';
 import type {
@@ -12,6 +13,7 @@ import type {
   ExpenseFilterRow,
   GuestFilterRow,
   PaymentFilterRow,
+  TaskFilterRow,
   VendorFilterRow,
 } from './eventDetailsFilters';
 
@@ -21,12 +23,14 @@ type EventFilterData<
   Expense extends ExpenseFilterRow,
   Payment extends PaymentFilterRow,
   Document extends DocumentFilterRow,
+  Task extends TaskFilterRow,
 > = {
   guests: readonly Guest[];
   vendors: readonly Vendor[];
   expenses: readonly Expense[];
   payments: readonly Payment[];
   documents: readonly Document[];
+  tasks: readonly Task[];
 };
 
 export function useEventFilters<
@@ -35,7 +39,11 @@ export function useEventFilters<
   Expense extends ExpenseFilterRow,
   Payment extends PaymentFilterRow,
   Document extends DocumentFilterRow,
->(data: EventFilterData<Guest, Vendor, Expense, Payment, Document>) {
+  Task extends TaskFilterRow,
+>(
+  data: EventFilterData<Guest, Vendor, Expense, Payment, Document, Task>,
+  isTaskOverdue: (dueDate: string | null | undefined) => boolean,
+) {
   const [guestFilter, setGuestFilter] = useState<'all' | 'pending' | 'confirmed' | 'declined'>('all');
   const [guestSearch, setGuestSearch] = useState('');
   const [guestSort, setGuestSort] = useState<'name_asc' | 'name_desc'>('name_asc');
@@ -47,6 +55,7 @@ export function useEventFilters<
   const [documentVendorFilter, setDocumentVendorFilter] = useState('');
   const [documentCategoryFilter, setDocumentCategoryFilter] = useState('');
   const [documentReceiptFilterId, setDocumentReceiptFilterId] = useState('');
+  const [taskView, setTaskView] = useState<'urgent' | 'pending' | 'overdue' | 'completed'>('pending');
 
   const filteredGuests = useMemo(
     () => filterEventGuests(data.guests, guestFilter, guestSearch, guestSort),
@@ -78,6 +87,10 @@ export function useEventFilters<
     () => Array.from(new Set(data.documents.map((document) => String(document.category ?? 'Outros')).filter(Boolean))),
     [data.documents],
   );
+  const filteredTasks = useMemo(
+    () => filterEventTasks(data.tasks, taskView, isTaskOverdue),
+    [data.tasks, isTaskOverdue, taskView],
+  );
 
   return {
     guestFilter,
@@ -108,5 +121,8 @@ export function useEventFilters<
     filteredPayments,
     filteredDocuments,
     documentCategories,
+    taskView,
+    setTaskView,
+    filteredTasks,
   };
 }

@@ -254,7 +254,10 @@ export function EventDetailsScreen() {
     filteredPayments,
     filteredDocuments,
     documentCategories,
-  } = useEventFilters(data);
+    taskView,
+    setTaskView,
+    filteredTasks,
+  } = useEventFilters(data, isOverdueDate);
   const [budgetVendorInput, setBudgetVendorInput] = useState('');
   const [documentVendorInput, setDocumentVendorInput] = useState('');
   const [visible, setVisible] = useState<Record<VisibleKey, number>>({
@@ -291,7 +294,6 @@ export function EventDetailsScreen() {
   const [taskNotesDraft, setTaskNotesDraft] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal');
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
-  const [taskView, setTaskView] = useState<'urgent' | 'pending' | 'overdue' | 'completed'>('pending');
   const [composer, setComposer] = useState<EventDetailsTab | null>(null);
   const [budgetCardDraft, setBudgetCardDraft] = useState('0');
   const [isBudgetCardEditing, setIsBudgetCardEditing] = useState(false);
@@ -903,13 +905,6 @@ export function EventDetailsScreen() {
     });
     return result;
   }, [data.documents, data.payments]);
-  const filteredTasks = useMemo(() => data.tasks.filter((task) => {
-    if (taskView === 'completed') return Boolean(task.completed);
-    if (task.completed) return false;
-    if (taskView === 'urgent') return task.priority === 'urgent';
-    if (taskView === 'overdue') return isOverdueDate(task.due_date);
-    return task.priority !== 'urgent' && !isOverdueDate(task.due_date);
-  }), [data.tasks, taskView]);
   const visibleTasks = useMemo(() => filteredTasks.slice(0, visible.tasks), [filteredTasks, visible.tasks]);
   const taskSummary = useMemo(() => summarizeTasks(data.tasks), [data.tasks]);
   const visibleTimeline = useMemo(() => data.timeline.slice(0, visible.timeline), [data.timeline, visible.timeline]);

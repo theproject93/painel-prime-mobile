@@ -5,6 +5,7 @@ import {
   filterEventExpenses,
   filterEventGuests,
   filterEventPayments,
+  filterEventTasks,
   filterEventVendors,
 } from './eventDetailsFilters.ts';
 
@@ -80,4 +81,19 @@ Deno.test('filter helpers never mutate source arrays or clone their rows', () =>
   assertEquals(guests.map((guest) => guest.id), ['2', '1']);
   assertEquals(result.map((guest) => guest.id), ['1', '2']);
   assertStrictEquals(result[0], guests[1]);
+});
+
+Deno.test('task filters preserve completed, urgent, overdue and regular pending views', () => {
+  const tasks = [
+    { id: 'urgent', completed: false, priority: 'urgent', due_date: '2026-07-20' },
+    { id: 'overdue', completed: false, priority: 'normal', due_date: '2026-07-10' },
+    { id: 'pending', completed: false, priority: 'normal', due_date: '2026-07-30' },
+    { id: 'done', completed: true, priority: 'urgent', due_date: '2026-07-01' },
+  ];
+  const isOverdue = (value: unknown) => typeof value === 'string' && value < '2026-07-18';
+
+  assertEquals(filterEventTasks(tasks, 'urgent', isOverdue), [tasks[0]]);
+  assertEquals(filterEventTasks(tasks, 'overdue', isOverdue), [tasks[1]]);
+  assertEquals(filterEventTasks(tasks, 'pending', isOverdue), [tasks[2]]);
+  assertEquals(filterEventTasks(tasks, 'completed', isOverdue), [tasks[3]]);
 });
