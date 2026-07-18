@@ -37,6 +37,13 @@ import {
   summarizeTasks,
   vendorStatusLabel,
 } from '../features/events/eventWorkspaceUtils';
+import {
+  filterEventDocuments,
+  filterEventExpenses,
+  filterEventGuests,
+  filterEventPayments,
+  filterEventVendors,
+} from '../features/events/eventDetailsFilters';
 
 type DataKey = 'tasks' | 'expenses' | 'payments' | 'guests' | 'timeline' | 'vendors' | 'documents' | 'notes' | 'team' | 'tables';
 type VisibleKey = 'tasks' | 'guests' | 'vendors' | 'documents' | 'timeline';
@@ -862,59 +869,32 @@ export function EventDetailsScreen() {
     }
     return out;
   }, [overdueTasks.length, budgetProgress, daysRemaining, pendingTasks.length, unconfirmedGuests]);
-  const filteredGuests = useMemo(() => {
-    const search = guestSearch.trim().toLowerCase();
-    const base = data.guests.filter((g) =>
-      guestFilter === 'all' ? true : (g.rsvp_status ?? 'pending') === guestFilter,
-    );
-    const searched = base.filter((g) => {
-      if (!search) return true;
-      const name = String(g.name ?? '').toLowerCase();
-      const phone = String(g.phone ?? '').toLowerCase();
-      return name.includes(search) || phone.includes(search);
-    });
-    return [...searched].sort((a, b) => {
-      const an = String(a.name ?? '').toLowerCase();
-      const bn = String(b.name ?? '').toLowerCase();
-      return guestSort === 'name_asc' ? an.localeCompare(bn) : bn.localeCompare(an);
-    });
-  }, [data.guests, guestFilter, guestSearch, guestSort]);
-  const filteredVendors = useMemo(() => {
-    const search = vendorSearch.trim().toLowerCase();
-    const searched = data.vendors.filter((v) => {
-      if (!search) return true;
-      return `${v.name ?? ''} ${v.category ?? ''}`.toLowerCase().includes(search);
-    });
-    return [...searched].sort((a, b) => {
-      if (vendorSort === 'status') {
-        return String(a.status ?? '').localeCompare(String(b.status ?? ''));
-      }
-      const an = String(a.name ?? '').toLowerCase();
-      const bn = String(b.name ?? '').toLowerCase();
-      return vendorSort === 'name_asc' ? an.localeCompare(bn) : bn.localeCompare(an);
-    });
-  }, [data.vendors, vendorSearch, vendorSort]);
-  const filteredExpenses = useMemo(() => {
-    return data.expenses.filter((x) => {
-      if (budgetVendorFilter.trim() && String(x.vendor_id ?? '') !== budgetVendorFilter.trim()) return false;
-      if (budgetStatusFilter !== 'all' && String(x.status ?? 'pending') !== budgetStatusFilter) return false;
-      return true;
-    });
-  }, [data.expenses, budgetStatusFilter, budgetVendorFilter]);
-  const filteredPayments = useMemo(() => {
-    const expenseIds = new Set(filteredExpenses.map((x) => x.id));
-    return data.payments.filter((p) => expenseIds.has(p.expense_id));
-  }, [data.payments, filteredExpenses]);
-  const filteredDocuments = useMemo(() => {
-    const search = documentSearch.trim().toLowerCase();
-    return data.documents.filter((d) => {
-      if (documentReceiptFilterId && String(d.id) !== documentReceiptFilterId) return false;
-      if (documentVendorFilter.trim() && String(d.vendor_id ?? '') !== documentVendorFilter.trim()) return false;
-      if (documentCategoryFilter.trim() && String(d.category ?? '').toLowerCase() !== documentCategoryFilter.trim().toLowerCase()) return false;
-      if (!search) return true;
-      return `${d.name ?? ''} ${d.category ?? ''}`.toLowerCase().includes(search);
-    });
-  }, [data.documents, documentCategoryFilter, documentReceiptFilterId, documentSearch, documentVendorFilter]);
+  const filteredGuests = useMemo(
+    () => filterEventGuests(data.guests, guestFilter, guestSearch, guestSort),
+    [data.guests, guestFilter, guestSearch, guestSort],
+  );
+  const filteredVendors = useMemo(
+    () => filterEventVendors(data.vendors, vendorSearch, vendorSort),
+    [data.vendors, vendorSearch, vendorSort],
+  );
+  const filteredExpenses = useMemo(
+    () => filterEventExpenses(data.expenses, budgetVendorFilter, budgetStatusFilter),
+    [data.expenses, budgetStatusFilter, budgetVendorFilter],
+  );
+  const filteredPayments = useMemo(
+    () => filterEventPayments(data.payments, filteredExpenses),
+    [data.payments, filteredExpenses],
+  );
+  const filteredDocuments = useMemo(
+    () => filterEventDocuments(
+      data.documents,
+      documentReceiptFilterId,
+      documentVendorFilter,
+      documentCategoryFilter,
+      documentSearch,
+    ),
+    [data.documents, documentCategoryFilter, documentReceiptFilterId, documentSearch, documentVendorFilter],
+  );
   const documentCategories = useMemo(
     () => Array.from(new Set(data.documents.map((d) => String(d.category ?? 'Outros')).filter(Boolean))),
     [data.documents],
