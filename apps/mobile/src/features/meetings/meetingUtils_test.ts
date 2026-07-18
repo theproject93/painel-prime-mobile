@@ -64,6 +64,8 @@ Deno.test('wires the complete meetings control center into the event workspace',
   const routes = await Deno.readTextFile(new URL('navigation/eventRouteTypes.ts', sourceRoot));
   const details = await Deno.readTextFile(new URL('screens/EventDetailsScreen.tsx', sourceRoot));
   const center = await Deno.readTextFile(new URL('features/meetings/MeetingCenter.tsx', sourceRoot));
+  const service = await Deno.readTextFile(new URL('features/meetings/meetingService.ts', sourceRoot));
+  const implementation = `${center}\n${service}`;
 
   if (!routes.includes("key: 'meetings'") || !routes.includes("label: 'Reuniões'")) {
     throw new Error('meetings module is not registered');
@@ -73,7 +75,7 @@ Deno.test('wires the complete meetings control center into the event workspace',
   }
 
   for (const action of ['create', 'host-link', 'save-notes', 'complete', 'retry-ata']) {
-    if (!center.includes(`'${action}'`)) throw new Error(`missing action ${action}`);
+    if (!implementation.includes(`'${action}'`)) throw new Error(`missing action ${action}`);
   }
   for (const capability of [
     'WebBrowser.openBrowserAsync',
@@ -83,7 +85,7 @@ Deno.test('wires the complete meetings control center into the event workspace',
     'keyboardShouldPersistTaps="handled"',
     '.channel(',
   ]) {
-    if (!center.includes(capability)) throw new Error(`missing capability ${capability}`);
+    if (!implementation.includes(capability)) throw new Error(`missing capability ${capability}`);
   }
   if (!center.includes('styles.modalErrorText')) {
     throw new Error('schedule errors are hidden behind the modal');
