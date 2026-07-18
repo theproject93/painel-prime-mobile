@@ -37,13 +37,7 @@ import {
   summarizeTasks,
   vendorStatusLabel,
 } from '../features/events/eventWorkspaceUtils';
-import {
-  filterEventDocuments,
-  filterEventExpenses,
-  filterEventGuests,
-  filterEventPayments,
-  filterEventVendors,
-} from '../features/events/eventDetailsFilters';
+import { useEventFilters } from '../features/events/useEventFilters';
 
 type DataKey = 'tasks' | 'expenses' | 'payments' | 'guests' | 'timeline' | 'vendors' | 'documents' | 'notes' | 'team' | 'tables';
 type VisibleKey = 'tasks' | 'guests' | 'vendors' | 'documents' | 'timeline';
@@ -231,17 +225,37 @@ export function EventDetailsScreen() {
   const [f, setF] = useState({
     a: '', b: '', c: '', d: '', budgetTotal: '', inviteTemplate: '', inviteDress: '',
   });
-  const [guestFilter, setGuestFilter] = useState<'all' | 'pending' | 'confirmed' | 'declined'>('all');
-  const [guestSearch, setGuestSearch] = useState('');
-  const [guestSort, setGuestSort] = useState<'name_asc' | 'name_desc'>('name_asc');
-  const [vendorSearch, setVendorSearch] = useState('');
-  const [vendorSort, setVendorSort] = useState<'name_asc' | 'name_desc' | 'status'>('name_asc');
-  const [budgetVendorFilter, setBudgetVendorFilter] = useState('');
-  const [budgetStatusFilter, setBudgetStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'paid' | 'cancelled'>('all');
+  const {
+    guestFilter,
+    setGuestFilter,
+    guestSearch,
+    setGuestSearch,
+    guestSort,
+    setGuestSort,
+    vendorSearch,
+    setVendorSearch,
+    vendorSort,
+    setVendorSort,
+    budgetVendorFilter,
+    setBudgetVendorFilter,
+    budgetStatusFilter,
+    setBudgetStatusFilter,
+    documentSearch,
+    setDocumentSearch,
+    documentVendorFilter,
+    setDocumentVendorFilter,
+    documentCategoryFilter,
+    setDocumentCategoryFilter,
+    documentReceiptFilterId,
+    setDocumentReceiptFilterId,
+    filteredGuests,
+    filteredVendors,
+    filteredExpenses,
+    filteredPayments,
+    filteredDocuments,
+    documentCategories,
+  } = useEventFilters(data);
   const [budgetVendorInput, setBudgetVendorInput] = useState('');
-  const [documentSearch, setDocumentSearch] = useState('');
-  const [documentVendorFilter, setDocumentVendorFilter] = useState('');
-  const [documentCategoryFilter, setDocumentCategoryFilter] = useState('');
   const [documentVendorInput, setDocumentVendorInput] = useState('');
   const [visible, setVisible] = useState<Record<VisibleKey, number>>({
     tasks: 40,
@@ -263,7 +277,6 @@ export function EventDetailsScreen() {
   const [lastAiTimelineRunAt, setLastAiTimelineRunAt] = useState<string | null>(null);
   const [aiTimelineSuggestions, setAiTimelineSuggestions] = useState<SmartTimelineSuggestion[]>([]);
   const [historyFilter, setHistoryFilter] = useState<'all' | HistoryKind>('all');
-  const [documentReceiptFilterId, setDocumentReceiptFilterId] = useState('');
   const [budgetPaymentMethod, setBudgetPaymentMethod] = useState<PaymentMethod>('pix');
   const [budgetPaymentReceiptDocId, setBudgetPaymentReceiptDocId] = useState('');
   const [budgetPaymentNote, setBudgetPaymentNote] = useState('');
@@ -869,36 +882,6 @@ export function EventDetailsScreen() {
     }
     return out;
   }, [overdueTasks.length, budgetProgress, daysRemaining, pendingTasks.length, unconfirmedGuests]);
-  const filteredGuests = useMemo(
-    () => filterEventGuests(data.guests, guestFilter, guestSearch, guestSort),
-    [data.guests, guestFilter, guestSearch, guestSort],
-  );
-  const filteredVendors = useMemo(
-    () => filterEventVendors(data.vendors, vendorSearch, vendorSort),
-    [data.vendors, vendorSearch, vendorSort],
-  );
-  const filteredExpenses = useMemo(
-    () => filterEventExpenses(data.expenses, budgetVendorFilter, budgetStatusFilter),
-    [data.expenses, budgetStatusFilter, budgetVendorFilter],
-  );
-  const filteredPayments = useMemo(
-    () => filterEventPayments(data.payments, filteredExpenses),
-    [data.payments, filteredExpenses],
-  );
-  const filteredDocuments = useMemo(
-    () => filterEventDocuments(
-      data.documents,
-      documentReceiptFilterId,
-      documentVendorFilter,
-      documentCategoryFilter,
-      documentSearch,
-    ),
-    [data.documents, documentCategoryFilter, documentReceiptFilterId, documentSearch, documentVendorFilter],
-  );
-  const documentCategories = useMemo(
-    () => Array.from(new Set(data.documents.map((d) => String(d.category ?? 'Outros')).filter(Boolean))),
-    [data.documents],
-  );
   const paymentReceiptCountByVendor = useMemo(() => {
     const documentsById = new Map<string, any>();
     data.documents.forEach((doc) => {

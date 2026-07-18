@@ -3,29 +3,29 @@ export type EventGuestSort = 'name_asc' | 'name_desc';
 export type EventVendorSort = 'name_asc' | 'name_desc' | 'status';
 export type EventExpenseStatusFilter = 'all' | 'pending' | 'confirmed' | 'paid' | 'cancelled';
 
-type GuestFilterRow = {
+export type GuestFilterRow = {
   name?: unknown;
   phone?: unknown;
   rsvp_status?: unknown;
 };
 
-type VendorFilterRow = {
+export type VendorFilterRow = {
   name?: unknown;
   category?: unknown;
   status?: unknown;
 };
 
-type ExpenseFilterRow = {
+export type ExpenseFilterRow = {
   id?: unknown;
   vendor_id?: unknown;
   status?: unknown;
 };
 
-type PaymentFilterRow = {
+export type PaymentFilterRow = {
   expense_id?: unknown;
 };
 
-type DocumentFilterRow = {
+export type DocumentFilterRow = {
   id?: unknown;
   vendor_id?: unknown;
   name?: unknown;
