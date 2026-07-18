@@ -38,10 +38,10 @@ import {
   vendorStatusLabel,
 } from '../features/events/eventWorkspaceUtils';
 import { useEventFilters } from '../features/events/useEventFilters';
+import { useEventDetailsData } from '../features/events/useEventDetailsData';
+import type { EventDataKey as DataKey, EventDetailsTab } from '../features/events/eventDetailsData';
 
-type DataKey = 'tasks' | 'expenses' | 'payments' | 'guests' | 'timeline' | 'vendors' | 'documents' | 'notes' | 'team' | 'tables';
 type VisibleKey = 'tasks' | 'guests' | 'vendors' | 'documents' | 'timeline';
-const PAGE_SIZE = 50;
 
 type EventRow = {
   id: string;
@@ -136,41 +136,6 @@ type CommandComputedAlert = {
 const CHART_COLORS = ['#D4AF37', '#0EA5E9', '#22C55E', '#F97316', '#A855F7', '#EF4444'];
 
 const TABS = EVENT_MODULES;
-type EventDetailsTab = EventDetailsInitialTab | 'command';
-
-const TABLE_BY_KEY: Record<DataKey, string> = {
-  tasks: 'event_tasks',
-  expenses: 'event_expenses',
-  payments: 'expense_payments',
-  guests: 'event_guests',
-  timeline: 'event_timeline',
-  vendors: 'event_vendors',
-  documents: 'event_documents',
-  notes: 'event_notes',
-  team: 'event_team_members',
-  tables: 'event_tables',
-};
-
-const TAB_KEYS: Record<EventDetailsTab, DataKey[]> = {
-  overview: ['expenses', 'payments', 'tasks', 'guests', 'timeline', 'vendors'],
-  command: ['expenses', 'payments', 'tasks', 'guests', 'timeline', 'vendors'],
-  history: ['tasks', 'guests', 'timeline', 'vendors', 'documents', 'expenses', 'payments'],
-  tasks: ['tasks', 'vendors', 'team'],
-  budget: ['expenses', 'payments'],
-  guests: ['guests'],
-  timeline: ['timeline', 'vendors', 'team'],
-  vendors: ['vendors'],
-  documents: ['documents', 'vendors'],
-  notes: ['notes'],
-  team: ['team'],
-  tables: ['tables', 'guests'],
-  invites: ['guests'],
-  reception: ['guests', 'team'],
-  portal: ['guests'],
-  meetings: [],
-  presentes: ['guests'],
-  analytics: ['expenses', 'payments'],
-};
 
 export function EventDetailsScreen() {
   const router = useRouter();
@@ -199,29 +164,18 @@ export function EventDetailsScreen() {
   const [event, setEvent] = useState<EventRow | null>(null);
   const eventPersona = useMemo(() => getEventPersonaCopy(event?.event_type), [event?.event_type]);
   const [loadingEvent, setLoadingEvent] = useState(true);
-  const [loadingTab, setLoadingTab] = useState(false);
-  const [loadingMore, setLoadingMore] = useState<DataKey | null>(null);
-  const [error, setError] = useState('');
-  const [data, setData] = useState<Record<DataKey, any[]>>({
-    tasks: [], expenses: [], payments: [], guests: [], timeline: [],
-    vendors: [], documents: [], notes: [], team: [], tables: [],
-  });
-  const [loaded, setLoaded] = useState<Record<DataKey, boolean>>({
-    tasks: false, expenses: false, payments: false, guests: false, timeline: false,
-    vendors: false, documents: false, notes: false, team: false, tables: false,
-  });
-  const [paging, setPaging] = useState<Record<DataKey, { page: number; hasMore: boolean }>>({
-    tasks: { page: -1, hasMore: true },
-    expenses: { page: -1, hasMore: true },
-    payments: { page: -1, hasMore: true },
-    guests: { page: -1, hasMore: true },
-    timeline: { page: -1, hasMore: true },
-    vendors: { page: -1, hasMore: true },
-    documents: { page: -1, hasMore: true },
-    notes: { page: -1, hasMore: true },
-    team: { page: -1, hasMore: true },
-    tables: { page: -1, hasMore: true },
-  });
+  const {
+    loadingTab,
+    loadingMore,
+    error,
+    setError,
+    data,
+    setData,
+    paging,
+    loadKey,
+    loadTab,
+    loadMoreKey,
+  } = useEventDetailsData(eventId, activeTab, loadingEvent);
   const [f, setF] = useState({
     a: '', b: '', c: '', d: '', budgetTotal: '', inviteTemplate: '', inviteDress: '',
   });
@@ -387,68 +341,6 @@ export function EventDetailsScreen() {
       note: '',
     });
   }, [eventId]);
-
-  async function fetchKey(key: DataKey, page: number) {
-    const order = key === 'payments' ? 'paid_at' : 'created_at';
-    const from = page * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
-    const { data: rows, error: e } = await supabase
-      .from(TABLE_BY_KEY[key])
-      .select('*')
-      .eq('event_id', eventId)
-      .order(order, { ascending: false })
-      .range(from, to);
-    if (e) throw new Error(e.message);
-    return rows ?? [];
-  }
-
-  async function loadKey(key: DataKey, mode: 'reset' | 'append') {
-    const page = mode === 'reset' ? 0 : paging[key].page + 1;
-    const rows = await fetchKey(key, page);
-    setData((s) => {
-      if (mode === 'reset') return { ...s, [key]: rows };
-      const ids = new Set(s[key].map((x) => x.id));
-      const merged = [...s[key], ...rows.filter((x) => !ids.has(x.id))];
-      return { ...s, [key]: merged };
-    });
-    setPaging((s) => ({
-      ...s,
-      [key]: { page, hasMore: rows.length === PAGE_SIZE },
-    }));
-    setLoaded((s) => ({ ...s, [key]: true }));
-  }
-
-  async function loadTab(tab: EventDetailsTab, force = false) {
-    const wanted = TAB_KEYS[tab];
-    const todo = force ? wanted : wanted.filter((k) => !loaded[k]);
-    if (todo.length === 0) return;
-    setLoadingTab(true);
-    setError('');
-    try {
-      await Promise.all(todo.map((key) => loadKey(key, 'reset')));
-    } catch (e: any) {
-      setError(e?.message ?? 'Erro ao carregar aba');
-    } finally {
-      setLoadingTab(false);
-    }
-  }
-
-  async function loadMoreKey(key: DataKey) {
-    if (!paging[key].hasMore || loadingMore === key) return;
-    setLoadingMore(key);
-    setError('');
-    try {
-      await loadKey(key, 'append');
-    } catch (e: any) {
-      setError(e?.message ?? 'Erro ao carregar mais registros');
-    } finally {
-      setLoadingMore(null);
-    }
-  }
-
-  useEffect(() => {
-    if (!loadingEvent) void loadTab(activeTab);
-  }, [activeTab, loadingEvent]);
 
   async function loadCommandCenterData() {
     const [statusRes, incidentsRes, configRes] = await Promise.all([
