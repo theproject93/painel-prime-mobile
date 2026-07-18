@@ -60,8 +60,11 @@ export function usePlanAssistantHints(userId: string | null, isOpen: boolean) {
       if (events.length > 0) {
         const eventIds = events.map((event) => event.id);
         const [vendorsResult, guestsResult, tasksResult] = await Promise.all([
+          // egress-guard: allow-unbounded -- hint correctness requires complete rows for the eight bounded events.
           supabase.from('event_vendors').select('event_id,category,expected_arrival_time,expected_done_time').in('event_id', eventIds),
+          // egress-guard: allow-unbounded -- RSVP hints require every guest for the eight bounded events.
           supabase.from('event_guests').select('event_id,confirmed,rsvp_status').in('event_id', eventIds),
+          // egress-guard: allow-unbounded -- overdue hints require every task for the eight bounded events.
           supabase.from('event_tasks').select('event_id,completed,due_date').in('event_id', eventIds),
         ]);
         if (vendorsResult.error) throw vendorsResult.error;
@@ -79,7 +82,8 @@ export function usePlanAssistantHints(userId: string | null, isOpen: boolean) {
             .from('user_plan_assistant_hint_state')
             .select('hint_id,last_action,last_action_at,last_shown_at,last_opened_at,last_dismissed_at')
             .eq('user_id', userId)
-            .in('hint_id', selected.map((hint) => hint.id));
+            .in('hint_id', selected.map((hint) => hint.id))
+            .limit(6);
           if (stateResult.error) throw stateResult.error;
           nextState = ((stateResult.data as HintStateRow[]) ?? []).reduce<Record<string, HintStateRow>>(
             (acc, row) => ({ ...acc, [row.hint_id]: row }),

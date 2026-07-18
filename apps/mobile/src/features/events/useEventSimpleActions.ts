@@ -70,7 +70,9 @@ export function useEventSimpleActions({
     void (async () => {
       const db = supabase as any;
       const [teamsRes, membersRes] = await Promise.all([
+        // egress-guard: allow-unbounded -- the tenant team picker must expose every team available through RLS.
         db.from('advisor_teams').select('id,name,leader_member_id').order('created_at'),
+        // egress-guard: allow-unbounded -- the tenant team picker must expose every member available through RLS.
         db.from('advisor_team_members').select('id,team_id,name,role,phone,email,photo_file_id,photo_url').order('created_at'),
       ]);
       if (teamsRes.error || membersRes.error) return;

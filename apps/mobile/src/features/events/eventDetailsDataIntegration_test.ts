@@ -19,7 +19,8 @@ Deno.test('EventDetailsScreen delegates paged tab data to useEventDetailsData', 
 Deno.test('useEventDetailsData preserves the existing Supabase query and pagination contract', async () => {
   const hook = await read('features/events/useEventDetailsData.ts');
 
-  assert(hook.includes(".select('*')"));
+  assert(hook.includes('.select(EVENT_DATA_COLUMNS[key])'));
+  assertFalse(hook.includes(".select('*')"));
   assert(hook.includes(".eq('event_id', eventId)"));
   assert(hook.includes('.order(order, { ascending: false })'));
   assert(hook.includes('.range(from, to)'));

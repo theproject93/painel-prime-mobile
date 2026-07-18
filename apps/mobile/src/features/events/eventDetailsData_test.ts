@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertNotStrictEquals, assertStrictEquals } from 'jsr:@std/assert@1';
 
 import {
+  EVENT_DATA_COLUMNS,
   EVENT_DATA_PAGE_SIZE,
   EVENT_TAB_DATA_KEYS,
   createEventDataState,
@@ -8,6 +9,16 @@ import {
   createEventPagingState,
   mergeEventDataPage,
 } from './eventDetailsData.ts';
+
+Deno.test('event detail queries use explicit column contracts for every dataset', () => {
+  assertEquals(Object.keys(EVENT_DATA_COLUMNS), Object.keys(createEventDataState()));
+  for (const columns of Object.values(EVENT_DATA_COLUMNS)) {
+    assert(columns.length > 0);
+    assertEquals(columns.includes('*'), false);
+    assert(columns.split(',').includes('id'));
+    assert(columns.split(',').includes('event_id'));
+  }
+});
 
 Deno.test('event detail data state starts isolated with the established page size', () => {
   const first = createEventDataState();

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   EVENT_DATA_PAGE_SIZE,
+  EVENT_DATA_COLUMNS,
   EVENT_DATA_TABLES,
   EVENT_TAB_DATA_KEYS,
   createEventDataState,
@@ -34,7 +35,7 @@ export function useEventDetailsData(
     const to = from + EVENT_DATA_PAGE_SIZE - 1;
     const { data: rows, error: queryError } = await supabase
       .from(EVENT_DATA_TABLES[key])
-      .select('*')
+      .select(EVENT_DATA_COLUMNS[key])
       .eq('event_id', eventId)
       .order(order, { ascending: false })
       .range(from, to);

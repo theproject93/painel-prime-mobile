@@ -33,6 +33,19 @@ export const EVENT_DATA_TABLES: Record<EventDataKey, string> = {
   tables: 'event_tables',
 };
 
+export const EVENT_DATA_COLUMNS: Record<EventDataKey, string> = {
+  tasks: 'id,event_id,text,completed,due_date,priority,position,notes,assignee_name,created_at',
+  expenses: 'id,event_id,name,value,color,status,vendor_id,created_at',
+  payments: 'id,event_id,expense_id,amount,method,note,paid_at,created_at',
+  guests: 'id,event_id,name,phone,confirmed,rsvp_status,rsvp_note,responded_at,plus_one_count,companion_names,dietary_restrictions,table_id,qr_token,invite_token,invited_at,checked_in_at,checked_in_by,family_group_id,group_leader_id,group_sort_order,is_group_leader,guest_source,invite_dispatch_channel,invite_dispatch_error,invite_dispatch_last_at,invite_dispatch_message_id,invite_dispatch_status,created_at',
+  timeline: 'id,event_id,activity,time,description,assignee_name,position,created_at',
+  vendors: 'id,event_id,catalog_vendor_id,name,category,phone,email,notes,status,expected_arrival_time,expected_done_time,is_self_vendor,contract_document_id,control_token,import_draft_id,import_review_reason,import_review_status,created_at',
+  documents: 'id,event_id,name,category,file_id,file_type,file_url,vendor_id,created_at',
+  notes: 'id,event_id,content,color,created_at,updated_at',
+  team: 'id,event_id,name,phone,role,address,team_name,is_leader,advisor_team_id,advisor_team_member_id,photo_file_id,photo_url,created_at',
+  tables: 'id,event_id,name,note,seats,shape,pos_x,pos_y,posx,posy,created_at',
+};
+
 export const EVENT_TAB_DATA_KEYS: Record<EventDetailsTab, EventDataKey[]> = {
   overview: ['expenses', 'payments', 'tasks', 'guests', 'timeline', 'vendors'],
   command: ['expenses', 'payments', 'tasks', 'guests', 'timeline', 'vendors'],
