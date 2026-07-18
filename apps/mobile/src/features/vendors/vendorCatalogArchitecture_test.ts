@@ -1,0 +1,3 @@
+import { assert, assertEquals } from 'jsr:@std/assert';
+const root = new URL('../../', import.meta.url);
+Deno.test('vendor catalog delegates remote access and keeps a bounded container', async () => { const screen = await Deno.readTextFile(new URL('screens/VendorsCatalogScreen.tsx', root)); const card = await Deno.readTextFile(new URL('features/vendors/VendorCard.tsx', root)); const hook = await Deno.readTextFile(new URL('features/vendors/useVendorCatalog.ts', root)); assert(screen.split(/\r?\n/).length <= 450); assertEquals(screen.includes("../lib/supabase"), false); assertEquals(card.includes('supabase'), false); assertEquals(hook.includes('setVendors(previous)'), true); assertEquals(hook.includes('persistVendorOrder'), true); });
