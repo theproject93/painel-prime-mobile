@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -8,7 +8,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   useWindowDimensions,
@@ -26,47 +25,12 @@ import {
   linkStoredFile,
   uploadPrivateAsset,
 } from '../lib/r2FileStorage';
-import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
+import { eventsScreenStyles as styles } from '../features/events/eventsScreenStyles';
 import { eventStatusLabel } from '../features/events/eventPresentation';
-
-type EventItem = {
-  id: string;
-  name: string;
-  event_date: string;
-  location: string;
-  status: string | null;
-  event_type: string | null;
-  couple_photo_file_id?: string | null;
-  couple_photo_url: string | null;
-};
-
-const PAGE_SIZE = 30;
-const EVENT_TYPE_CARDS: Record<
-  'wedding' | 'birthday' | 'debutante' | 'corporate',
-  { label: string; image: string }
-> = {
-  wedding: {
-    label: 'Casamento',
-    image:
-      'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=900&q=60',
-  },
-  birthday: {
-    label: 'Aniversario',
-    image:
-      'https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?auto=format&fit=crop&w=900&q=60',
-  },
-  debutante: {
-    label: 'Debutante',
-    image:
-      'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=60',
-  },
-  corporate: {
-    label: 'Corporativo',
-    image:
-      'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=900&q=60',
-  },
-};
+import { EVENT_TYPE_CARDS, filterEvents, type EventItem, type EventType } from '../features/events/eventsModel';
+import { createEvent } from '../features/events/eventsService';
+import { useEventsData } from '../features/events/useEventsData';
 
 export function EventsScreen() {
   const router = useRouter();
@@ -74,16 +38,11 @@ export function EventsScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const userId = user?.id;
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const data = useEventsData(userId);
+  const { events, loading, refreshing, loadingMore, error, setError, hasMore } = data;
   const [creating, setCreating] = useState(false);
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
-  const [page, setPage] = useState(-1);
-  const [hasMore, setHasMore] = useState(true);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [name, setName] = useState('');
@@ -95,110 +54,10 @@ export function EventsScreen() {
     objectKey: string;
     previewUrl: string;
   } | null>(null);
-  const [eventType, setEventType] = useState<'wedding' | 'birthday' | 'debutante' | 'corporate'>(
+  const [eventType, setEventType] = useState<EventType>(
     'wedding',
   );
   const [uploadingCover, setUploadingCover] = useState(false);
-  const hasLoadedOnceRef = useRef(false);
-  const inFlightResetRef = useRef(false);
-  const lastLoadedAtRef = useRef(0);
-
-  const hydrateEventCoverUrls = useCallback(async (rows: EventItem[]) => {
-    return Promise.all(
-      rows.map(async (row) => {
-        if (!row.couple_photo_file_id) return row;
-
-        try {
-          const signedUrl = await getPrivateFileDownloadUrl(row.couple_photo_file_id);
-          return {
-            ...row,
-            couple_photo_url: signedUrl,
-          };
-        } catch {
-          return row;
-        }
-      }),
-    );
-  }, []);
-
-  const fetchEventsReset = useCallback(async (options?: { blocking?: boolean; force?: boolean }) => {
-    const blocking = options?.blocking ?? !hasLoadedOnceRef.current;
-    const force = options?.force ?? false;
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
-    if (inFlightResetRef.current && !force) {
-      return;
-    }
-    inFlightResetRef.current = true;
-
-    if (blocking) {
-      setLoading(true);
-    } else {
-      setRefreshing(true);
-    }
-    setError('');
-
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('events')
-        .select('id, name, event_date, location, status, event_type, couple_photo_url, couple_photo_file_id')
-        .eq('user_id', userId)
-        .or('status.is.null,status.neq.deleted')
-        .order('event_date', { ascending: true })
-        .range(0, PAGE_SIZE - 1);
-
-      if (fetchError) {
-        setError(fetchError.message);
-      } else {
-        const rows = await hydrateEventCoverUrls((data ?? []) as EventItem[]);
-        setEvents(rows);
-        setPage(0);
-        setHasMore(rows.length === PAGE_SIZE);
-        lastLoadedAtRef.current = Date.now();
-        hasLoadedOnceRef.current = true;
-      }
-    } finally {
-      inFlightResetRef.current = false;
-      if (blocking) {
-        setLoading(false);
-      } else {
-        setRefreshing(false);
-      }
-    }
-  }, [hydrateEventCoverUrls, userId]);
-
-  const fetchEventsAppend = useCallback(async () => {
-    if (!userId || !hasMore || loadingMore) return;
-    setLoadingMore(true);
-    setError('');
-    const nextPage = page + 1;
-    const from = nextPage * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
-
-    const { data, error: fetchError } = await supabase
-      .from('events')
-      .select('id, name, event_date, location, status, event_type, couple_photo_url, couple_photo_file_id')
-      .eq('user_id', userId)
-      .or('status.is.null,status.neq.deleted')
-      .order('event_date', { ascending: true })
-      .range(from, to);
-
-    if (fetchError) {
-      setError(fetchError.message);
-    } else {
-      const rows = await hydrateEventCoverUrls((data ?? []) as EventItem[]);
-      setEvents((prev) => {
-        const ids = new Set(prev.map((item) => item.id));
-        return [...prev, ...rows.filter((item) => !ids.has(item.id))];
-      });
-      setPage(nextPage);
-      setHasMore(rows.length === PAGE_SIZE);
-    }
-    setLoadingMore(false);
-  }, [hasMore, hydrateEventCoverUrls, loadingMore, page, userId]);
 
   function resetCreateForm() {
     const pendingCover = coverUpload;
@@ -230,23 +89,12 @@ export function EventsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      const shouldBlockingLoad = !hasLoadedOnceRef.current;
-      const isStale = Date.now() - lastLoadedAtRef.current > 15000;
-
-      if (shouldBlockingLoad || isStale) {
-        void fetchEventsReset({ blocking: shouldBlockingLoad });
-      }
-    }, [fetchEventsReset]),
+      if (data.shouldRefresh()) void data.reset();
+    }, [data.reset]),
   );
 
   const filteredEvents = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return events.filter((item) => {
-      const itemStatus = (item.status ?? 'active') as 'active' | 'completed' | string;
-      if (statusFilter !== 'all' && itemStatus !== statusFilter) return false;
-      if (!term) return true;
-      return `${item.name} ${item.location}`.toLowerCase().includes(term);
-    });
+    return filterEvents(events, search, statusFilter);
   }, [events, search, statusFilter]);
 
   async function handleCreateEvent() {
@@ -259,21 +107,7 @@ export function EventsScreen() {
     setCreating(true);
     setError('');
     const pendingCover = coverUpload;
-    const payload = {
-      user_id: userId,
-      name: name.trim(),
-      event_date: eventDate,
-      location: location.trim(),
-      event_type: eventType,
-      couple_photo_url: pendingCover ? null : coverExternalUrl.trim() || null,
-      couple_photo_file_id: pendingCover?.fileId ?? null,
-      status: 'active',
-    };
-    const { data, error: createError } = await supabase
-      .from('events')
-      .insert([payload])
-      .select('id')
-      .maybeSingle();
+    const { data: created, error: createError } = await createEvent(userId, { name, eventDate, location, eventType, coverExternalUrl, coverFileId: pendingCover?.fileId });
 
     if (createError) {
       setError(createError.message);
@@ -287,8 +121,8 @@ export function EventsScreen() {
       return;
     }
 
-    if (pendingCover?.fileId && data?.id) {
-      void linkStoredFile(pendingCover.fileId, data.id).catch(() => {
+    if (pendingCover?.fileId && created?.id) {
+      void linkStoredFile(pendingCover.fileId, created.id).catch(() => {
         // Best effort only.
       });
     }
@@ -301,7 +135,7 @@ export function EventsScreen() {
     setEventType('wedding');
     setIsCreateModalOpen(false);
     setCreating(false);
-    await fetchEventsReset({ blocking: false, force: true });
+    if (created) await data.insert(created as EventItem);
   }
 
   async function pickCoverFromGallery() {
@@ -426,7 +260,7 @@ export function EventsScreen() {
           }
           ListFooterComponent={
             hasMore ? (
-              <Pressable style={styles.loadMore} onPress={() => void fetchEventsAppend()}>
+              <Pressable style={styles.loadMore} onPress={() => void data.append()}>
                 {loadingMore ? (
                   <ActivityIndicator color={colors.primaryStrong} />
                 ) : (
@@ -496,75 +330,3 @@ function Pill({ label, selected, onPress }: { label: string; selected: boolean; 
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 16, paddingBottom: 20 },
-  centerPage: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  title: { color: colors.text, fontSize: 28, fontWeight: '700' },
-  subtitle: { color: colors.mutedText, fontSize: 14 },
-  refreshRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  refreshText: { color: colors.mutedText, fontSize: 12, fontWeight: '600' },
-  newButton: { height: 42, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  newButtonText: { color: colors.primaryTextOn, fontWeight: '700', fontSize: 14 },
-  filtersWrap: { gap: 8, marginBottom: 4 },
-  listWrap: { flex: 1 },
-  listContent: { gap: 10, paddingBottom: 20 },
-  eventCard: { backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 10, gap: 6 },
-  eventCover: { width: '100%', height: 120, borderRadius: 10 },
-  eventName: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  eventMeta: { color: colors.mutedText, fontSize: 13 },
-  eventStatus: { alignSelf: 'flex-start', marginTop: 4, backgroundColor: colors.primarySoft, color: colors.primaryStrong, fontSize: 11, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, overflow: 'hidden' },
-  emptyState: { paddingVertical: 40, alignItems: 'center', gap: 4 },
-  emptyTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  emptyText: { color: colors.mutedText, fontSize: 13 },
-  errorBox: { backgroundColor: colors.dangerBg, borderRadius: 10, padding: 10, marginBottom: 10 },
-  errorText: { color: colors.dangerText, fontSize: 13, textAlign: 'center', fontWeight: '600' },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', padding: 20, justifyContent: 'center' },
-  modalCard: { backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16 },
-  modalFormContent: { gap: 10, paddingBottom: 8 },
-  modalTitle: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: 4 },
-  previewLabel: { color: colors.mutedText, fontSize: 12, fontWeight: '600' },
-  previewImage: { width: '100%', height: 130, borderRadius: 10, borderWidth: 1, borderColor: colors.border },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: colors.text },
-  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2, marginBottom: 8 },
-  typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2, marginBottom: 8 },
-  typeCard: {
-    width: '48%',
-    height: 92,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'flex-end',
-  },
-  typeCardOn: {
-    borderColor: colors.primaryStrong,
-    borderWidth: 2,
-  },
-  typeImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  typeOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.28)',
-  },
-  typeCardText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-    padding: 8,
-  },
-  typePill: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: colors.card },
-  typePillSelected: { borderColor: colors.primaryStrong, backgroundColor: colors.primarySoft },
-  typePillText: { color: colors.text, fontSize: 12, fontWeight: '600' },
-  dangerPill: { borderWidth: 1, borderColor: '#FECACA', backgroundColor: colors.dangerBg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  dangerPillText: { color: colors.dangerText, fontSize: 12, fontWeight: '700' },
-  modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
-  ghostButton: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10, alignItems: 'center', justifyContent: 'center', height: 44 },
-  ghostButtonText: { color: colors.text, fontWeight: '600', fontSize: 14 },
-  primaryButton: { flex: 1, backgroundColor: colors.primary, borderRadius: 10, alignItems: 'center', justifyContent: 'center', height: 44 },
-  primaryButtonText: { color: colors.primaryTextOn, fontWeight: '700', fontSize: 14 },
-  loadMore: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
-  loadMoreText: { color: colors.text, fontWeight: '600', fontSize: 13 },
-});
