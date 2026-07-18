@@ -255,6 +255,34 @@ export function useEventCommandCenter({
     }, false);
   }
 
+  async function completeOverdueTasks() {
+    await act(async () => {
+      const overdueIds = data.tasks
+        .filter((task) => !task.completed && isOverdueDate(task.due_date))
+        .map((task) => task.id);
+      if (overdueIds.length === 0) return;
+      const { error: updateError } = await supabase
+        .from('event_tasks')
+        .update({ completed: true })
+        .in('id', overdueIds);
+      if (updateError) throw new Error(updateError.message);
+    });
+  }
+
+  async function confirmPendingVendors() {
+    await act(async () => {
+      const vendorIds = data.vendors
+        .filter((vendor) => (vendor.status ?? 'pending') !== 'confirmed')
+        .map((vendor) => vendor.id);
+      if (vendorIds.length === 0) return;
+      const { error: updateError } = await supabase
+        .from('event_vendors')
+        .update({ status: 'confirmed' })
+        .in('id', vendorIds);
+      if (updateError) throw new Error(updateError.message);
+    });
+  }
+
   async function createCommandIncident() {
     const title = commandIncidentForm.title.trim();
     if (!title || savingCommandIncident) return;
@@ -320,6 +348,8 @@ export function useEventCommandCenter({
     incidentStats,
     command,
     saveCommandRules,
+    completeOverdueTasks,
+    confirmPendingVendors,
     updateVendorOperationalStatus,
     createCommandIncident,
     resolveCommandIncident,

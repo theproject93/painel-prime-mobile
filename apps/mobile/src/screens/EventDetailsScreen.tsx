@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { getEventPersonaCopy } from '@painel-prime/app/eventPersona';
 
 import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
@@ -12,8 +11,7 @@ import { getPrivateFileDownloadUrl } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
 import { isEventDetailsInitialTab, EVENT_MODULES } from '../navigation/eventRouteTypes';
 import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
-import { colors } from '../theme/colors';
-import { MoneyField, PrivacyToggle, SensitiveMoney, formatBrlInput, parseBrlInput } from '../components/ui/PremiumInputs';
+import { formatBrlInput, parseBrlInput } from '../components/ui/PremiumInputs';
 import { summarizeTasks } from '../features/events/eventWorkspaceUtils';
 import { useEventFilters } from '../features/events/useEventFilters';
 import { useEventDetailsData } from '../features/events/useEventDetailsData';
@@ -25,7 +23,7 @@ import { useEventSimpleActions } from '../features/events/useEventSimpleActions'
 import { useEventOperationalActions } from '../features/events/useEventOperationalActions';
 import { SimpleEventTabs } from '../features/events/tabs/SimpleEventTabs';
 import { OperationalEventTabs } from '../features/events/tabs/OperationalEventTabs';
-import { Card, CommandLine, Danger, Item, Small, TaskSegment } from '../features/events/EventDetailsParts';
+import { CoreEventTabs } from '../features/events/tabs/CoreEventTabs';
 import { EventDetailsHeader } from '../features/events/EventDetailsHeader';
 import { useEventHistory } from '../features/events/useEventHistory';
 import { styles } from '../features/events/eventDetailsStyles';
@@ -37,12 +35,9 @@ import type {
   VisibleKey,
 } from '../features/events/eventDetailsTypes';
 import {
-  brl,
-  getMilestoneColor,
   isOverdueDate,
   isThisWeekDate,
   isTodayDate,
-  labelVendorStatus,
   normalizePaymentMethod,
   parsePaymentNote,
   paymentMethodLabel,
@@ -328,6 +323,8 @@ export function EventDetailsScreen() {
     incidentStats,
     command,
     saveCommandRules,
+    completeOverdueTasks,
+    confirmPendingVendors,
     updateVendorOperationalStatus,
     createCommandIncident,
     resolveCommandIncident,
@@ -561,505 +558,34 @@ export function EventDetailsScreen() {
         onCloseModulePicker={() => setIsModulePickerOpen(false)}
       />
               <View style={styles.moduleContent}>
-      {activeTab === 'overview' && (
-        <View style={styles.overviewStack}>
-          {alerts.length > 0 ? (
-            <View style={styles.alertsWrap}>
-              {alerts.map((alert, index) => (
-                <View
-                  key={`${alert.type}-${index}`}
-                  style={[
-                    styles.alertRow,
-                    alert.type === 'error'
-                      ? styles.alertError
-                      : alert.type === 'warning'
-                        ? styles.alertWarning
-                        : styles.alertInfo,
-                  ]}
-                >
-                  <Text style={styles.alertText}>{alert.message}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          <View style={styles.overviewFinanceHero}>
-            <View style={styles.overviewFinanceHeader}>
-              <View style={styles.formGrow}>
-                <Text style={styles.overviewEyebrow}>Planejamento financeiro</Text>
-                <Text style={styles.overviewFinanceTitle}>{eventPersona.budgetTitle}</Text>
-                <Text style={styles.overviewFinanceCopy}>{eventPersona.budgetDescription}</Text>
-              </View>
-              <PrivacyToggle hidden={hideFinancialValues} onPress={() => setHideFinancialValues((value) => !value)} />
-            </View>
-
-            {isBudgetCardEditing ? (
-              <View style={styles.metricEditWrap}>
-                <Text style={styles.overviewFinanceCopy}>{eventPersona.budgetEditDescription}</Text>
-                <MoneyField value={budgetCardDraft} onChangeValue={setBudgetCardDraft} />
-                <View style={styles.overviewFinanceActions}>
-                  <Pressable
-                    style={styles.overviewSecondaryAction}
-                    onPress={() => {
-                      setBudgetCardDraft(formatBrlInput(Math.round(budgetTotal * 100)));
-                      setIsBudgetCardEditing(false);
-                    }}
-                  >
-                    <Text style={styles.overviewSecondaryActionText}>Cancelar</Text>
-                  </Pressable>
-                  <Pressable style={styles.overviewPrimaryAction} onPress={() => void saveBudgetFromCard()}>
-                    <Text style={styles.overviewPrimaryActionText}>{savingBudgetCard ? 'Salvando...' : 'Salvar valor'}</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
-              <>
-                <SensitiveMoney value={budgetTotal} hidden={hideFinancialValues} />
-                <View style={styles.overviewMoneySplit}>
-                  <View style={styles.overviewMoneyItem}>
-                    <View style={[styles.overviewMoneyDot, styles.overviewMoneyDotSpent]} />
-                    <View style={styles.formGrow}>
-                      <Text style={styles.overviewMoneyLabel}>Já investido</Text>
-                      <Text style={styles.overviewMoneyValue}>{hideFinancialValues ? 'R$ ••••••' : brl(totalExpenses)}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.overviewMoneyDivider} />
-                  <View style={styles.overviewMoneyItem}>
-                    <View style={[styles.overviewMoneyDot, styles.overviewMoneyDotAvailable]} />
-                    <View style={styles.formGrow}>
-                      <Text style={styles.overviewMoneyLabel}>Ainda disponível</Text>
-                      <Text style={styles.overviewMoneyValue}>{hideFinancialValues ? 'R$ ••••••' : brl(budgetTotal - totalExpenses)}</Text>
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.overviewProgressTrack}>
-                  <View style={[styles.overviewProgressFill, { width: `${Math.max(0, budgetProgress)}%` }]} />
-                </View>
-                <View style={styles.overviewFinanceActions}>
-                  <Pressable style={styles.overviewSecondaryAction} onPress={() => setIsBudgetCardEditing(true)}>
-                    <Ionicons name="pencil-outline" size={16} color={colors.text} accessible={false} />
-                    <Text style={styles.overviewSecondaryActionText}>Editar limite</Text>
-                  </Pressable>
-                  <Pressable style={styles.overviewPrimaryAction} onPress={() => openModule('budget')}>
-                    <Text style={styles.overviewPrimaryActionText}>Ver orçamento</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#FFFFFF" accessible={false} />
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </View>
-
-          <View style={styles.overviewSectionHeading}>
-            <View>
-              <Text style={styles.overviewSectionTitle}>O que merece atenção</Text>
-              <Text style={styles.caption}>Atalhos para conduzir o evento sem se perder.</Text>
-            </View>
-          </View>
-          <View style={styles.overviewActionStack}>
-            <Pressable style={styles.overviewActionCard} onPress={() => openModule('history')}>
-              <View style={[styles.overviewActionIcon, styles.overviewActionIconRose]}><Ionicons name="calendar-outline" size={20} color="#BE185D" accessible={false} /></View>
-              <View style={styles.formGrow}><Text style={styles.overviewActionTitle}>Data do evento</Text><Text style={styles.overviewActionCopy}>Acompanhe o histórico e os marcos importantes.</Text></View>
-              <View style={styles.overviewActionValueWrap}><Text style={styles.overviewActionValue}>{!event?.event_date ? '-' : daysRemaining <= 0 ? 'Hoje' : daysRemaining}</Text><Text style={styles.overviewActionUnit}>{daysRemaining > 0 ? 'dias' : ''}</Text></View>
-              <Ionicons name="chevron-forward" size={18} color={colors.mutedText} accessible={false} />
-            </Pressable>
-            <Pressable style={styles.overviewActionCard} onPress={() => openModule('tasks')}>
-              <View style={[styles.overviewActionIcon, styles.overviewActionIconBlue]}><Ionicons name="checkmark-done-outline" size={20} color="#1D4ED8" accessible={false} /></View>
-              <View style={styles.formGrow}><Text style={styles.overviewActionTitle}>Tarefas do evento</Text><Text style={styles.overviewActionCopy}>{data.tasks.length - completedTasks} pendente{data.tasks.length - completedTasks === 1 ? '' : 's'} para organizar.</Text></View>
-              <Text style={styles.overviewActionCounter}>{completedTasks}/{data.tasks.length}</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.mutedText} accessible={false} />
-            </Pressable>
-            <Pressable style={styles.overviewActionCard} onPress={() => openModule('guests')}>
-              <View style={[styles.overviewActionIcon, styles.overviewActionIconGreen]}><Ionicons name="people-outline" size={20} color="#047857" accessible={false} /></View>
-              <View style={styles.formGrow}><Text style={styles.overviewActionTitle}>Lista de convidados</Text><Text style={styles.overviewActionCopy}>{guestSummary.pending} aguardando confirmação.</Text></View>
-              <Text style={styles.overviewActionCounter}>{guestSummary.confirmed}/{guestSummary.total}</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.mutedText} accessible={false} />
-            </Pressable>
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.subtitle}>Gastos por categoria</Text>
-              <Text style={styles.caption}>Total gasto: {brl(totalExpenses)}</Text>
-            </View>
-            {expensesForCharts.length === 0 ? (
-              <Text style={styles.caption}>Sem despesas ainda - adicione na aba Orçamento.</Text>
-            ) : (
-              <View style={styles.chartRows}>
-                {expensesForCharts.slice(0, 6).map((row) => {
-                  const max = Math.max(...expensesForCharts.map((item) => Number(item.value || 0)), 1);
-                  const width = (Number(row.value || 0) / max) * 100;
-                  return (
-                    <View key={row.id} style={styles.chartRowItem}>
-                      <View style={styles.rowBetween}>
-                        <Text style={styles.chartLabel}>{row.name}</Text>
-                        <Text style={styles.chartValue}>{brl(Number(row.value || 0))}</Text>
-                      </View>
-                      <View style={styles.chartTrack}>
-                        <View style={[styles.chartFill, { width: `${Math.max(8, width)}%`, backgroundColor: row.color || '#D4AF37' }]} />
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.subtitle}>Pagamentos por metodo</Text>
-              <Text style={styles.caption}>Total pago: {brl(totalPaidByMethod)}</Text>
-            </View>
-            {paymentsByMethod.length === 0 ? (
-              <Text style={styles.caption}>Sem pagamentos ainda - registre na aba Orçamento.</Text>
-            ) : (
-              <View style={styles.chartRows}>
-                {paymentsByMethod.map((row) => {
-                  const max = Math.max(...paymentsByMethod.map((item) => Number(item.value || 0)), 1);
-                  const width = (Number(row.value || 0) / max) * 100;
-                  return (
-                    <View key={row.id} style={styles.chartRowItem}>
-                      <View style={styles.rowBetween}>
-                        <Text style={styles.chartLabel}>{row.label}</Text>
-                        <Text style={styles.chartValue}>{brl(Number(row.value || 0))}</Text>
-                      </View>
-                      <View style={styles.chartTrack}>
-                        <View style={[styles.chartFill, { width: `${Math.max(8, width)}%`, backgroundColor: row.color }]} />
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.subtitle}>Tarefas pendentes</Text>
-              <Text style={styles.caption}>
-                {pendingTasks.length} de {data.tasks.length}
-              </Text>
-            </View>
-
-            <TaskSegment
-              title={`Atrasadas (${overdueTasks.length})`}
-              tone="error"
-              tasks={overdueTasks}
-              onToggle={toggleTask}
-            />
-            <TaskSegment
-              title={`Hoje (${todayTasks.length})`}
-              tone="warning"
-              tasks={todayTasks}
-              onToggle={toggleTask}
-            />
-            <TaskSegment
-              title={`Esta semana (${thisWeekTasks.length})`}
-              tone="info"
-              tasks={thisWeekTasks}
-              onToggle={toggleTask}
-            />
-            <TaskSegment
-              title={`Futuro (${futureTasks.length})`}
-              tone="neutral"
-              tasks={futureTasks}
-              onToggle={toggleTask}
-              limit={2}
-            />
-
-            {pendingTasks.length === 0 ? (
-              <Text style={styles.caption}>Nenhuma tarefa pendente.</Text>
-            ) : null}
-
-            <Pressable style={styles.btnGhostWide} onPress={() => openModule('tasks')}>
-              <Text style={styles.smallText}>Ver checklist completo</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
-      {activeTab === 'command' && (
-        <Card title="Torre de Comando">
-          <Text style={styles.commandTitle}>Status operacional do evento</Text>
-          <View style={styles.commandScoreWrap}>
-            <Text style={styles.commandScoreLabel}>Score operacional</Text>
-            <Text style={styles.commandScoreValue}>{command.score}/100</Text>
-            <View style={styles.commandTrack}>
-              <View
-                style={[
-                  styles.commandFill,
-                  { width: `${Math.max(8, command.score)}%`, backgroundColor: command.score < 55 ? '#DC2626' : command.score < 75 ? '#D97706' : '#16A34A' },
-                ]}
-              />
-            </View>
-          </View>
-
-          <View style={styles.commandRulesCard}>
-            <Text style={styles.commandBlockTitle}>Regras de alerta (SLA)</Text>
-            <View style={styles.commandRuleGrid}>
-              <TextInput
-                style={[styles.input, styles.commandRuleInput]}
-                value={commandLeadInput}
-                onChangeText={setCommandLeadInput}
-                placeholder="Pre-alerta (60,30,15)"
-              />
-              <TextInput
-                style={[styles.input, styles.commandRuleInput]}
-                value={commandGraceInput}
-                onChangeText={setCommandGraceInput}
-                placeholder="Tolerância (min)"
-                keyboardType="numeric"
-              />
-            </View>
-            <Pressable style={styles.btnGhost} onPress={() => void saveCommandRules()}>
-              <Text style={styles.smallText}>{savingCommandConfig ? 'Salvando regras...' : 'Salvar regras'}</Text>
-            </Pressable>
-          </View>
-
-          {alerts.length > 0 ? (
-            <View style={styles.commandBlock}>
-              <Text style={styles.commandBlockTitle}>Alertas gerais</Text>
-              {alerts.map((alert, index) => (
-                <Text key={`${alert.type}-${index}`} style={styles.commandItem}>
-                  {alert.message}
-                </Text>
-              ))}
-            </View>
-          ) : null}
-          {commandSlaAlerts.length > 0 ? (
-            <View style={styles.commandBlock}>
-              <Text style={styles.commandBlockTitle}>Alertas SLA de fornecedores</Text>
-              {commandSlaAlerts.map((alert) => (
-                <View key={alert.dedupe_key} style={styles.commandSlaRow}>
-                  <Text style={styles.commandItem}>{alert.message}</Text>
-                  <Text
-                    style={[
-                      styles.commandSeverity,
-                      alert.severity === 'critical'
-                        ? styles.commandSeverityCritical
-                        : alert.severity === 'warning'
-                          ? styles.commandSeverityWarning
-                          : styles.commandSeverityInfo,
-                    ]}
-                  >
-                    {alert.severity.toUpperCase()}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-          <View style={styles.rowBtns}>
-            <Small onPress={() => void act(async () => {
-              const overdueIds = data.tasks
-                .filter((task) => !task.completed && isOverdueDate(task.due_date))
-                .map((task) => task.id);
-              if (overdueIds.length === 0) return;
-              const { error: updateError } = await supabase
-                .from('event_tasks')
-                .update({ completed: true })
-                .in('id', overdueIds);
-              if (updateError) throw new Error(updateError.message);
-            })}>Concluir atrasadas</Small>
-            <Small onPress={() => void act(async () => {
-              const vendorIds = data.vendors
-                .filter((vendor) => (vendor.status ?? 'pending') !== 'confirmed')
-                .map((vendor) => vendor.id);
-              if (vendorIds.length === 0) return;
-              const { error: updateError } = await supabase
-                .from('event_vendors')
-                .update({ status: 'confirmed' })
-                .in('id', vendorIds);
-              if (updateError) throw new Error(updateError.message);
-            })}>Confirmar fornecedores</Small>
-            <Small onPress={() => openModule('budget')}>Abrir financeiro</Small>
-          </View>
-          <Text style={styles.caption}>Incidentes: {incidentStats.open} abertos | {incidentStats.resolved} resolvidos</Text>
-          <CommandLine
-            level={(command.pendingTasks > 10 ? 'high' : 'medium')}
-            text={`Tarefas pendentes: ${command.pendingTasks}`}
-          />
-          <CommandLine
-            level={(command.overdueCount > 0 ? 'high' : 'low')}
-            text={`Tarefas atrasadas: ${command.overdueCount}`}
-          />
-          <CommandLine
-            level={(command.pendingVendors > 3 ? 'high' : 'medium')}
-            text={`Fornecedores pendentes: ${command.pendingVendors}`}
-          />
-          <CommandLine
-            level={(command.pendingRsvp > 20 ? 'medium' : 'low')}
-            text={`RSVP pendente: ${command.pendingRsvp}`}
-          />
-          <CommandLine
-            level={(command.negativeBalance ? 'high' : 'low')}
-            text={`Saúde financeira: saldo ${brl(budgetTotal - totalExpenses)}`}
-          />
-          <View style={styles.commandBlock}>
-            <Text style={styles.commandBlockTitle}>Itens críticos da timeline (sem responsável)</Text>
-            {command.criticalTimeline.length === 0 ? (
-              <Text style={styles.commandItem}>Sem pendências críticas.</Text>
-            ) : (
-              command.criticalTimeline.map((item) => (
-                <Text key={item.id} style={styles.commandItem}>
-                  {item.time || '--:--'} | {item.activity || 'Atividade'}
-                </Text>
-              ))
-            )}
-          </View>
-          <View style={styles.commandBlock}>
-          <Text style={styles.commandBlockTitle}>Operação de fornecedores</Text>
-            {data.vendors.length === 0 ? (
-              <Text style={styles.commandItem}>Sem fornecedores cadastrados.</Text>
-            ) : (
-              data.vendors.slice(0, 12).map((vendor) => {
-                const current = latestCommandVendorStatus.get(vendor.id)?.status ?? 'pending';
-                return (
-                  <View key={vendor.id} style={styles.commandVendorCard}>
-                    <View style={styles.rowBetween}>
-                      <Text style={styles.commandVendorName}>{vendor.name || 'Fornecedor'}</Text>
-                      <Text style={styles.commandVendorStatus}>{labelVendorStatus(current)}</Text>
-                    </View>
-                    <Text style={styles.caption}>
-                      Previsto: {vendor.expected_arrival_time || '--:--'} - {vendor.expected_done_time || '--:--'}
-                    </Text>
-                    <View style={styles.rowBtns}>
-                      <Small onPress={() => void updateVendorOperationalStatus(vendor.id, 'en_route')}>A caminho</Small>
-                      <Small onPress={() => void updateVendorOperationalStatus(vendor.id, 'arrived')}>Chegou</Small>
-                      <Small onPress={() => void updateVendorOperationalStatus(vendor.id, 'done')}>Finalizado</Small>
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-          <View style={styles.commandBlock}>
-            <Text style={styles.commandBlockTitle}>SOS da assessoria</Text>
-            <TextInput
-              style={styles.input}
-              value={commandIncidentForm.title}
-              onChangeText={(value) => setCommandIncidentForm((prev) => ({ ...prev, title: value }))}
-              placeholder="Título do incidente"
-            />
-            <TextInput
-              style={styles.input}
-              value={commandIncidentForm.action_plan}
-              onChangeText={(value) => setCommandIncidentForm((prev) => ({ ...prev, action_plan: value }))}
-              placeholder="Plano B / ação imediata"
-            />
-            <TextInput
-              style={[styles.input, styles.area]}
-              value={commandIncidentForm.note}
-              onChangeText={(value) => setCommandIncidentForm((prev) => ({ ...prev, note: value }))}
-              placeholder="Detalhes do incidente"
-              multiline
-            />
-            <View style={styles.rowBtns}>
-              <Small onPress={() => setCommandIncidentForm((prev) => ({ ...prev, severity: 'warning' }))}>Severidade warning</Small>
-              <Small onPress={() => setCommandIncidentForm((prev) => ({ ...prev, severity: 'critical' }))}>Severidade critical</Small>
-            </View>
-            <TextInput
-              style={styles.input}
-              value={commandIncidentForm.vendor_id}
-              onChangeText={(value) => setCommandIncidentForm((prev) => ({ ...prev, vendor_id: value }))}
-              placeholder="vendor_id (opcional)"
-            />
-            <Pressable style={styles.btn} onPress={() => void createCommandIncident()}>
-              <Text style={styles.btnText}>{savingCommandIncident ? 'Registrando...' : 'Acionar SOS'}</Text>
-            </Pressable>
-
-            {commandIncidents.length === 0 ? (
-              <Text style={styles.commandItem}>Nenhum incidente registrado.</Text>
-            ) : (
-              commandIncidents.map((incident) => {
-                const vendorInfo = Array.isArray(incident.vendor) ? incident.vendor[0] : incident.vendor;
-                return (
-                  <View
-                    key={incident.id}
-                    style={[
-                      styles.commandIncidentCard,
-                      incident.status === 'open' ? styles.commandIncidentOpen : styles.commandIncidentResolved,
-                    ]}
-                  >
-                    <View style={styles.rowBetween}>
-                      <Text style={styles.commandVendorName}>{incident.title}</Text>
-                      <Text style={styles.caption}>{incident.severity.toUpperCase()}</Text>
-                    </View>
-                    <Text style={styles.caption}>
-                      {vendorInfo?.name ?? 'Sem fornecedor'} | {new Date(incident.created_at).toLocaleString('pt-BR')}
-                    </Text>
-                    {incident.action_plan ? <Text style={styles.row}>Plano: {incident.action_plan}</Text> : null}
-                    {incident.note ? <Text style={styles.row}>Nota: {incident.note}</Text> : null}
-                    {incident.status === 'open' ? (
-                      <Pressable style={styles.btnGhost} onPress={() => void resolveCommandIncident(incident.id)}>
-                        <Text style={styles.smallText}>
-                          {resolvingIncidentId === incident.id ? 'Resolvendo...' : 'Marcar como resolvido'}
-                        </Text>
-                      </Pressable>
-                    ) : (
-                      <Text style={styles.caption}>Resolvido</Text>
-                    )}
-                  </View>
-                );
-              })
-            )}
-          </View>
-          <View style={styles.rowBtns}>
-            <Small onPress={() => setActiveTab('tasks')}>Abrir tarefas</Small>
-            <Small onPress={() => setActiveTab('vendors')}>Abrir fornecedores</Small>
-            <Small onPress={() => setActiveTab('invites')}>Abrir convites</Small>
-          </View>
-        </Card>
-      )}
-
-      {activeTab === 'history' && (
-        <Card title="Histórico">
-          <View style={styles.rowBtns}>
-            <Small onPress={() => setHistoryFilter('all')}>Tudo</Small>
-            <Small onPress={() => setHistoryFilter('timeline')}>Timeline</Small>
-            <Small onPress={() => setHistoryFilter('task')}>Tarefas</Small>
-            <Small onPress={() => setHistoryFilter('guest')}>Convidados</Small>
-            <Small onPress={() => setHistoryFilter('payment')}>Pagamentos</Small>
-            <Small onPress={() => setHistoryFilter('document')}>Documentos</Small>
-          </View>
-
-          <View style={styles.historyVisualCard}>
-            {historyTimelineNodes.length === 0 ? (
-              <Text style={styles.caption}>Ainda não há marcos suficientes para montar a linha do projeto.</Text>
-            ) : (
-              <>
-                <View style={styles.historyTrack}>
-                  <View style={[styles.historyTrackFill, { width: `${historyProgress}%` }]} />
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.historyNodeRow}>
-                  {historyTimelineNodes.map((item) => {
-                    const selected = item.id === selectedHistoryId;
-                    return (
-                      <Pressable
-                        key={item.id}
-                        style={[styles.historyNode, selected && styles.historyNodeSelected]}
-                        onPress={() => setSelectedHistoryId(item.id)}
-                      >
-                        <View style={[styles.historyNodeDot, { backgroundColor: getMilestoneColor(item.kind) }]} />
-                        <Text style={styles.historyNodeDay}>Dia {item.dayNumber}</Text>
-                        <Text style={styles.historyNodeTitle}>{item.title}</Text>
-                        <Text style={styles.historyNodeDetail} numberOfLines={2}>{item.detail}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </>
-            )}
-          </View>
-
-          <View style={styles.historyList}>
-            {history.map((h, i) => (
-              <View key={`${h.at}-${i}`} style={styles.historyItemRow}>
-                <Text style={styles.historyAt}>{new Date(h.at).toLocaleString('pt-BR')}</Text>
-                <Text style={styles.historyText}>{h.text}</Text>
-              </View>
-            ))}
-            {history.length === 0 && <Text style={styles.row}>Sem histórico.</Text>}
-          </View>
-        </Card>
-      )}
+      <CoreEventTabs
+        activeTab={activeTab}
+        overview={{
+          alerts, budgetTitle: eventPersona.budgetTitle, budgetDescription: eventPersona.budgetDescription,
+          budgetEditDescription: eventPersona.budgetEditDescription, hideFinancialValues, editingBudget: isBudgetCardEditing,
+          budgetDraft: budgetCardDraft, budgetTotal, totalExpenses, budgetProgress, savingBudget: savingBudgetCard,
+          hasEventDate: Boolean(event?.event_date), daysRemaining, completedTasks, totalTasks: data.tasks.length, guestSummary,
+          expensesForCharts, paymentsByMethod, totalPaidByMethod, pendingTasks, overdueTasks, todayTasks, thisWeekTasks, futureTasks,
+          onTogglePrivacy: () => setHideFinancialValues((value) => !value), onBudgetDraftChange: setBudgetCardDraft,
+          onCancelBudgetEdit: () => { setBudgetCardDraft(formatBrlInput(Math.round(budgetTotal * 100))); setIsBudgetCardEditing(false); },
+          onStartBudgetEdit: () => setIsBudgetCardEditing(true), onSaveBudget: () => void saveBudgetFromCard(),
+          onOpenModule: openModule, onToggleTask: toggleTask,
+        }}
+        command={{
+          command, commandLeadInput, commandGraceInput, savingCommandConfig, alerts, commandSlaAlerts, incidentStats,
+          budgetBalance: budgetTotal - totalExpenses, vendors: data.vendors, latestCommandVendorStatus, commandIncidentForm,
+          savingCommandIncident, commandIncidents, resolvingIncidentId, onLeadInputChange: setCommandLeadInput,
+          onGraceInputChange: setCommandGraceInput, onSaveRules: () => void saveCommandRules(),
+          onCompleteOverdueTasks: () => void completeOverdueTasks(), onConfirmVendors: () => void confirmPendingVendors(),
+          onOpenModule: setActiveTab, onUpdateVendorStatus: (id, status) => void updateVendorOperationalStatus(id, status),
+          onIncidentFormChange: setCommandIncidentForm, onCreateIncident: () => void createCommandIncident(),
+          onResolveIncident: (id) => void resolveCommandIncident(id),
+        }}
+        history={{
+          history, timelineNodes: historyTimelineNodes, selectedId: selectedHistoryId, progress: historyProgress,
+          onFilterChange: setHistoryFilter, onSelect: setSelectedHistoryId,
+        }}
+      />
 
       <OperationalEventTabs
         {...{
