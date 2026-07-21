@@ -2,7 +2,7 @@
   "expo": {
     "name": "Painel Prime",
     "slug": "lucas-ferreira",
-    "version": "1.4.1",
+    "version": "1.5.0",
     "scheme": "painelprime",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,7 +24,7 @@
     },
     "android": {
       "package": "br.com.painelprime.app",
-      "versionCode": 9,
+      "versionCode": 10,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
