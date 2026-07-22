@@ -1,4 +1,4 @@
-import { assertEquals } from 'jsr:@std/assert';
+import { assertEquals, assertStringIncludes } from 'jsr:@std/assert';
 import { buildMemberPayload, normalizeTeamSummary } from './teamDirectoryModel.ts';
 
 Deno.test('team summary stays operational and bounded', () => {
@@ -9,4 +9,12 @@ Deno.test('team summary stays operational and bounded', () => {
 
 Deno.test('member payload trims editable fields', () => {
   assertEquals(buildMemberPayload({ name: ' Ana ', role: ' Recepção ', phone: ' ', email: ' ANA@EXAMPLE.COM ', teamId: 't1' }), { name: 'Ana', role: 'Recepção', phone: null, email: 'ana@example.com', team_id: 't1' });
+});
+
+Deno.test('team directory scopes and bounds the team list query', async () => {
+  const screenSource = await Deno.readTextFile(
+    new URL('../../screens/TeamDirectoryScreen.tsx', import.meta.url),
+  );
+  assertStringIncludes(screenSource, ".eq('tenant_id', nextTenantId)");
+  assertStringIncludes(screenSource, ".order('created_at').limit(100)");
 });

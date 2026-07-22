@@ -37,7 +37,7 @@ export function TeamDirectoryScreen() {
       if (membership.error || !membership.data?.tenant_id) throw new Error('Sua assessoria ativa não foi encontrada.');
       const nextTenantId = String(membership.data.tenant_id);
       const [teamsResult, summaryResult] = await Promise.all([
-        db.from('advisor_teams').select('id,name,leader_member_id').order('created_at'),
+        db.from('advisor_teams').select('id,name,leader_member_id').eq('tenant_id', nextTenantId).order('created_at').limit(100),
         db.rpc('get_team_operations_summary', { p_tenant_id: nextTenantId }),
       ]);
       if (teamsResult.error || summaryResult.error) throw teamsResult.error || summaryResult.error;

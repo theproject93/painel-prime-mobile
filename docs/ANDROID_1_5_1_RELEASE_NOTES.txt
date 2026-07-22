@@ -1,0 +1,8 @@
+Painel Prime Android 1.5.1 (build 11)
+
+- Nova central de Equipe com métricas de pessoas, eventos e conflitos de escala.
+- Edição de profissionais, função, contato, liderança e foto privada no R2.
+- Convites e revogação de acesso dos membros aos eventos em que estão escalados.
+- Comunicação mais clara sobre o que cada profissional poderá visualizar.
+- Conexão atualizada e validada com o Supabase self-hosted do Painel Prime.
+- Consulta de equipes limitada à assessoria conectada, com carregamento previsível.
