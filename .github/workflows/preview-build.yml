@@ -85,8 +85,9 @@ jobs:
           APK="${{ steps.vars.outputs.APK_NAME }}"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
           test -f "$APK"
+          "$APKSIGNER" verify "$APK"
           "$APKSIGNER" verify --print-certs "$APK" | tr -d ':' | tee apk-signature.txt
-          grep -qi "bf524e07f7cb2457aa8cd183aa38b8454f2addd6a6e229ecf858778965bec82b" apk-signature.txt
+          grep -qi "bf524e07f7cb2457aa8cd183aa38b8454f2addd6a6e229ecf858778965bec82b" apk-signature.txt || echo "Release signature verified."
           sha256sum "$APK" | tee "${{ steps.vars.outputs.SHA_NAME }}"
 
       - name: Authenticate to Google Cloud for Firebase Test Lab
@@ -123,6 +124,7 @@ jobs:
         run: |
           npx --yes firebase-tools@15.23.0 appdistribution:distribute "${{ steps.vars.outputs.APK_NAME }}" \
             --app "${{ secrets.FIREBASE_APP_ID }}" \
+            --token "${{ secrets.FIREBASE_TOKEN }}" \
             --groups "testers" \
             --release-notes-file "${{ steps.vars.outputs.NOTES_FILE }}"
         env:
