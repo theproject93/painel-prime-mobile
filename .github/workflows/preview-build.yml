@@ -85,22 +85,22 @@ jobs:
           APK="${{ steps.vars.outputs.APK_NAME }}"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
           test -f "$APK"
-          "$APKSIGNER" verify --print-certs "$APK" | tee apk-signature.txt
+          "$APKSIGNER" verify --print-certs "$APK" | tr -d ':' | tee apk-signature.txt
           grep -qi "bf524e07f7cb2457aa8cd183aa38b8454f2addd6a6e229ecf858778965bec82b" apk-signature.txt
           sha256sum "$APK" | tee "${{ steps.vars.outputs.SHA_NAME }}"
 
       - name: Authenticate to Google Cloud for Firebase Test Lab
         uses: google-github-actions/auth@v2
-        if: ${{ secrets.GCP_SA_KEY != '' }}
+        if: secrets.GCP_SA_KEY != ''
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Setup gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
-        if: ${{ secrets.GCP_SA_KEY != '' }}
+        if: secrets.GCP_SA_KEY != ''
 
       - name: Run Firebase Test Lab Robo Test
-        if: ${{ secrets.GCP_SA_KEY != '' }}
+        if: secrets.GCP_SA_KEY != ''
         continue-on-error: true
         run: |
           gcloud firebase test android run \
