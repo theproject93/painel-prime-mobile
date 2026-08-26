@@ -1,0 +1,8 @@
+PAINEL PRIME MOBILE - RELEASE 1.6.0 (Build 12)
+==============================================
+
+Destaques da versão:
+- Integração do script de testes automatizados do Firebase Robo Test (apps/mobile/firebase-robo-directives.json)
+- Simulação de persona de assessora de eventos (cadastro de cliente fictício José da Silva, envio de propostas e eventos)
+- Atualização do workflow CI/CD para geração dinâmica de artefatos de release do APK
+- Refatoração do ecossistema de videochamadas e paridade de funcionalidades

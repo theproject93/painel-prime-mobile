@@ -37,12 +37,37 @@ jobs:
       - name: Validate release source
         run: pnpm --filter @painel-prime/mobile run validate
 
+      - name: Determine Release Tag and Filenames
+        id: vars
+        shell: bash
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          VERSION_RAW="${TAG_NAME#android-v}"
+          VERSION_CLEAN="$(echo "$VERSION_RAW" | tr '-.' '__')"
+          echo "VERSION=${VERSION_RAW}" >> $GITHUB_OUTPUT
+          echo "APK_NAME=painel-prime-android-${VERSION_RAW}.apk" >> $GITHUB_OUTPUT
+          echo "SHA_NAME=painel-prime-android-${VERSION_RAW}.sha256" >> $GITHUB_OUTPUT
+
+          NOTES_FILE=""
+          for CANDIDATE in "docs/ANDROID_${VERSION_CLEAN}_RELEASE_NOTES.txt" "docs/ANDROID_$(echo "$VERSION_RAW" | cut -d'-' -f1 | tr '.' '_')_RELEASE_NOTES.txt"; do
+            if [ -f "$CANDIDATE" ]; then
+              NOTES_FILE="$CANDIDATE"
+              break
+            fi
+          done
+
+          if [ -z "$NOTES_FILE" ]; then
+            NOTES_FILE="docs/ANDROID_RELEASE_NOTES.txt"
+            echo "Release ${VERSION_RAW} build auto-generated." > "$NOTES_FILE"
+          fi
+          echo "NOTES_FILE=${NOTES_FILE}" >> $GITHUB_OUTPUT
+
       - name: Setup EAS CLI
         run: npm install --global eas-cli@20.5.1
 
       - name: Build official APK
         working-directory: apps/mobile
-        run: eas build --platform android --profile release-apk --local --non-interactive --output=../../painel-prime-android-1.5.1-build11.apk
+        run: eas build --platform android --profile release-apk --local --non-interactive --output=../../${{ steps.vars.outputs.APK_NAME }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -57,27 +82,48 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK="painel-prime-android-1.5.1-build11.apk"
+          APK="${{ steps.vars.outputs.APK_NAME }}"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
           test -f "$APK"
           "$APKSIGNER" verify --print-certs "$APK" | tee apk-signature.txt
           grep -qi "bf524e07f7cb2457aa8cd183aa38b8454f2addd6a6e229ecf858778965bec82b" apk-signature.txt
-          sha256sum "$APK" | tee painel-prime-android-1.5.1-build11.sha256
+          sha256sum "$APK" | tee "${{ steps.vars.outputs.SHA_NAME }}"
+
+      - name: Authenticate to Google Cloud for Firebase Test Lab
+        uses: google-github-actions/auth@v2
+        if: ${{ secrets.GCP_SA_KEY != '' }}
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        if: ${{ secrets.GCP_SA_KEY != '' }}
+
+      - name: Run Firebase Test Lab Robo Test
+        if: ${{ secrets.GCP_SA_KEY != '' }}
+        continue-on-error: true
+        run: |
+          gcloud firebase test android run \
+            --type robo \
+            --app "${{ steps.vars.outputs.APK_NAME }}" \
+            --device model=oriole,version=33,locale=pt_BR,orientation=portrait \
+            --robo-directives-file apps/mobile/firebase-robo-directives.json \
+            --timeout 5m
 
       - name: Upload official APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: painel-prime-android-1.5.1-build11
+          name: ${{ steps.vars.outputs.APK_NAME }}
           path: |
-            painel-prime-android-1.5.1-build11.apk
-            painel-prime-android-1.5.1-build11.sha256
+            ${{ steps.vars.outputs.APK_NAME }}
+            ${{ steps.vars.outputs.SHA_NAME }}
           if-no-files-found: error
 
       - name: Publish to Firebase App Distribution
         run: |
-          npx --yes firebase-tools@15.23.0 appdistribution:distribute painel-prime-android-1.5.1-build11.apk \
+          npx --yes firebase-tools@15.23.0 appdistribution:distribute "${{ steps.vars.outputs.APK_NAME }}" \
             --app "${{ secrets.FIREBASE_APP_ID }}" \
             --groups "testers" \
-            --release-notes-file docs/ANDROID_1_5_1_RELEASE_NOTES.txt
+            --release-notes-file "${{ steps.vars.outputs.NOTES_FILE }}"
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
