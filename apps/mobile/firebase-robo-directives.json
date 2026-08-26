@@ -1,0 +1,96 @@
+{
+  "roboDirectives": [
+    {
+      "directiveType": "TEXT_TYPE",
+      "resourceName": "edit_text_email",
+      "inputText": "${TEST_EMAIL}"
+    },
+    {
+      "directiveType": "TEXT_TYPE",
+      "resourceName": "edit_text_password",
+      "inputText": "${TEST_PASSWORD}"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "btn_login"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "tab_clientes"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "btn_novo_cliente"
+    },
+    {
+      "directiveType": "TEXT_TYPE",
+      "resourceName": "input_client_name",
+      "inputText": "José da Silva"
+    },
+    {
+      "directiveType": "TEXT_TYPE",
+      "resourceName": "input_client_email",
+      "inputText": "jose.silva@ficticio.com.br"
+    },
+    {
+      "directiveType": "TEXT_TYPE",
+      "resourceName": "input_client_phone",
+      "inputText": "(31) 98888-7777"
+    },
+    {
+      "directiveType": "TEXT_TYPE",
+      "resourceName": "input_client_budget",
+      "inputText": "45000"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "btn_salvar_cliente"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "btn_enviar_proposta_jose"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "tab_eventos"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "btn_novo_evento"
+    },
+    {
+      "directiveType": "TEXT_TYPE",
+      "resourceName": "input_event_name",
+      "inputText": "Casamento José & Maria"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "select_event_type_wedding"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "btn_salvar_evento"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "tab_fornecedores"
+    },
+    {
+      "directiveType": "CLICK",
+      "resourceName": "chip_categoria_buffet"
+    }
+  ],
+  "roboScript": {
+    "executionTarget": "Firebase Test Lab (Google Cloud)",
+    "persona": "Assessora de Eventos (Casamentos & Aniversários)",
+    "testAccountEnvVar": "TEST_EMAIL",
+    "fictitiousEntities": {
+      "clientName": "José da Silva",
+      "clientEmail": "jose.silva@ficticio.com.br",
+      "clientPhone": "(31) 98888-7777",
+      "proposalBudget": "R$ 45.000,00",
+      "eventName": "Casamento José & Maria",
+      "eventType": "wedding"
+    }
+  }
+}
