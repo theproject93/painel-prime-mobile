@@ -124,7 +124,6 @@ jobs:
         run: |
           npx --yes firebase-tools@15.23.0 appdistribution:distribute "${{ steps.vars.outputs.APK_NAME }}" \
             --app "${{ secrets.FIREBASE_APP_ID }}" \
-            --token "${{ secrets.FIREBASE_TOKEN }}" \
             --groups "testers" \
             --release-notes-file "${{ steps.vars.outputs.NOTES_FILE }}"
         env:
