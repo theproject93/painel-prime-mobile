@@ -91,7 +91,7 @@ Os seguintes plugins estão ativos e validados em `apps/mobile/app.json`:
     "faceIDPermission": "Permita que o Painel Prime use o Face ID para proteger seu acesso."
   }],
   ["@sentry/react-native/expo", {
-    "url": "https://sentry.io/",
+    "url": "https://errors.painelprime.com.br",
     "project": "painel-prime-mobile",
     "organization": "painel-prime"
   }]

@@ -82,7 +82,7 @@
       [
         "@sentry/react-native/expo",
         {
-          "url": "https://sentry.io/",
+          "url": "https://errors.painelprime.com.br",
           "project": "painel-prime-mobile",
           "organization": "painel-prime"
         }
