@@ -41,6 +41,17 @@
     "actionDuration": 1000,
     "elementDescriptors": [
       {
+        "contentDescription": "Início",
+        "text": "Início"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000013000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
         "contentDescription": "Clientes",
         "text": "Clientes"
       }
@@ -48,7 +59,7 @@
   },
   {
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000012000,
+    "timestamp": 1700000016000,
     "actionDuration": 1000,
     "elementDescriptors": [
       {
@@ -58,7 +69,7 @@
   },
   {
     "eventType": "VIEW_TEXT_CHANGED",
-    "timestamp": 1700000014000,
+    "timestamp": 1700000018000,
     "actionDuration": 1000,
     "replacementText": "José da Silva",
     "elementDescriptors": [
@@ -69,7 +80,7 @@
   },
   {
     "eventType": "VIEW_TEXT_CHANGED",
-    "timestamp": 1700000016000,
+    "timestamp": 1700000020000,
     "actionDuration": 1000,
     "replacementText": "jose.silva@ficticio.com.br",
     "elementDescriptors": [
@@ -80,7 +91,7 @@
   },
   {
     "eventType": "VIEW_TEXT_CHANGED",
-    "timestamp": 1700000018000,
+    "timestamp": 1700000022000,
     "actionDuration": 1000,
     "replacementText": "(31) 98888-7777",
     "elementDescriptors": [
@@ -91,7 +102,7 @@
   },
   {
     "eventType": "VIEW_TEXT_CHANGED",
-    "timestamp": 1700000020000,
+    "timestamp": 1700000024000,
     "actionDuration": 1000,
     "replacementText": "45000",
     "elementDescriptors": [
@@ -102,7 +113,7 @@
   },
   {
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000022000,
+    "timestamp": 1700000026000,
     "actionDuration": 1000,
     "elementDescriptors": [
       {
@@ -112,7 +123,27 @@
   },
   {
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000026000,
+    "timestamp": 1700000030000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "text": "Fechados"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000033000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "text": "Em andamento"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000036000,
     "actionDuration": 1000,
     "elementDescriptors": [
       {
@@ -123,7 +154,7 @@
   },
   {
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000029000,
+    "timestamp": 1700000039000,
     "actionDuration": 1000,
     "elementDescriptors": [
       {
@@ -133,12 +164,96 @@
   },
   {
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000033000,
+    "timestamp": 1700000043000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Meu caixa",
+        "text": "Finanças"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000046000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "text": "Entradas"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000049000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "text": "Despesas"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000052000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "text": "Novo lançamento"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000056000,
     "actionDuration": 1000,
     "elementDescriptors": [
       {
         "contentDescription": "Fornecedores",
         "text": "Fornec."
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000059000,
+    "actionDuration": 1000,
+    "replacementText": "Buffet",
+    "elementDescriptors": [
+      {
+        "text": "Buscar fornecedor por nome, serviço ou cidade..."
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000063000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Mais opções",
+        "text": "Mais"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000066000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "text": "Equipe"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000070000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Início",
+        "text": "Início"
       }
     ]
   }
