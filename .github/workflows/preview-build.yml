@@ -2,6 +2,12 @@ name: Build Android Release
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - "apps/mobile/**"
+      - "packages/**"
+      - ".github/workflows/preview-build.yml"
     tags:
       - "android-v*"
   workflow_dispatch:
@@ -18,6 +24,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -44,17 +52,29 @@ jobs:
         id: vars
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG_NAME=$(git tag --sort=-v:refname | grep '^android-v' | head -1)
-            if [ -z "$TAG_NAME" ]; then
-              echo "::error::No android-v* tags found for workflow_dispatch"
-              exit 1
-            fi
-            echo "::notice::Using latest tag: $TAG_NAME"
-          else
+          if [[ "${GITHUB_REF_NAME}" =~ ^android-v ]]; then
             TAG_NAME="${GITHUB_REF_NAME}"
+            VERSION_RAW="${TAG_NAME#android-v}"
+            echo "::notice::Building from tag: $TAG_NAME (version $VERSION_RAW)"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            LATEST_TAG=$(git tag --sort=-v:refname | grep '^android-v' | head -1 || true)
+            PKG_VERSION=$(node -p "require('./apps/mobile/package.json').version" 2>/dev/null || echo "1.0.0")
+            if [ -n "$LATEST_TAG" ]; then
+              TAG_NAME="$LATEST_TAG"
+              VERSION_RAW="${TAG_NAME#android-v}"
+              echo "::notice::Using latest tag: $TAG_NAME"
+            else
+              VERSION_RAW="${PKG_VERSION}-build.${{ github.run_number }}"
+              TAG_NAME="android-v${VERSION_RAW}"
+              echo "::notice::Using package version with build number: $VERSION_RAW"
+            fi
+          else
+            PKG_VERSION=$(node -p "require('./apps/mobile/package.json').version" 2>/dev/null || echo "1.0.0")
+            VERSION_RAW="${PKG_VERSION}-build.${{ github.run_number }}"
+            TAG_NAME="android-v${VERSION_RAW}"
+            echo "::notice::Building automated push on main: $VERSION_RAW"
           fi
-          VERSION_RAW="${TAG_NAME#android-v}"
+
           VERSION_CLEAN="$(echo "$VERSION_RAW" | tr -- '-.' '__')"
           echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_OUTPUT
           echo "VERSION=${VERSION_RAW}" >> $GITHUB_OUTPUT
@@ -62,7 +82,7 @@ jobs:
           echo "SHA_NAME=painel-prime-android-${VERSION_RAW}.sha256" >> $GITHUB_OUTPUT
 
           NOTES_FILE=""
-          for CANDIDATE in "docs/ANDROID_${VERSION_CLEAN}_RELEASE_NOTES.txt" "docs/ANDROID_$(echo "$VERSION_RAW" | cut -d'-' -f1 | tr '.' '_')_RELEASE_NOTES.txt"; do
+          for CANDIDATE in "docs/ANDROID_${VERSION_CLEAN}_RELEASE_NOTES.txt" "docs/ANDROID_$(echo "$VERSION_RAW" | cut -d'-' -f1 | tr '.' '_')_RELEASE_NOTES.txt" "docs/ANDROID_RELEASE_NOTES.txt"; do
             if [ -f "$CANDIDATE" ]; then
               NOTES_FILE="$CANDIDATE"
               break
@@ -71,7 +91,8 @@ jobs:
 
           if [ -z "$NOTES_FILE" ]; then
             NOTES_FILE="docs/ANDROID_RELEASE_NOTES.txt"
-            echo "Release ${VERSION_RAW} build auto-generated." > "$NOTES_FILE"
+            mkdir -p docs
+            echo "Build automatizada ${VERSION_RAW} (commit: ${GITHUB_SHA:0:7})." > "$NOTES_FILE"
           fi
           echo "NOTES_FILE=${NOTES_FILE}" >> $GITHUB_OUTPUT
 
