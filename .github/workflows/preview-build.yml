@@ -122,7 +122,7 @@ jobs:
             --type robo \
             --app "${{ steps.vars.outputs.APK_NAME }}" \
             --device model=oriole,version=33,locale=pt_BR,orientation=portrait \
-            --robo-directives-file apps/mobile/firebase-robo-directives.json \
+            --robo-script apps/mobile/firebase-robo-directives.json \
             --timeout 5m
 
       - name: Upload official APK artifact
