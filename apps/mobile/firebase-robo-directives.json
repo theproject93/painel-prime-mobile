@@ -1,82 +1,145 @@
 [
   {
-    "directiveType": "TEXT_TYPE",
-    "resourceName": "edit_text_email",
-    "inputText": "${ROBO_EMAIL}"
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000001000,
+    "actionDuration": 1000,
+    "replacementText": "admin@painelprime.com.br",
+    "elementDescriptors": [
+      {
+        "resourceName": "edit_text_email",
+        "contentDescription": "Campo de e-mail"
+      }
+    ]
   },
   {
-    "directiveType": "TEXT_TYPE",
-    "resourceName": "edit_text_password",
-    "inputText": "${ROBO_PASSWORD}"
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000003000,
+    "actionDuration": 1000,
+    "replacementText": "Prime@2026!",
+    "elementDescriptors": [
+      {
+        "resourceName": "edit_text_password",
+        "contentDescription": "Campo de senha"
+      }
+    ]
   },
   {
-    "directiveType": "CLICK",
-    "resourceName": "btn_login",
-    "inputText": ""
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000005000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "resourceName": "btn_login",
+        "contentDescription": "Entrar na Plataforma",
+        "text": "Entrar na Plataforma"
+      }
+    ]
   },
   {
-    "directiveType": "CLICK",
-    "resourceName": "tab_clientes",
-    "inputText": ""
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000009000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Clientes",
+        "text": "Clientes"
+      }
+    ]
   },
   {
-    "directiveType": "CLICK",
-    "resourceName": "btn_novo_cliente",
-    "inputText": ""
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000012000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "text": "Novo cliente"
+      }
+    ]
   },
   {
-    "directiveType": "TEXT_TYPE",
-    "resourceName": "input_client_name",
-    "inputText": "José da Silva"
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000014000,
+    "actionDuration": 1000,
+    "replacementText": "José da Silva",
+    "elementDescriptors": [
+      {
+        "text": "Nome do cliente"
+      }
+    ]
   },
   {
-    "directiveType": "TEXT_TYPE",
-    "resourceName": "input_client_email",
-    "inputText": "jose.silva@ficticio.com.br"
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000016000,
+    "actionDuration": 1000,
+    "replacementText": "jose.silva@ficticio.com.br",
+    "elementDescriptors": [
+      {
+        "text": "cliente@email.com"
+      }
+    ]
   },
   {
-    "directiveType": "TEXT_TYPE",
-    "resourceName": "input_client_phone",
-    "inputText": "(31) 98888-7777"
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000018000,
+    "actionDuration": 1000,
+    "replacementText": "(31) 98888-7777",
+    "elementDescriptors": [
+      {
+        "text": "(00) 00000-0000"
+      }
+    ]
   },
   {
-    "directiveType": "TEXT_TYPE",
-    "resourceName": "input_client_budget",
-    "inputText": "45000"
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000020000,
+    "actionDuration": 1000,
+    "replacementText": "45000",
+    "elementDescriptors": [
+      {
+        "text": "0,00"
+      }
+    ]
   },
   {
-    "directiveType": "CLICK",
-    "resourceName": "btn_salvar_cliente",
-    "inputText": ""
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000022000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "text": "Salvar cliente"
+      }
+    ]
   },
   {
-    "directiveType": "CLICK",
-    "resourceName": "tab_eventos",
-    "inputText": ""
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000026000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Eventos",
+        "text": "Eventos"
+      }
+    ]
   },
   {
-    "directiveType": "CLICK",
-    "resourceName": "btn_novo_evento",
-    "inputText": ""
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000029000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "text": "Novo evento"
+      }
+    ]
   },
   {
-    "directiveType": "TEXT_TYPE",
-    "resourceName": "input_event_name",
-    "inputText": "Casamento José & Maria"
-  },
-  {
-    "directiveType": "CLICK",
-    "resourceName": "select_event_type_wedding",
-    "inputText": ""
-  },
-  {
-    "directiveType": "CLICK",
-    "resourceName": "btn_salvar_evento",
-    "inputText": ""
-  },
-  {
-    "directiveType": "CLICK",
-    "resourceName": "tab_fornecedores",
-    "inputText": ""
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000033000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Fornecedores",
+        "text": "Fornec."
+      }
+    ]
   }
 ]
