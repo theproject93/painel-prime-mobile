@@ -55,7 +55,7 @@ jobs:
             TAG_NAME="${GITHUB_REF_NAME}"
           fi
           VERSION_RAW="${TAG_NAME#android-v}"
-          VERSION_CLEAN="$(echo "$VERSION_RAW" | tr '-.' '__')"
+          VERSION_CLEAN="$(echo "$VERSION_RAW" | tr -- '-.' '__')"
           echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_OUTPUT
           echo "VERSION=${VERSION_RAW}" >> $GITHUB_OUTPUT
           echo "APK_NAME=painel-prime-android-${VERSION_RAW}.apk" >> $GITHUB_OUTPUT
