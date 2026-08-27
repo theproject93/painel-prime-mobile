@@ -44,9 +44,19 @@ jobs:
         id: vars
         shell: bash
         run: |
-          TAG_NAME="${GITHUB_REF_NAME}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME=$(git tag --sort=-v:refname | grep '^android-v' | head -1)
+            if [ -z "$TAG_NAME" ]; then
+              echo "::error::No android-v* tags found for workflow_dispatch"
+              exit 1
+            fi
+            echo "::notice::Using latest tag: $TAG_NAME"
+          else
+            TAG_NAME="${GITHUB_REF_NAME}"
+          fi
           VERSION_RAW="${TAG_NAME#android-v}"
           VERSION_CLEAN="$(echo "$VERSION_RAW" | tr '-.' '__')"
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_OUTPUT
           echo "VERSION=${VERSION_RAW}" >> $GITHUB_OUTPUT
           echo "APK_NAME=painel-prime-android-${VERSION_RAW}.apk" >> $GITHUB_OUTPUT
           echo "SHA_NAME=painel-prime-android-${VERSION_RAW}.sha256" >> $GITHUB_OUTPUT
