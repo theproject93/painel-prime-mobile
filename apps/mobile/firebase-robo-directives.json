@@ -1,13 +1,13 @@
 [
   {
+    "description": "=== AUTENTICAÇÃO ===",
     "eventType": "VIEW_TEXT_CHANGED",
     "timestamp": 1700000001000,
-    "actionDuration": 1000,
+    "actionDuration": 1500,
     "replacementText": "admin@painelprime.com.br",
     "elementDescriptors": [
       {
-        "resourceName": "edit_text_email",
-        "contentDescription": "Campo de e-mail"
+        "resourceName": "edit_text_email"
       }
     ]
   },
@@ -18,27 +18,26 @@
     "replacementText": "Prime@2026!",
     "elementDescriptors": [
       {
-        "resourceName": "edit_text_password",
-        "contentDescription": "Campo de senha"
+        "resourceName": "edit_text_password"
       }
     ]
   },
   {
     "eventType": "VIEW_CLICKED",
     "timestamp": 1700000005000,
-    "actionDuration": 1000,
+    "actionDuration": 1500,
     "elementDescriptors": [
       {
         "resourceName": "btn_login",
-        "contentDescription": "Entrar na Plataforma",
         "text": "Entrar na Plataforma"
       }
     ]
   },
   {
+    "description": "=== DASHBOARD ===",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000009000,
-    "actionDuration": 1000,
+    "timestamp": 1700000010000,
+    "actionDuration": 1200,
     "elementDescriptors": [
       {
         "contentDescription": "Início",
@@ -47,104 +46,76 @@
     ]
   },
   {
+    "description": "Atalho: Confirmar convidados",
     "eventType": "VIEW_CLICKED",
     "timestamp": 1700000013000,
     "actionDuration": 1000,
     "elementDescriptors": [
       {
-        "contentDescription": "Clientes",
-        "text": "Clientes"
+        "text": "Confirmar convidados"
       }
     ]
   },
   {
+    "description": "Fechar seletor evento",
     "eventType": "VIEW_CLICKED",
     "timestamp": 1700000016000,
     "actionDuration": 1000,
     "elementDescriptors": [
       {
-        "text": "Novo cliente"
+        "contentDescription": "Fechar seleção de eventos"
       }
     ]
   },
   {
-    "eventType": "VIEW_TEXT_CHANGED",
-    "timestamp": 1700000018000,
+    "description": "Atalho: Organizar tarefas",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000019000,
     "actionDuration": 1000,
-    "replacementText": "José da Silva",
     "elementDescriptors": [
       {
-        "text": "Nome do cliente"
+        "text": "Organizar tarefas"
       }
     ]
   },
   {
-    "eventType": "VIEW_TEXT_CHANGED",
-    "timestamp": 1700000020000,
-    "actionDuration": 1000,
-    "replacementText": "jose.silva@ficticio.com.br",
-    "elementDescriptors": [
-      {
-        "text": "cliente@email.com"
-      }
-    ]
-  },
-  {
-    "eventType": "VIEW_TEXT_CHANGED",
+    "description": "Fechar seletor evento",
+    "eventType": "VIEW_CLICKED",
     "timestamp": 1700000022000,
-    "actionDuration": 1000,
-    "replacementText": "(31) 98888-7777",
+    "actionDuration": 800,
     "elementDescriptors": [
       {
-        "text": "(00) 00000-0000"
+        "contentDescription": "Fechar seleção de eventos"
       }
     ]
   },
   {
-    "eventType": "VIEW_TEXT_CHANGED",
-    "timestamp": 1700000024000,
-    "actionDuration": 1000,
-    "replacementText": "45000",
-    "elementDescriptors": [
-      {
-        "text": "0,00"
-      }
-    ]
-  },
-  {
+    "description": "Atalho: Revisar investimento",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000026000,
+    "timestamp": 1700000025000,
     "actionDuration": 1000,
     "elementDescriptors": [
       {
-        "text": "Salvar cliente"
+        "text": "Revisar investimento"
       }
     ]
   },
   {
+    "description": "Fechar seletor evento",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000030000,
-    "actionDuration": 1000,
+    "timestamp": 1700000028000,
+    "actionDuration": 800,
     "elementDescriptors": [
       {
-        "text": "Fechados"
+        "contentDescription": "Fechar seleção de eventos"
       }
     ]
   },
   {
+    "description": "=== EVENTOS - Lista ===",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000033000,
-    "actionDuration": 1000,
-    "elementDescriptors": [
-      {
-        "text": "Em andamento"
-      }
-    ]
-  },
-  {
-    "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000036000,
-    "actionDuration": 1000,
+    "timestamp": 1700000032000,
+    "actionDuration": 1200,
     "elementDescriptors": [
       {
         "contentDescription": "Eventos",
@@ -153,19 +124,554 @@
     ]
   },
   {
+    "description": "Filtrar: Ativos",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000039000,
-    "actionDuration": 1000,
+    "timestamp": 1700000035000,
+    "actionDuration": 800,
     "elementDescriptors": [
       {
-        "text": "Novo evento"
+        "text": "Ativos"
       }
     ]
   },
   {
+    "description": "Filtrar: Concluídos",
     "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000038000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Concluídos"
+      }
+    ]
+  },
+  {
+    "description": "Filtrar: Todos",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000041000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Todos"
+      }
+    ]
+  },
+  {
+    "description": "Buscar evento",
+    "eventType": "VIEW_TEXT_CHANGED",
     "timestamp": 1700000043000,
     "actionDuration": 1000,
+    "replacementText": "casamento",
+    "elementDescriptors": [
+      {
+        "text": "Buscar por nome/local"
+      }
+    ]
+  },
+  {
+    "description": "Limpar busca evento",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000046000,
+    "actionDuration": 500,
+    "replacementText": "",
+    "elementDescriptors": [
+      {
+        "text": "Buscar por nome/local"
+      }
+    ]
+  },
+  {
+    "description": "Abrir Novo evento",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000049000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Novo"
+      }
+    ]
+  },
+  {
+    "description": "Preencher nome evento",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000052000,
+    "actionDuration": 1000,
+    "replacementText": "Casamento Silva & Santos",
+    "elementDescriptors": [
+      {
+        "text": "Nome do evento"
+      }
+    ]
+  },
+  {
+    "description": "Preencher data",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000055000,
+    "actionDuration": 1000,
+    "replacementText": "2026-12-20",
+    "elementDescriptors": [
+      {
+        "text": "Data (AAAA-MM-DD)"
+      }
+    ]
+  },
+  {
+    "description": "Preencher local",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000058000,
+    "actionDuration": 1000,
+    "replacementText": "Fazenda Bela Vista, MG",
+    "elementDescriptors": [
+      {
+        "text": "Local"
+      }
+    ]
+  },
+  {
+    "description": "Cancelar criação",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000062000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Cancelar"
+      }
+    ]
+  },
+  {
+    "description": "=== EVENTO - Torre de Comando (clicar no 1o card) ===",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000066000,
+    "actionDuration": 2000,
+    "elementDescriptors": [
+      {
+        "className": "android.widget.FrameLayout"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Tarefas",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000070000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Tarefas"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Convidados",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000074000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Convidados"
+      }
+    ]
+  },
+  {
+    "description": "Buscar convidado",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000077000,
+    "actionDuration": 800,
+    "replacementText": "Maria",
+    "elementDescriptors": [
+      {
+        "text": "Buscar convidado"
+      }
+    ]
+  },
+  {
+    "description": "Limpar busca",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000080000,
+    "actionDuration": 500,
+    "replacementText": "",
+    "elementDescriptors": [
+      {
+        "text": "Buscar convidado"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Reuniões",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000084000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Reuniões"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Fornecedores",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000088000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Fornecedores"
+      }
+    ]
+  },
+  {
+    "description": "Buscar fornecedor evento",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000092000,
+    "actionDuration": 800,
+    "replacementText": "buffet",
+    "elementDescriptors": [
+      {
+        "text": "Buscar fornecedor"
+      }
+    ]
+  },
+  {
+    "description": "Limpar busca",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000096000,
+    "actionDuration": 500,
+    "replacementText": "",
+    "elementDescriptors": [
+      {
+        "text": "Buscar fornecedor"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Documentos",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000100000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Documentos"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Histórico",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000104000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Histórico"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Cronograma do dia",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000108000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Cronograma do dia"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Convites",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000112000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Convites"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Recepção e QR Code",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000116000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Recepção e QR Code"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Portal do cliente",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000120000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Portal do cliente"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Presentes",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000124000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Presentes"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Equipe evento",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000128000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Equipe"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Orçamento",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000132000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Orçamento"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Mesas",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000136000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Mesas"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Notas",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000140000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Notas"
+      }
+    ]
+  },
+  {
+    "description": "Aba: Relatório final",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000144000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Relatório final"
+      }
+    ]
+  },
+  {
+    "description": "Voltar para lista eventos",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000148000,
+    "actionDuration": 1000,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Go back"
+      }
+    ]
+  },
+  {
+    "description": "=== CLIENTES ===",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000153000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Clientes",
+        "text": "Clientes"
+      }
+    ]
+  },
+  {
+    "description": "Filtro: Fechados",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000156000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Fechados"
+      }
+    ]
+  },
+  {
+    "description": "Filtro: Perdidos",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000159000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Perdidos"
+      }
+    ]
+  },
+  {
+    "description": "Filtro: Em andamento",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000162000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Em andamento"
+      }
+    ]
+  },
+  {
+    "description": "Buscar cliente",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000165000,
+    "actionDuration": 1000,
+    "replacementText": "Silva",
+    "elementDescriptors": [
+      {
+        "text": "Buscar por nome, e-mail ou telefone"
+      }
+    ]
+  },
+  {
+    "description": "Limpar busca",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000168000,
+    "actionDuration": 500,
+    "replacementText": "",
+    "elementDescriptors": [
+      {
+        "text": "Buscar por nome, e-mail ou telefone"
+      }
+    ]
+  },
+  {
+    "description": "Novo cliente",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000172000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Novo cliente"
+      }
+    ]
+  },
+  {
+    "description": "Preencher nome",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000175000,
+    "actionDuration": 1000,
+    "replacementText": "Ana Paula Rocha",
+    "elementDescriptors": [
+      {
+        "text": "Nome do cliente"
+      }
+    ]
+  },
+  {
+    "description": "Preencher email",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000178000,
+    "actionDuration": 1000,
+    "replacementText": "ana.rocha@ficticio.com.br",
+    "elementDescriptors": [
+      {
+        "text": "cliente@email.com"
+      }
+    ]
+  },
+  {
+    "description": "Preencher telefone",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000181000,
+    "actionDuration": 1000,
+    "replacementText": "(31) 97777-6666",
+    "elementDescriptors": [
+      {
+        "text": "(00) 00000-0000"
+      }
+    ]
+  },
+  {
+    "description": "Preencher valor",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000184000,
+    "actionDuration": 800,
+    "replacementText": "38000",
+    "elementDescriptors": [
+      {
+        "text": "0,00"
+      }
+    ]
+  },
+  {
+    "description": "Salvar cliente",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000187000,
+    "actionDuration": 1500,
+    "elementDescriptors": [
+      {
+        "text": "Salvar cliente"
+      }
+    ]
+  },
+  {
+    "description": "Abrir Modelos",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000192000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Modelos"
+      }
+    ]
+  },
+  {
+    "description": "Tab Contrato",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000196000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Contrato"
+      }
+    ]
+  },
+  {
+    "description": "Tab Orçamento",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000199000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Orçamento"
+      }
+    ]
+  },
+  {
+    "description": "Voltar para Clientes",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000202000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Clientes"
+      }
+    ]
+  },
+  {
+    "description": "=== FINANCEIRO ===",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000207000,
+    "actionDuration": 1200,
     "elementDescriptors": [
       {
         "contentDescription": "Meu caixa",
@@ -174,9 +680,10 @@
     ]
   },
   {
+    "description": "Tab Entradas",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000046000,
-    "actionDuration": 1000,
+    "timestamp": 1700000210000,
+    "actionDuration": 800,
     "elementDescriptors": [
       {
         "text": "Entradas"
@@ -184,9 +691,34 @@
     ]
   },
   {
+    "description": "Buscar entrada",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000213000,
+    "actionDuration": 800,
+    "replacementText": "assessoria",
+    "elementDescriptors": [
+      {
+        "text": "Buscar entrada"
+      }
+    ]
+  },
+  {
+    "description": "Limpar busca",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000216000,
+    "actionDuration": 500,
+    "replacementText": "",
+    "elementDescriptors": [
+      {
+        "text": "Buscar entrada"
+      }
+    ]
+  },
+  {
+    "description": "Tab Despesas",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000049000,
-    "actionDuration": 1000,
+    "timestamp": 1700000219000,
+    "actionDuration": 800,
     "elementDescriptors": [
       {
         "text": "Despesas"
@@ -194,9 +726,34 @@
     ]
   },
   {
+    "description": "Buscar despesa",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000222000,
+    "actionDuration": 800,
+    "replacementText": "gráfica",
+    "elementDescriptors": [
+      {
+        "text": "Buscar despesa"
+      }
+    ]
+  },
+  {
+    "description": "Limpar busca",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000225000,
+    "actionDuration": 500,
+    "replacementText": "",
+    "elementDescriptors": [
+      {
+        "text": "Buscar despesa"
+      }
+    ]
+  },
+  {
+    "description": "Novo lançamento",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000052000,
-    "actionDuration": 1000,
+    "timestamp": 1700000229000,
+    "actionDuration": 800,
     "elementDescriptors": [
       {
         "text": "Novo lançamento"
@@ -204,9 +761,21 @@
     ]
   },
   {
+    "description": "Cancelar",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000056000,
-    "actionDuration": 1000,
+    "timestamp": 1700000233000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Cancelar"
+      }
+    ]
+  },
+  {
+    "description": "=== FORNECEDORES ===",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000238000,
+    "actionDuration": 1200,
     "elementDescriptors": [
       {
         "contentDescription": "Fornecedores",
@@ -215,8 +784,9 @@
     ]
   },
   {
+    "description": "Buscar Buffet",
     "eventType": "VIEW_TEXT_CHANGED",
-    "timestamp": 1700000059000,
+    "timestamp": 1700000241000,
     "actionDuration": 1000,
     "replacementText": "Buffet",
     "elementDescriptors": [
@@ -226,9 +796,68 @@
     ]
   },
   {
+    "description": "Limpar busca",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000245000,
+    "actionDuration": 500,
+    "replacementText": "",
+    "elementDescriptors": [
+      {
+        "text": "Buscar fornecedor por nome, serviço ou cidade..."
+      }
+    ]
+  },
+  {
+    "description": "Abrir modal novo fornecedor",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000063000,
+    "timestamp": 1700000249000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Adicionar fornecedor"
+      }
+    ]
+  },
+  {
+    "description": "Preencher nome fornecedor",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000252000,
     "actionDuration": 1000,
+    "replacementText": "Buffet Estrela Dourada",
+    "elementDescriptors": [
+      {
+        "text": "Nome do fornecedor"
+      }
+    ]
+  },
+  {
+    "description": "Preencher cidade",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000255000,
+    "actionDuration": 800,
+    "replacementText": "Belo Horizonte",
+    "elementDescriptors": [
+      {
+        "text": "Cidade"
+      }
+    ]
+  },
+  {
+    "description": "Fechar modal",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000259000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "text": "Cancelar"
+      }
+    ]
+  },
+  {
+    "description": "=== MAIS ===",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000264000,
+    "actionDuration": 1200,
     "elementDescriptors": [
       {
         "contentDescription": "Mais opções",
@@ -237,19 +866,125 @@
     ]
   },
   {
+    "description": "Abrir Perfil",
     "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000066000,
-    "actionDuration": 1000,
+    "timestamp": 1700000267000,
+    "actionDuration": 1200,
     "elementDescriptors": [
       {
-        "text": "Equipe"
+        "text": "Perfil",
+        "contentDescription": "Perfil. Dados pessoais, contatos e assinatura"
       }
     ]
   },
   {
-    "eventType": "VIEW_CLICKED",
-    "timestamp": 1700000070000,
+    "description": "Editar nome",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000271000,
     "actionDuration": 1000,
+    "replacementText": "Assessora Prime",
+    "elementDescriptors": [
+      {
+        "text": "Seu nome"
+      }
+    ]
+  },
+  {
+    "description": "Editar telefone",
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1700000274000,
+    "actionDuration": 1000,
+    "replacementText": "(31) 99999-0001",
+    "elementDescriptors": [
+      {
+        "text": "Seu telefone"
+      }
+    ]
+  },
+  {
+    "description": "Voltar para Mais",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000278000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Go back"
+      }
+    ]
+  },
+  {
+    "description": "Abrir Equipe",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000282000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Equipe",
+        "contentDescription": "Equipe. Pessoas, líderes e funções da sua assessoria"
+      }
+    ]
+  },
+  {
+    "description": "Voltar para Mais",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000286000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Go back"
+      }
+    ]
+  },
+  {
+    "description": "Abrir Configurações",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000290000,
+    "actionDuration": 1200,
+    "elementDescriptors": [
+      {
+        "text": "Configurações",
+        "contentDescription": "Configurações. Segurança e preferências do aplicativo"
+      }
+    ]
+  },
+  {
+    "description": "Política de privacidade",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000294000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "accessibilityLabel": "Abrir política de privacidade"
+      }
+    ]
+  },
+  {
+    "description": "Voltar",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000298000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Go back"
+      }
+    ]
+  },
+  {
+    "description": "Voltar para Mais",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000302000,
+    "actionDuration": 800,
+    "elementDescriptors": [
+      {
+        "contentDescription": "Go back"
+      }
+    ]
+  },
+  {
+    "description": "=== FIM - Retorno ao Início ===",
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 1700000307000,
+    "actionDuration": 1200,
     "elementDescriptors": [
       {
         "contentDescription": "Início",
