@@ -1,5 +1,5 @@
-import { ROUTES } from './routes';
-import type { BillingCycle } from './billingPlans';
+import { ROUTES } from './routes/index.ts';
+import type { BillingCycle } from './billingPlans.ts';
 
 type RouteParams = Record<string, string | number>;
 type QueryValue = string | number | boolean | null | undefined;

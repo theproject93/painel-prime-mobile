@@ -1,2 +1,2 @@
-export * from './client';
-export * from './database.types';
+export * from './client.ts';
+export * from './database.types.ts';

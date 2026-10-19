@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database.types';
+import type { Database } from './database.types.ts';
 
 type TypedSupabaseOptions = Parameters<typeof createClient<Database>>[2];
 type UntypedSupabaseOptions = Parameters<typeof createClient>[2];

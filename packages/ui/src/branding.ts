@@ -54,6 +54,24 @@ export const brandPalette = {
   shadowStrong: 'rgba(15, 17, 21, 0.14)',
 } as const;
 
+export const LUXURY_TOKENS = {
+  canvas: '#F8F9FA',
+  canvasSubtle: '#F4F5F8',
+  surfaceElevated: '#FFFFFF',
+  navyPrimary: '#0F172A',
+  navySecondary: '#1E293B',
+  goldChampagne: '#D4AF37',
+  goldAccent: '#C5A059',
+  goldSoft: '#FDFBF7',
+  borderGoldSubtle: 'rgba(212, 175, 55, 0.25)',
+  borderSlateSubtle: 'rgba(226, 232, 240, 0.8)',
+  textPrimary: '#0F172A',
+  textSecondary: '#64748B',
+  shadowSoft: '0 10px 30px -10px rgba(15, 23, 42, 0.08)',
+  shadowElevated: '0 20px 40px -15px rgba(15, 23, 42, 0.12)',
+  shadowHover: '0 24px 48px -16px rgba(15, 23, 42, 0.18)',
+} as const;
+
 export const defaultRuntimeBranding = {
   app_name: APP_NAME,
   primary_color: brandPalette.primary,

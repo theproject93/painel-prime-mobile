@@ -24,13 +24,7 @@ export const ROUTES = {
   dashboardClients: '/dashboard/clientes',
   dashboardFinance: '/dashboard/financeiro',
   dashboardSettings: '/dashboard/configuracoes',
-  adminDashboard: '/dashboard/admin',
   helpCenter: '/help-center',
-  adminUsers: '/dashboard/admin/users',
-  adminUserDetails: '/dashboard/admin/users/:userId',
-  adminTelemetry: '/dashboard/admin/telemetry',
-  adminSettings: '/dashboard/admin/settings',
-  adminTickets: '/dashboard/admin/tickets',
 } as const;
 
 export function buildAppLoginUrl(

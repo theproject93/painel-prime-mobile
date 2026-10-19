@@ -36,6 +36,9 @@ const EVENT_KIND_ALIASES: Readonly<Record<string, InternalEventKind>> = {
   empresa: 'corporate',
   empresarial: 'corporate',
   evento_empresarial: 'corporate',
+  digital_invite: 'generic',
+  convite_digital: 'generic',
+  convite: 'generic',
 };
 
 function normalizeAlias(value?: string | null) {

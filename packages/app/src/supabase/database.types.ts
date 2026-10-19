@@ -4334,11 +4334,13 @@ export type Database = {
       events: {
         Row: {
           budget_total: number | null
+          ceremony_time: string | null
           couple: string | null
           couple_photo_file_id: string | null
           couple_photo_url: string | null
           created_at: string
           created_by: string | null
+          end_time: string | null
           event_date: string
           event_type: string
           guests_planned: number | null
@@ -4362,6 +4364,7 @@ export type Database = {
           location_street: string | null
           location_zip_code: string | null
           name: string
+          start_time: string | null
           status: string | null
           tenant_id: string
           updated_at: string | null
@@ -4371,11 +4374,13 @@ export type Database = {
         }
         Insert: {
           budget_total?: number | null
+          ceremony_time?: string | null
           couple?: string | null
           couple_photo_file_id?: string | null
           couple_photo_url?: string | null
           created_at?: string
           created_by?: string | null
+          end_time?: string | null
           event_date: string
           event_type: string
           guests_planned?: number | null
@@ -4399,6 +4404,7 @@ export type Database = {
           location_street?: string | null
           location_zip_code?: string | null
           name: string
+          start_time?: string | null
           status?: string | null
           tenant_id?: string
           updated_at?: string | null
@@ -4408,11 +4414,13 @@ export type Database = {
         }
         Update: {
           budget_total?: number | null
+          ceremony_time?: string | null
           couple?: string | null
           couple_photo_file_id?: string | null
           couple_photo_url?: string | null
           created_at?: string
           created_by?: string | null
+          end_time?: string | null
           event_date?: string
           event_type?: string
           guests_planned?: number | null
@@ -4436,6 +4444,7 @@ export type Database = {
           location_street?: string | null
           location_zip_code?: string | null
           name?: string
+          start_time?: string | null
           status?: string | null
           tenant_id?: string
           updated_at?: string | null

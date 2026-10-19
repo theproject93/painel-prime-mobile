@@ -3,6 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "test": "deno test --no-lock src",
+    "typecheck": "deno check src/index.ts"
+  },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -10,6 +14,7 @@
     "./auth": "./src/auth/index.ts",
     "./billingPlans": "./src/billingPlans.ts",
     "./eventAssignees": "./src/eventAssignees.ts",
+    "./eventImport": "./src/eventImport.ts",
     "./eventPersona": "./src/eventPersona.ts",
     "./navigation": "./src/navigation.ts",
     "./premiumWorkspace": "./src/premiumWorkspace.ts",
