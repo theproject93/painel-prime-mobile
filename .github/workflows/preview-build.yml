@@ -27,6 +27,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Free Disk Space for Android Build
+        shell: bash
+        run: |
+          echo "Espaço em disco antes da limpeza:"
+          df -h
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/share/boost || true
+          sudo rm -rf /usr/local/lib/android/sdk/ndk/2* || true
+          echo "Espaço em disco após a limpeza:"
+          df -h
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
