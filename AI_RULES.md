@@ -422,4 +422,109 @@ O workflow `ci.yml` já instala Deno antes de executar `pnpm test`. O script `te
 
 ---
 
-**Última atualização:** 2026-07-14 — linguagem contextual por modalidade em áreas autenticadas Web/Android.
+## 16. GOVERNANÇA DE MÓDULOS DE PARIDADE MOBILE (PADRINHOS, RSVP INBOX, MAPA DE MESAS, ATAS E SUPERBILLING) (2026-10-18)
+
+Diretrizes normativas para paridade estrita de recursos entre Web e Mobile (`apps/mobile`), garantindo estabilidade e fluidez nativa sem crashes.
+
+### 16.1. Padrinhos & Corte de Honra
+- **Integridade de Esquema Multi-Tenant:**
+  - O módulo consome a tabela `public.event_padrinhos`, vinculada a `public.platform_tenants (id)` e `public.events (id)`.
+  - Disparos de convites e comunicados para cortejo via WhatsApp devem invocar a Edge Function `whatsapp-padrinhos-dispatch`.
+  - Gestão de casais e duplas (`pair_padrinho_id`) deve assegurar atribuição bidirecional consistente sem estados órfãos.
+
+### 16.2. WhatsApp RSVP Native Inbox
+- **Fila de Revisão e Tratamento de Mensagens Ambíguas:**
+  - O app consome a RPC `get_whatsapp_rsvp_review_queue(p_event_id)` para exibir a fila de confirmações pendentes de validação humana.
+  - Indicador de janela de atendimento de 24 horas da Meta Cloud API: se a última mensagem do convidado tiver mais de 24 horas, o app deve alertar o operador sobre o uso de templates homologados.
+  - Reenvio de QR Code: invocar a Edge Function `whatsapp-rsvp-review-action` com `action: 'resend_qr'`, `eventId`, `guestId` e `threadId`.
+
+### 16.3. Mapa de Mesas Touch (Surface Drag-and-Drop)
+- **Gestos Nativos e Gaveta de Convidados (`TableGuestDrawer`):**
+  - A manipulação de mesas utiliza gestos de toque com feedback tátil e atualização reativa do layout.
+  - O modal de alocação rápida (`TableGuestDrawer`) deve exibir convidados não alocados categorizados por família e permitir vinculação imediata à mesa selecionada (`table_seats`).
+  - Prevenção de conflitos de gesto: a superfície de arrasto deve desabilitar o scroll do container pai durante a translação de elementos.
+
+### 16.4. Atas de Reunião e Documentos (`MeetingCenter`)
+- **Visualização de Atas Executivas geradas por IA (`AtaDocumentModal`):**
+  - Parsing seguro de Markdown com `ataMarkdownParser.ts`, renderizando seções executivas (Pauta, Decisões, Ações, Prazos e Responsáveis).
+  - Compartilhamento nativo: integração com `Share.share` do React Native ou envio direto formatado para WhatsApp, com bloco `try/catch` acompanhado de `// observability-ignore: cancelamento de compartilhamento nativo`.
+
+### 16.5. SuperBilling & InfinitePay Native Checkout
+- **Planos Equilíbrio Prime e Pacotes de Mensagens WhatsApp:**
+  - Apresentação transparente das modalidades: Essencial (R$ 0), Profissional (R$ 149/mês ou R$ 1.490/ano) e Elite (R$ 299/mês ou R$ 2.990/ano).
+  - Pacotes de disparos avulsos de WhatsApp via PIX dinâmico e cartão de crédito, com polling de conciliação imediata.
+
+---
+
+## 17. PRE-FLIGHT CHECK DE SALDO DE DISPAROS DE WHATSAPP E MODAL DE RECARGA NO MOBILE (2026-10-18)
+
+- **Causa Raiz & Incidente (Outubro/2026):** Disparos em massa de convites e lembretes falhavam no app com exceções silenciosas ou mensagens genéricas de rede quando o saldo de créditos da assessoria estava esgotado.
+- **Cláusulas Pétreas:**
+  1. **Validação Local Prévia de Saldo:**
+     - Todo fluxo de disparo (convites de eventos, corte de padrinhos, mensagens avulsas) DEVE inspecionar `wallet.balanceCredits` antes de chamar a API de envio.
+  2. **Interrupção Graciosa e Exibição do Modal de Recarga:**
+     - Se o saldo for insuficiente, interromper a operação antes do fetch e abrir o modal de recarga de créditos com opções de PIX Copia e Cola / QR Code nativo.
+  3. **Atualização Imediata pós-Recarga:**
+     - Ao concluir ou fechar o fluxo de recarga, invocar compulsoriamente a sincronização da carteira via `wallet.refreshWallet()`.
+
+---
+
+## 18. BOOTSTRAP RESILIENTE DE BILLING, IDENTIFICAÇÃO DE PLANO FORNECEDOR E PREVENÇÃO DE LOOP DE ONBOARDING (2026-10-18)
+
+- **Causa Raiz & Incidente (Outubro/2026):** Usuários ao abrirem o app passavam por transições visuais bruscas de tela de boas-vindas/onboarding enquanto o perfil de assinatura ainda estava sendo resolvido na rede, ou ficavam presos no onboarding mesmo após pagarem a assinatura.
+- **Cláusulas Pétreas:**
+  1. **Flag de Bootstrapping Ativa:**
+     - Enquanto o usuário autenticado não tiver seus dados de assinatura populados (`userId && bootstrappedUserIdRef.current !== userId && snapshot === EMPTY_SNAPSHOT`), o estado global de `loading` do billing DEVE permanecer `true`. Telas consumidoras devem renderizar o splash/skeleton loader oficial `PrimeLogoLoader`.
+  2. **Redirecionamento Defensivo:**
+     - Se o usuário já possui assinatura ativa e entitlement (`hasActiveSubscription && accessState.canAccessDashboard`), redirecionar diretamente para a home do aplicativo `/(app)/(tabs)`, nunca para onboarding ou telas de bloqueio de pagamento.
+  3. **Persona Fornecedor:**
+     - Usuários identificados com o plano `fornecedor` não acessam abas exclusivas de planejamento de eventos, sendo direcionados para o catálogo, vitrine e leads próprios.
+
+---
+
+## 19. OBSERVABILIDADE, CAPTURA DEFENSIVA DE ERROS E ANOTAÇÃO `// observability-ignore:` NO APP NATIVO (2026-10-18)
+
+- **Causa Raiz & Incidente (Outubro/2026):** No app móvel, ações como copiar link para o clipboard (`Clipboard.setStringAsync`), compartilhamento nativo (`Share.share`) ou abertura de links externos (`Linking.openURL`) geravam erros capturados em blocos `catch` que poluíam os relatórios do Sentry com falsos incidentes.
+- **Cláusulas Pétreas:**
+  1. **Anotação Canônica Obrigatória:**
+     - Blocos `catch` em operações do dispositivo que podem ser legitimamente canceladas pelo usuário ou sofrerem negação de permissão temporária DEVEM incluir a anotação `// observability-ignore: <motivo>`:
+       ```ts
+       try {
+         await Share.share({ message: textoAta });
+       } catch (err) {
+         // observability-ignore: acao de compartilhamento cancelada pelo usuario
+       }
+       ```
+  2. **Tratamento Amigável de Erros de Rede:**
+     - Exceções que não puderem ser recuperadas devem exibir toast ou banner amigável (`showToast('error', ...)`), sem deixar a interface congelada ou sem resposta tátil.
+
+---
+
+## 20. HIGIENE DE BUILD NATIVO, CI/CD NO REPOSITÓRIO MOBILE E TEST LAB ROBO SCRIPTS (2026-10-18)
+
+- **Causa Raiz & Incidente (Outubro/2026):** Execuções do Google Cloud Test Lab falhavam por uso de flags depreciadas (`--robo-directives` em vez de `--robo-script`), falta de argumentos no comando `tr` de sanitização de branch e scripts de teste incompletos que não navegavam pelas abas principais.
+- **Cláusulas Pétreas:**
+  1. **Esquema Oficial do Robo Script:**
+     - O arquivo de automação do Test Lab deve residir em `.github/robo-script.json` e seguir estritamente o esquema oficial da Google, cobrindo autenticação, navegação por todas as tabs inferiores (Início, Eventos, Clientes, Financeiro, Fornecedores, Mais) e interações em modais críticos.
+  2. **Flags de CI no Workflow do GitHub Actions:**
+     - A chamada do gcloud Test Lab DEVE utilizar a flag `--robo-script=.github/robo-script.json`.
+     - Scripts shell que tratam strings de versão com `tr` devem utilizar `tr -d '\r'` ou `tr --delete` com proteção contra interpretação de traço inicial.
+  3. **Identidade Intocável do Pacote Android:**
+     - O package name Android é inviolavelmente `br.com.painelprime.app`. Qualquer referência a `planejarpro` é terminantemente proibida.
+
+---
+
+## 21. SINCRONIZAÇÃO COMPULSÓRIA ENTRE MONOREPO E REPOSITÓRIO MOBILE DEDICADO (2026-10-18)
+
+- **Regra de Ouro:** O repositório `theproject93/painel-prime` (monorepo principal) e o repositório `theproject93/painel-prime-mobile` (repositório mobile dedicado) DEVEM manter suas pastas de código `apps/mobile/` rigorosamente sincronizadas.
+- Ao concluir alterações na camada mobile, o desenvolvedor ou agente DEVE:
+  1. Validar a compilação e tipagem: `pnpm --filter @painel-prime/mobile run validate`.
+  2. Garantir ausência de BOM e mojibake:
+     ```bash
+     rg -n --pcre2 "\x{00C3}[\x{0080}-\x{00BF}]|\x{00C2}[\x{0080}-\x{00BF}]|\x{251C}|\x{2524}|\x{252C}|\x{FFFD}" apps/mobile/app apps/mobile/src --no-ignore
+     ```
+  3. Publicar os commits tanto no remote `origin` do monorepo quanto no remote `mobile` / repositório dedicado `painel-prime-mobile`.
+
+---
+
+**Última atualização:** 2026-10-18 — Adicionadas as **Seções 16 a 21** (Módulos de Paridade Mobile Padrinhos, RSVP, Mesas, Atas e SuperBilling; Pré-validação de Créditos WhatsApp; Bootstrap Resiliente de Billing e Prevenção de Loop de Onboarding; Observabilidade e Anotação `// observability-ignore:`; Higiene de Build, CI/CD e Robo Scripts; e Sincronização Compulsória Multi-Repositório).
