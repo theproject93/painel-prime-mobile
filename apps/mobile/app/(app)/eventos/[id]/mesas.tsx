@@ -26,6 +26,7 @@ import type {
 import { useMapDrag } from '../../../../src/features/table-map/useMapDrag';
 import { useMapPdfExport } from '../../../../src/features/table-map/useMapPdfExport';
 import { useTableMapModel } from '../../../../src/features/table-map/useTableMapModel';
+import { SkeletonBox } from '../../../../src/components/ui/Skeleton';
 import { supabase } from '../../../../src/lib/supabase';
 import { colors } from '../../../../src/theme/colors';
 
@@ -211,9 +212,35 @@ export default function EventMesasTouchRoute() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <View style={styles.loadingCenter}>
-          <ActivityIndicator size="large" color={colors.primaryStrong} />
-          <Text style={styles.loadingText}>Carregando mapa de mesas...</Text>
+        <View style={styles.topBar}>
+          <SkeletonBox width={44} height={44} borderRadius={22} />
+          <View style={{ flex: 1, gap: 6, marginHorizontal: 8 }}>
+            <SkeletonBox width="60%" height={16} />
+            <SkeletonBox width="40%" height={12} />
+          </View>
+          <SkeletonBox width={44} height={44} borderRadius={22} />
+        </View>
+
+        <View style={[styles.spacesRow, { paddingVertical: 10 }]}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <SkeletonBox width={120} height={36} borderRadius={18} />
+            <SkeletonBox width={120} height={36} borderRadius={18} />
+          </View>
+        </View>
+
+        <View style={styles.skeletonMapCanvas}>
+          <View style={styles.skeletonMapRow}>
+            <SkeletonBox width={100} height={100} borderRadius={50} />
+            <SkeletonBox width={100} height={100} borderRadius={50} />
+          </View>
+          <View style={styles.skeletonMapRow}>
+            <SkeletonBox width={140} height={80} borderRadius={12} />
+            <SkeletonBox width={100} height={100} borderRadius={50} />
+          </View>
+          <View style={styles.skeletonMapRow}>
+            <SkeletonBox width={100} height={100} borderRadius={50} />
+            <SkeletonBox width={140} height={80} borderRadius={12} />
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -226,6 +253,8 @@ export default function EventMesasTouchRoute() {
         <Pressable
           onPress={() => router.back()}
           style={styles.iconBtn}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
           accessibilityLabel="Voltar"
         >
           <Ionicons name="chevron-back" size={22} color={colors.text} />
@@ -245,6 +274,8 @@ export default function EventMesasTouchRoute() {
             style={[styles.pdfBtn, pdf.exporting ? styles.btnDisabled : null]}
             disabled={pdf.exporting}
             onPress={() => void pdf.exportPdf()}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
             accessibilityLabel="Exportar PDF"
           >
             <MaterialCommunityIcons name="file-pdf-box" size={20} color={colors.primaryStrong} />
@@ -289,6 +320,8 @@ export default function EventMesasTouchRoute() {
               styles.spacePill,
               model.activeSpace === 'party' ? styles.spacePillActive : null,
             ]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
             onPress={() => model.setActiveSpace('party')}
           >
             <MaterialCommunityIcons
@@ -311,6 +344,8 @@ export default function EventMesasTouchRoute() {
               styles.spacePill,
               model.activeSpace === 'church' ? styles.spacePillActive : null,
             ]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
             onPress={() => model.setActiveSpace('church')}
           >
             <MaterialCommunityIcons
@@ -420,9 +455,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: colors.border,
@@ -449,14 +484,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pdfBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  skeletonMapCanvas: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'space-around',
+    backgroundColor: '#F8FAFC',
+  },
+  skeletonMapRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
   },
   btnDisabled: {
     opacity: 0.6,
@@ -533,10 +579,12 @@ const styles = StyleSheet.create({
   spacePill: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 38,
     gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 19,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: 'transparent',

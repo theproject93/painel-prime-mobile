@@ -46,6 +46,8 @@ export default function EventPadrinhosRoute() {
         <Pressable
           onPress={() => router.back()}
           style={styles.backButton}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
           accessibilityLabel="Voltar aos detalhes do evento"
         >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
@@ -87,9 +89,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',

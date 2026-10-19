@@ -12,6 +12,9 @@ import {
   View,
 } from 'react-native';
 import { colors, radii, shadows } from '../../theme/colors';
+import { AppHaptics } from '../../lib/haptics';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { SkeletonBox, SkeletonList } from '../../components/ui/Skeleton';
 import { PadrinhoFormModal } from './PadrinhoFormModal';
 import { PadrinhoPairCard } from './PadrinhoPairCard';
 import { PadrinhosPlanIaModal } from './PadrinhosPlanIaModal';
@@ -132,9 +135,18 @@ export function PadrinhosTab({ eventId, eventType, isDebutante = false }: Props)
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.gold700} />
-        <Text style={styles.loadingText}>Carregando cortejo cerimonial...</Text>
+      <View style={styles.container}>
+        <View style={styles.topBar}>
+          <SkeletonBox width="70%" height={44} borderRadius={10} />
+          <SkeletonBox width="26%" height={44} borderRadius={10} />
+        </View>
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginVertical: 10 }}>
+          <SkeletonBox width="23%" height={68} borderRadius={12} />
+          <SkeletonBox width="23%" height={68} borderRadius={12} />
+          <SkeletonBox width="23%" height={68} borderRadius={12} />
+          <SkeletonBox width="23%" height={68} borderRadius={12} />
+        </View>
+        <SkeletonList count={4} />
       </View>
     );
   }
@@ -153,7 +165,12 @@ export function PadrinhosTab({ eventId, eventType, isDebutante = false }: Props)
             style={styles.searchInput}
           />
           {searchQuery ? (
-            <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+            <Pressable
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Limpar busca"
+            >
               <Ionicons name="close-circle" size={16} color={colors.mutedText} />
             </Pressable>
           ) : null}
@@ -162,6 +179,8 @@ export function PadrinhosTab({ eventId, eventType, isDebutante = false }: Props)
         <Pressable
           onPress={() => handleOpenPlanIa()}
           style={styles.planIaBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
           accessibilityLabel="Automações Plan IA"
         >
           <Ionicons name="sparkles" size={16} color={colors.gold700} />
@@ -173,7 +192,10 @@ export function PadrinhosTab({ eventId, eventType, isDebutante = false }: Props)
       <PadrinhosStatsCards
         activeFilter={activeFilter}
         isDebutante={isDeb}
-        onFilterChange={setActiveFilter}
+        onFilterChange={(filter) => {
+          AppHaptics.selection();
+          setActiveFilter(filter);
+        }}
         padrinhos={padrinhos}
       />
 
@@ -208,26 +230,49 @@ export function PadrinhosTab({ eventId, eventType, isDebutante = false }: Props)
           />
         )}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={44} color={colors.borderStrong} />
-            <Text style={styles.emptyTitle}>
-              {searchQuery || activeFilter !== 'all'
-                ? 'Nenhum integrante encontrado no filtro.'
+          <EmptyState
+            title={
+              searchQuery || activeFilter !== 'all'
+                ? 'Nenhum integrante encontrado no filtro'
                 : isDeb
-                ? 'Nenhuma corte de honra cadastrada.'
-                : 'Nenhum padrinho cadastrado.'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {isDeb
+                ? 'Nenhuma corte de honra cadastrada'
+                : 'Nenhum padrinho cadastrado'
+            }
+            message={
+              searchQuery || activeFilter !== 'all'
+                ? 'Tente ajustar o termo digitado ou alternar os filtros acima.'
+                : isDeb
                 ? 'Adicione damas e cavalheiros de honra para organizar a valsa e o cortejo.'
-                : 'Cadastre padrinhos e madrinhas para organizar o cortejo e enviar o manual.'}
-            </Text>
-          </View>
+                : 'Cadastre padrinhos e madrinhas para organizar o cortejo e disparar os trajes.'
+            }
+            iconName={isDeb ? 'sparkles-outline' : 'people-outline'}
+            actionLabel={
+              searchQuery || activeFilter !== 'all'
+                ? 'Limpar Filtros'
+                : isDeb
+                ? 'Adicionar à Corte'
+                : 'Adicionar Padrinho'
+            }
+            onAction={
+              searchQuery || activeFilter !== 'all'
+                ? () => {
+                    setSearchQuery('');
+                    setActiveFilter('all');
+                  }
+                : handleOpenAdd
+            }
+          />
         }
       />
 
       {/* Floating Action Button (FAB) */}
-      <Pressable onPress={handleOpenAdd} style={[styles.fab, shadows.elevated]}>
+      <Pressable
+        onPress={handleOpenAdd}
+        style={[styles.fab, shadows.elevated]}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel={isDeb ? 'Nova Corte' : 'Novo Padrinho'}
+      >
         <Ionicons name="add" size={24} color="#FFFFFF" />
         <Text style={styles.fabText}>{isDeb ? 'Nova Corte' : 'Novo Padrinho'}</Text>
       </Pressable>

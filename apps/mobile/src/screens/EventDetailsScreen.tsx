@@ -55,7 +55,18 @@ export function EventDetailsScreen() {
   const eventId = Array.isArray(params.id) ? params.id[0] ?? '' : params.id ?? '';
   const initialTabParam = Array.isArray(params.initialTab) ? params.initialTab[0] : params.initialTab;
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<EventDetailsTab>('overview');
+  const [activeTab, setActiveTab] = useState<EventDetailsTab>(() => {
+    if (initialTabParam && isEventDetailsInitialTab(initialTabParam)) {
+      return initialTabParam;
+    }
+    return 'overview';
+  });
+
+  useEffect(() => {
+    if (initialTabParam && isEventDetailsInitialTab(initialTabParam)) {
+      setActiveTab(initialTabParam);
+    }
+  }, [initialTabParam]);
   const [isModulePickerOpen, setIsModulePickerOpen] = useState(false);
   const activeTabLabel = useMemo(() => TABS.find((x) => x.key === activeTab)?.label || 'Visão Geral', [activeTab]);
   const activeTabIcon = useMemo(() => TABS.find((x) => x.key === activeTab)?.icon || 'grid-outline', [activeTab]);

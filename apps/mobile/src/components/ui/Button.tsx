@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
+import { AppHaptics } from '../../lib/haptics';
 import { colors } from '../../theme/colors';
 
 type ButtonVariant = 'primary' | 'ghost';
@@ -22,10 +23,18 @@ export function Button({
   loading,
   disabled,
 }: ButtonProps) {
+  const handlePress = () => {
+    AppHaptics.light();
+    onPress();
+  };
+
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled ?? loading}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityRole="button"
+      accessibilityLabel={title}
       style={({ pressed }) => [
         styles.base,
         size === 'md' ? styles.sizeMd : null,
@@ -37,7 +46,7 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          size={size === 'sm' ? 12 : 16}
+          size={size === 'sm' ? 14 : 18}
           color={variant === 'ghost' ? colors.primaryStrong : '#FFFFFF'}
         />
       ) : (
@@ -59,15 +68,15 @@ const styles = StyleSheet.create({
   base: {
     borderRadius: 10,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 36,
+    minHeight: 44,
   },
   sizeMd: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    minHeight: 42,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    minHeight: 48,
   },
   primary: {
     backgroundColor: colors.primaryStrong,

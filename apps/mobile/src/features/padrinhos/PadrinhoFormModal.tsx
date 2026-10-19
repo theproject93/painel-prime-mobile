@@ -3,14 +3,19 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { AppHaptics } from '../../lib/haptics';
 import { colors, radii, shadows } from '../../theme/colors';
 import {
   ROLE_OPTIONS_DEBUTANTE,
@@ -141,6 +146,7 @@ export function PadrinhoFormModal({
         attire_notes: attireNotes.trim() || null,
         special_role: specialRole.trim() || null,
       });
+      AppHaptics.success();
       onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Falha ao salvar membro do cortejo.';
@@ -154,30 +160,45 @@ export function PadrinhoFormModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalCard, shadows.elevated]}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>
-                {editingItem
-                  ? 'Editar Integrante do Cortejo'
-                  : companionTarget
-                  ? 'Adicionar Par de Cortejo'
-                  : isDebutante
-                  ? 'Adicionar à Corte de Honra'
-                  : 'Adicionar Padrinho / Madrinha'}
-              </Text>
-              <Text style={styles.subtitle}>
-                Configure papéis, trajes e ordem de entrada
-              </Text>
-            </View>
-            <Pressable onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={20} color={colors.mutedText} />
-            </Pressable>
-          </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.modalOverlay}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalBackdropTouch}>
+            <View style={[styles.modalCard, shadows.elevated]}>
+              {/* Header */}
+              <View style={styles.header}>
+                <View>
+                  <Text style={styles.title}>
+                    {editingItem
+                      ? 'Editar Integrante do Cortejo'
+                      : companionTarget
+                      ? 'Adicionar Par de Cortejo'
+                      : isDebutante
+                      ? 'Adicionar à Corte de Honra'
+                      : 'Adicionar Padrinho / Madrinha'}
+                  </Text>
+                  <Text style={styles.subtitle}>
+                    Configure papéis, trajes e ordem de entrada
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={onClose}
+                  style={styles.closeBtn}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar formulário"
+                >
+                  <Ionicons name="close" size={20} color={colors.mutedText} />
+                </Pressable>
+              </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.body}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
             {/* 1. Guest Selector */}
             <Text style={styles.fieldLabel}>Convidado Vinculado *</Text>
             {selectedGuestObj ? (
@@ -399,13 +420,22 @@ export function PadrinhoFormModal({
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Pressable onPress={onClose} style={styles.cancelBtn}>
+            <Pressable
+              onPress={onClose}
+              style={styles.cancelBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Cancelar"
+            >
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </Pressable>
             <Pressable
               onPress={handleSave}
               disabled={saving}
               style={[styles.submitBtn, saving && styles.submitBtnDisabled]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Salvar integrante"
             >
               {saving ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -416,7 +446,9 @@ export function PadrinhoFormModal({
           </View>
         </View>
       </View>
-    </Modal>
+    </TouchableWithoutFeedback>
+  </KeyboardAvoidingView>
+</Modal>
   );
 }
 
@@ -426,6 +458,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 17, 21, 0.65)',
     justifyContent: 'center',
     padding: 16,
+  },
+  modalBackdropTouch: {
+    flex: 1,
+    justifyContent: 'center',
   },
   modalCard: {
     backgroundColor: colors.card,
@@ -452,7 +488,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeBtn: {
-    padding: 6,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: radii.full,
     backgroundColor: '#F1F5F9',
   },
@@ -597,9 +636,12 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   cancelBtn: {
+    minHeight: 44,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelBtnText: {
     fontSize: 14,
@@ -608,9 +650,12 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     backgroundColor: colors.primaryStrong,
+    minHeight: 44,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   submitBtnDisabled: {
     opacity: 0.6,

@@ -99,6 +99,8 @@ export function PadrinhoPairCard({
               <Pressable
                 onPress={() => openWhatsApp(phone, guestName)}
                 style={styles.iconCircleBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
                 accessibilityLabel="Enviar mensagem no WhatsApp"
               >
                 <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
@@ -107,6 +109,8 @@ export function PadrinhoPairCard({
             <Pressable
               onPress={() => onOpenPlanIa(item)}
               style={styles.iconCircleBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
               accessibilityLabel="Automação Plan IA"
             >
               <Ionicons name="sparkles" size={15} color={colors.gold700} />
@@ -114,6 +118,8 @@ export function PadrinhoPairCard({
             <Pressable
               onPress={() => onEdit(item)}
               style={styles.iconCircleBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
               accessibilityLabel="Editar integrante"
             >
               <Ionicons name="pencil" size={14} color={colors.textSecondary} />
@@ -121,6 +127,8 @@ export function PadrinhoPairCard({
             <Pressable
               onPress={() => onDelete(item.id, guestName)}
               style={styles.iconCircleBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
               accessibilityLabel="Excluir integrante"
             >
               <Ionicons name="trash-outline" size={14} color={colors.dangerText} />
@@ -389,6 +397,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
     gap: 6,
     padding: 10,
     marginTop: 8,

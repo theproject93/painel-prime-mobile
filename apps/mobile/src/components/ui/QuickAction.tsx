@@ -2,6 +2,8 @@ import { useId } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+
+import { AppHaptics } from '../../lib/haptics';
 import { gradients, colors, radii } from '../../theme/colors';
 
 type QuickActionProps = {
@@ -16,8 +18,19 @@ export function QuickAction({ label, icon, gradient = 'gold', onPress, badge }: 
   const id = useId();
   const [startColor, endColor] = gradients[gradient] || gradients.gold;
 
+  const handlePress = () => {
+    AppHaptics.light();
+    onPress();
+  };
+
   return (
-    <Pressable style={styles.wrap} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}
+      onPress={handlePress}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
       <View style={styles.iconWrap}>
         <Svg width={52} height={52}>
           <Defs>
@@ -35,13 +48,26 @@ export function QuickAction({ label, icon, gradient = 'gold', onPress, badge }: 
           </View>
         ) : null}
       </View>
-      <Text style={styles.label} numberOfLines={2}>{label}</Text>
+      <Text style={styles.label} numberOfLines={2}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, alignItems: 'center', gap: 6, padding: 8 },
+  wrap: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+    padding: 8,
+    minHeight: 80,
+    minWidth: 64,
+  },
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
+  },
   iconWrap: {
     width: 52,
     height: 52,

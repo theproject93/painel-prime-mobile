@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import { SkeletonBox } from '../../components/ui/Skeleton';
 import { colors } from '../../theme/colors';
 import { BillingCycleToggle } from './BillingCycleToggle';
 import { BillingHistorySection } from './BillingHistorySection';
@@ -59,10 +60,44 @@ export function CustomerBillingView() {
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.loadingCenter}>
-        <ActivityIndicator size="large" color={colors.primaryStrong} />
-        <Text style={styles.loadingText}>Carregando informações de assinatura...</Text>
-      </View>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Banner Skeleton */}
+        <View style={[styles.subscriptionBanner, { padding: 18, gap: 12 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <SkeletonBox width={40} height={40} borderRadius={20} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <SkeletonBox width="60%" height={16} />
+              <SkeletonBox width="40%" height={12} />
+            </View>
+            <SkeletonBox width={50} height={24} borderRadius={12} />
+          </View>
+        </View>
+
+        {/* Cycle Toggle Skeleton */}
+        <View style={{ alignItems: 'center', marginVertical: 8 }}>
+          <SkeletonBox width={260} height={44} borderRadius={22} />
+        </View>
+
+        {/* Plan Cards Skeleton */}
+        <View style={styles.plansSection}>
+          <View style={[styles.subscriptionBanner, { padding: 16, gap: 12 }]}>
+            <SkeletonBox width="50%" height={20} />
+            <SkeletonBox width="80%" height={14} />
+            <SkeletonBox width="40%" height={28} />
+            <SkeletonBox width="100%" height={44} borderRadius={10} />
+          </View>
+          <View style={[styles.subscriptionBanner, { padding: 16, gap: 12 }]}>
+            <SkeletonBox width="50%" height={20} />
+            <SkeletonBox width="80%" height={14} />
+            <SkeletonBox width="40%" height={28} />
+            <SkeletonBox width="100%" height={44} borderRadius={10} />
+          </View>
+        </View>
+      </ScrollView>
     );
   }
 

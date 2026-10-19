@@ -13,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { colors, radii, shadows } from '../../../src/theme/colors';
+import { AppHaptics } from '../../../src/lib/haptics';
+import { SkeletonList } from '../../../src/components/ui/Skeleton';
 import { AtaDocumentModal } from '../../../src/features/meetings/AtaDocumentModal';
 import {
   formatMeetingDateTime,
@@ -159,7 +161,13 @@ export default function GlobalMeetingsIndexRoute() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {/* Top Bar */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backButton}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+        >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
@@ -172,7 +180,11 @@ export default function GlobalMeetingsIndexRoute() {
       <View style={styles.statsContainer}>
         {/* Total */}
         <Pressable
-          onPress={() => setFilter('all')}
+          onPress={() => {
+            AppHaptics.selection();
+            setFilter('all');
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={[styles.statCard, filter === 'all' && styles.statCardActive]}
         >
           <Text style={styles.statLabel}>Total</Text>
@@ -181,7 +193,11 @@ export default function GlobalMeetingsIndexRoute() {
 
         {/* Agendadas */}
         <Pressable
-          onPress={() => setFilter('scheduled')}
+          onPress={() => {
+            AppHaptics.selection();
+            setFilter('scheduled');
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={[styles.statCard, filter === 'scheduled' && styles.statCardActive]}
         >
           <Text style={styles.statLabel}>Agendadas</Text>
@@ -190,7 +206,11 @@ export default function GlobalMeetingsIndexRoute() {
 
         {/* Ativas */}
         <Pressable
-          onPress={() => setFilter('active')}
+          onPress={() => {
+            AppHaptics.selection();
+            setFilter('active');
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={[styles.statCard, filter === 'active' && styles.statCardActive]}
         >
           <Text style={styles.statLabel}>Ao Vivo</Text>
@@ -199,7 +219,11 @@ export default function GlobalMeetingsIndexRoute() {
 
         {/* Concluídas */}
         <Pressable
-          onPress={() => setFilter('completed')}
+          onPress={() => {
+            AppHaptics.selection();
+            setFilter('completed');
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={[styles.statCard, filter === 'completed' && styles.statCardActive]}
         >
           <Text style={styles.statLabel}>Com Ata</Text>
@@ -216,9 +240,8 @@ export default function GlobalMeetingsIndexRoute() {
 
       {/* Meetings List */}
       {loading && !refreshing ? (
-        <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={colors.gold700} />
-          <Text style={styles.loadingText}>Carregando reuniões da assessoria...</Text>
+        <View style={{ paddingTop: 8 }}>
+          <SkeletonList count={4} />
         </View>
       ) : (
         <FlatList
@@ -273,9 +296,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',

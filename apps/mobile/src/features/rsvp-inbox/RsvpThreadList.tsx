@@ -9,6 +9,8 @@ import {
   View,
 } from 'react-native';
 import { colors, radii, shadows } from '../../theme/colors';
+import { AppHaptics } from '../../lib/haptics';
+import { EmptyState } from '../../components/ui/EmptyState';
 import {
   format24hRemaining,
   isWithin24hWindow,
@@ -162,7 +164,12 @@ export function RsvpThreadList({
             style={styles.searchInput}
           />
           {searchQuery ? (
-            <Pressable onPress={() => onSearchChange('')}>
+            <Pressable
+              onPress={() => onSearchChange('')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Limpar busca"
+            >
               <Ionicons name="close-circle" size={16} color={colors.mutedText} />
             </Pressable>
           ) : null}
@@ -172,7 +179,12 @@ export function RsvpThreadList({
       {/* Filter Tabs */}
       <View style={styles.filterTabsRow}>
         <Pressable
-          onPress={() => onFilterChange('all')}
+          onPress={() => {
+            AppHaptics.selection();
+            onFilterChange('all');
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
           style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
         >
           <Text
@@ -183,7 +195,12 @@ export function RsvpThreadList({
         </Pressable>
 
         <Pressable
-          onPress={() => onFilterChange('attention')}
+          onPress={() => {
+            AppHaptics.selection();
+            onFilterChange('attention');
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
           style={[styles.filterTab, filter === 'attention' && styles.filterTabActive]}
         >
           <Text
@@ -197,7 +214,12 @@ export function RsvpThreadList({
         </Pressable>
 
         <Pressable
-          onPress={() => onFilterChange('active')}
+          onPress={() => {
+            AppHaptics.selection();
+            onFilterChange('active');
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
           style={[styles.filterTab, filter === 'active' && styles.filterTabActive]}
         >
           <Text
@@ -208,7 +230,12 @@ export function RsvpThreadList({
         </Pressable>
 
         <Pressable
-          onPress={() => onFilterChange('resolved')}
+          onPress={() => {
+            AppHaptics.selection();
+            onFilterChange('resolved');
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
           style={[styles.filterTab, filter === 'resolved' && styles.filterTabActive]}
         >
           <Text
@@ -237,13 +264,30 @@ export function RsvpThreadList({
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="chatbubbles-outline" size={40} color={colors.borderStrong} />
-            <Text style={styles.emptyTitle}>Nenhuma conversa na fila de revisão</Text>
-            <Text style={styles.emptySubtitle}>
-              As respostas ambíguas e confirmações via WhatsApp aparecerão aqui para triagem.
-            </Text>
-          </View>
+          <EmptyState
+            title={
+              searchQuery || filter !== 'all'
+                ? 'Nenhuma conversa no filtro'
+                : 'Nenhuma conversa na fila de revisão'
+            }
+            message={
+              searchQuery || filter !== 'all'
+                ? 'Tente alterar os termos da busca ou alternar a aba de filtro selecionada.'
+                : 'As respostas ambíguas e confirmações via WhatsApp aparecerão aqui para triagem rápida.'
+            }
+            iconName="chatbubbles-outline"
+            actionLabel={
+              searchQuery || filter !== 'all' ? 'Limpar Filtros' : 'Atualizar Fila'
+            }
+            onAction={
+              searchQuery || filter !== 'all'
+                ? () => {
+                    onSearchChange('');
+                    onFilterChange('all');
+                  }
+                : onRefresh
+            }
+          />
         }
       />
     </View>
@@ -283,7 +327,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   filterTab: {
-    paddingHorizontal: 10,
+    minHeight: 38,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radii.full,
     backgroundColor: '#FFFFFF',

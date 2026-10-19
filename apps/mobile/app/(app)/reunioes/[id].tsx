@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { colors, radii, shadows } from '../../../src/theme/colors';
+import { SkeletonBox } from '../../../src/components/ui/Skeleton';
 import { AtaDocumentModal } from '../../../src/features/meetings/AtaDocumentModal';
 import {
   formatMeetingDateTime,
@@ -137,9 +138,37 @@ export default function MeetingDetailRoute() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.gold700} />
-          <Text style={styles.loadingText}>Carregando detalhes da reunião...</Text>
+        {/* Header skeleton */}
+        <View style={styles.header}>
+          <SkeletonBox width={44} height={44} borderRadius={22} />
+          <View style={{ flex: 1, gap: 6, marginHorizontal: 8 }}>
+            <SkeletonBox width="60%" height={16} />
+            <SkeletonBox width="40%" height={12} />
+          </View>
+        </View>
+
+        {/* Body content skeletons */}
+        <View style={[styles.bodyContent, { padding: 16, gap: 16 }]}>
+          <View style={[styles.mainCard, { padding: 16, gap: 12 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <SkeletonBox width={120} height={20} />
+              <SkeletonBox width={80} height={24} borderRadius={12} />
+            </View>
+            <SkeletonBox width="90%" height={22} />
+            <SkeletonBox width="100%" height={48} borderRadius={10} />
+          </View>
+
+          <View style={[styles.mainCard, { padding: 16, gap: 12 }]}>
+            <SkeletonBox width="50%" height={18} />
+            <SkeletonBox width="100%" height={14} />
+            <SkeletonBox width="100%" height={14} />
+            <SkeletonBox width="70%" height={14} />
+          </View>
+
+          <View style={[styles.mainCard, { padding: 16, gap: 12 }]}>
+            <SkeletonBox width="40%" height={16} />
+            <SkeletonBox width="100%" height={90} borderRadius={8} />
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -149,7 +178,13 @@ export default function MeetingDetailRoute() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backButton}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
+          >
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Reunião não encontrada</Text>
@@ -165,7 +200,13 @@ export default function MeetingDetailRoute() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backButton}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+        >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
@@ -364,9 +405,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',

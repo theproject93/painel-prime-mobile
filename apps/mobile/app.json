@@ -18,6 +18,10 @@
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#023c69"
+    },
     "ios": {
       "bundleIdentifier": "br.com.painelprime.app",
       "supportsTablet": true
@@ -85,6 +89,13 @@
           "url": "https://sentry.io/",
           "project": "painel-prime-mobile",
           "organization": "painel-prime"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#023c69"
         }
       ],
       "@react-native-community/datetimepicker"

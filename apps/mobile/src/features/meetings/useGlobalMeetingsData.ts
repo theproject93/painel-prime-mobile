@@ -8,6 +8,7 @@ import {
   invokeMeetingAction,
   subscribeToGlobalMeetings,
 } from './meetingService';
+import { scheduleMeetingAlerts } from '../../services/notificationService';
 import { supabase } from '../../lib/supabase';
 
 export type MeetingFilterType = 'all' | 'scheduled' | 'active' | 'completed';
@@ -31,6 +32,18 @@ export function useGlobalMeetingsData() {
     try {
       const res = await fetchAllMeetings();
       setMeetings(res.data);
+
+      // Sincronização offline-first dos alertas na bandeja do sistema
+      for (const m of res.data) {
+        if (m.status === 'scheduled' && m.scheduled_at) {
+          scheduleMeetingAlerts({
+            id: m.id,
+            title: m.title,
+            scheduledAt: m.scheduled_at,
+            roomUrl: m.room_url || undefined,
+          }).catch(() => {});
+        }
+      }
     } catch (err) {
       setError(meetingError(err, 'Falha ao carregar reuniões.'));
     } finally {

@@ -72,7 +72,9 @@ export function format24hRemaining(
   if (!lastInboundAt) return 'Janela 24h fechada';
   const parsed = new Date(lastInboundAt).getTime();
   if (Number.isNaN(parsed)) return 'Janela 24h fechada';
-  const remainingMs = TWENTY_FOUR_HOURS_MS - (nowMs - parsed);
+  const elapsed = nowMs - parsed;
+  if (elapsed < 0 || elapsed >= TWENTY_FOUR_HOURS_MS) return 'Janela 24h fechada';
+  const remainingMs = TWENTY_FOUR_HOURS_MS - elapsed;
   if (remainingMs <= 0) return 'Janela 24h fechada';
 
   const hours = Math.floor(remainingMs / (60 * 60 * 1000));

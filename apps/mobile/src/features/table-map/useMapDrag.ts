@@ -3,6 +3,7 @@ import { PanResponder } from 'react-native';
 
 import { MAP_HEIGHT, MAP_WIDTH } from './constants';
 import { clamp } from './core';
+import { AppHaptics } from '../../lib/haptics';
 import type { ActiveDragKeys, FixtureItem, Point, TablePositions } from './types';
 
 type Params = {
@@ -81,6 +82,7 @@ export function useMapDrag(params: Params) {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
+        AppHaptics.medium();
         params.activeDragKeys.current.add(key);
         setIsDragging(true);
         params.onDragStatusChange?.(true);
@@ -94,6 +96,7 @@ export function useMapDrag(params: Params) {
         });
       },
       onPanResponderRelease: () => {
+        AppHaptics.medium();
         params.activeDragKeys.current.delete(key);
         if (params.activeDragKeys.current.size === 0) {
           setIsDragging(false);
@@ -128,6 +131,7 @@ export function useMapDrag(params: Params) {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
+        AppHaptics.medium();
         params.activeDragKeys.current.add(key);
         setIsDragging(true);
         params.onDragStatusChange?.(true);
@@ -144,6 +148,7 @@ export function useMapDrag(params: Params) {
         });
       },
       onPanResponderRelease: () => {
+        AppHaptics.medium();
         params.activeDragKeys.current.delete(key);
         if (params.activeDragKeys.current.size === 0) {
           setIsDragging(false);

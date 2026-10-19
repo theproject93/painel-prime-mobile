@@ -8,11 +8,11 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  Vibration,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHaptics } from '../../lib/haptics';
 import { colors } from '../../theme/colors';
 import type { GuestRow, TableRow } from './types';
 
@@ -92,9 +92,10 @@ export function TableGuestDrawer({
   async function handleAllocate(guestId: string) {
     if (!table) return;
     try {
-      Vibration.vibrate(35);
+      AppHaptics.light();
       setBusyGuestId(guestId);
       await onAllocateGuest(guestId, table.id);
+      AppHaptics.success();
     } finally {
       setBusyGuestId(null);
     }
@@ -103,7 +104,7 @@ export function TableGuestDrawer({
   async function handleAllocateFamily(familyGroupId: string) {
     if (!table) return;
     try {
-      Vibration.vibrate(45);
+      AppHaptics.light();
       setBusyGuestId(`family:${familyGroupId}`);
       if (onAllocateFamilyGroup) {
         await onAllocateFamilyGroup(familyGroupId, table.id);
@@ -114,6 +115,7 @@ export function TableGuestDrawer({
           await onAllocateGuest(member.id, table.id);
         }
       }
+      AppHaptics.success();
     } finally {
       setBusyGuestId(null);
     }
@@ -122,7 +124,7 @@ export function TableGuestDrawer({
   async function handleUnallocate(guestId: string) {
     if (!onUnallocateGuest) return;
     try {
-      Vibration.vibrate(35);
+      AppHaptics.light();
       setBusyGuestId(guestId);
       await onUnallocateGuest(guestId);
     } finally {
@@ -193,7 +195,13 @@ export function TableGuestDrawer({
               </View>
             </View>
 
-            <Pressable style={styles.closeBtn} onPress={onClose}>
+            <Pressable
+              style={styles.closeBtn}
+              onPress={onClose}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar gaveta"
+            >
               <MaterialCommunityIcons name="close" size={20} color={colors.mutedText} />
             </Pressable>
           </View>
@@ -277,6 +285,9 @@ export function TableGuestDrawer({
                         style={styles.unassignBtn}
                         disabled={busyGuestId === guest.id}
                         onPress={() => void handleUnallocate(guest.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Remover convidado da mesa"
                       >
                         {busyGuestId === guest.id ? (
                           <ActivityIndicator size="small" color="#DC2626" />
@@ -342,6 +353,9 @@ export function TableGuestDrawer({
                             style={[styles.assignBtn, isFull ? styles.assignBtnDisabled : null]}
                             disabled={Boolean(isBusy || isFamilyBusy)}
                             onPress={() => void handleAllocate(guest.id)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Alocar ${guest.name || 'convidado'} na mesa`}
                           >
                             {isBusy ? (
                               <ActivityIndicator size="small" color="#FFFFFF" />
@@ -358,6 +372,9 @@ export function TableGuestDrawer({
                               style={styles.batchFamilyBtn}
                               disabled={Boolean(isBusy || isFamilyBusy)}
                               onPress={() => void handleAllocateFamily(guest.family_group_id!)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Alocar família de ${guest.name || 'convidado'} (${familyCount} membros)`}
                             >
                               {isFamilyBusy ? (
                                 <ActivityIndicator size="small" color={colors.primaryStrong} />
@@ -491,9 +508,9 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    minWidth: 44,
+    minHeight: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F1F5F9',
