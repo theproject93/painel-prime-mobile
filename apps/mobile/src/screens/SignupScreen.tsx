@@ -1,4 +1,5 @@
 import { routeHrefs } from '@painel-prime/app/navigation';
+import { validateStrongPassword, checkPwnedPassword } from '@painel-prime/app';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -60,12 +61,22 @@ export function SignupScreen() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Use uma senha com pelo menos 6 caracteres.');
+    const passwordError = validateStrongPassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
     setLoading(true);
+
+    const isPwned = await checkPwnedPassword(password);
+    if (isPwned) {
+      setLoading(false);
+      setError(
+        'Esta senha já foi exposta em vazamentos públicos de dados. Por segurança, escolha outra senha.'
+      );
+      return;
+    }
     try {
       await signUp(email.trim(), password, name.trim() || undefined);
       setSuccess(
@@ -128,7 +139,7 @@ export function SignupScreen() {
           />
           <TextInput
             style={styles.input}
-            placeholder="Senha"
+            placeholder="Senha (mínimo 10 caracteres)"
             secureTextEntry
             placeholderTextColor="#71717A"
             value={password}

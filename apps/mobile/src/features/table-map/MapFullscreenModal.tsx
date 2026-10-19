@@ -21,6 +21,7 @@ type Props = {
   labelDraft: string;
   savingLabel: boolean;
   exporting: boolean;
+  isDragging?: boolean;
   getTableHandlers: (id: string) => GestureResponderHandlers;
   getFixtureHandlers: (id: string) => GestureResponderHandlers;
   onClose: () => void;
@@ -64,6 +65,7 @@ export function MapFullscreenModal(props: Props) {
         <TableMapSurface
           ref={props.captureRef}
           fullscreen
+          isDragging={props.isDragging}
           tables={props.tables}
           positions={props.positions}
           fixtures={props.fixtures}

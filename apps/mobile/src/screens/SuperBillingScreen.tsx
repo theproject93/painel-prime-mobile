@@ -1,9 +1,18 @@
-import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Screen } from '../components/Screen';
 import { useAuth } from '../contexts/AuthContext';
+import { CustomerBillingView } from '../features/billing/CustomerBillingView';
+import { SuperAdminBillingView } from '../features/billing/SuperAdminBillingView';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
 
@@ -30,35 +39,18 @@ type PaymentRow = {
   processed_at: string;
 };
 
-function formatCurrency(value: number | null | undefined, currency = 'BRL') {
-  if (value == null || Number.isNaN(value)) return '-';
-  return value.toLocaleString('pt-BR', { style: 'currency', currency });
-}
-
 export function SuperBillingScreen() {
   const router = useRouter();
   const { isSuperAdmin } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const [adminTab, setAdminTab] = useState<'my_subscription' | 'platform'>('my_subscription');
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [subscriptions, setSubscriptions] = useState<SubscriptionRow[]>([]);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
 
-  const metrics = useMemo(() => {
-    const totalAssinantes = subscriptions.length;
-    const ativos = subscriptions.filter((row) => row.status === 'active').length;
-    const pendentes = subscriptions.filter((row) => ['pending_checkout', 'pending_payment', 'pending_pix', 'pending'].includes(row.status)).length;
-    const receitaAprovada = payments
-      .filter((row) => row.status === 'approved')
-      .reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
-    return { totalAssinantes, ativos, pendentes, receitaAprovada };
-  }, [payments, subscriptions]);
-
-  const load = useCallback(async () => {
-    if (!isSuperAdmin) {
-      setLoading(false);
-      return;
-    }
+  const loadPlatformData = useCallback(async () => {
+    if (!isSuperAdmin) return;
     setLoading(true);
     setError('');
 
@@ -70,140 +62,227 @@ export function SuperBillingScreen() {
         .limit(300),
       supabase
         .from('billing_payments')
-        .select('id,user_id,provider,provider_payment_id,status,amount,currency,payment_method_id,payer_email,processed_at')
+        .select(
+          'id,user_id,provider,provider_payment_id,status,amount,currency,payment_method_id,payer_email,processed_at',
+        )
         .order('processed_at', { ascending: false })
         .limit(300),
     ]);
 
     if (subsRes.error || paymentsRes.error) {
-      setError(subsRes.error?.message || paymentsRes.error?.message || 'Falha ao carregar assinaturas.');
-      setLoading(false);
-      return;
+      setError(subsRes.error?.message || paymentsRes.error?.message || 'Falha ao carregar dados da plataforma.');
+    } else {
+      setSubscriptions((subsRes.data ?? []) as SubscriptionRow[]);
+      setPayments((paymentsRes.data ?? []) as PaymentRow[]);
     }
-
-    setSubscriptions((subsRes.data ?? []) as SubscriptionRow[]);
-    setPayments((paymentsRes.data ?? []) as PaymentRow[]);
     setLoading(false);
   }, [isSuperAdmin]);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
-    }, [load]),
+      if (isSuperAdmin) {
+        void loadPlatformData();
+      }
+    }, [isSuperAdmin, loadPlatformData]),
   );
 
-  async function refreshNow() {
+  async function handleRefreshPlatform() {
     setRefreshing(true);
-    await load();
+    await loadPlatformData();
     setRefreshing(false);
   }
 
-  if (!isSuperAdmin) {
-    return (
-      <Screen title="Assinaturas" subtitle="Acesso restrito">
-        <Pressable onPress={() => router.push('/mais')}>
-          <Text style={styles.back}>Voltar</Text>
-        </Pressable>
-        <View style={styles.card}>
-          <Text style={styles.item}>Você não possui permissão de super admin.</Text>
-        </View>
-      </Screen>
-    );
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.primaryStrong} />
-      </View>
-    );
-  }
-
   return (
-    <Screen title="Assinaturas" subtitle="Painel administrativo de billing">
-      <Pressable onPress={() => router.push('/mais')}>
-        <Text style={styles.back}>Voltar</Text>
-      </Pressable>
-      {error ? <Text style={styles.err}>{error}</Text> : null}
-
-      <View style={styles.rowBtns}>
-        <Pressable style={styles.btnGhost} onPress={() => void refreshNow()}>
-          <Text style={styles.smallText}>{refreshing ? 'Atualizando...' : 'Atualizar'}</Text>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {/* Top Header */}
+      <View style={styles.topHeader}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          accessibilityLabel="Voltar"
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
+          <Text style={styles.backText}>Voltar</Text>
         </Pressable>
+
+        <View style={styles.topHeaderCopy}>
+          <Text style={styles.screenTitle}>
+            {isSuperAdmin && adminTab === 'platform' ? 'Auditoria de Billing' : 'Assinaturas & Planos'}
+          </Text>
+          <Text style={styles.screenSubtitle}>
+            {isSuperAdmin && adminTab === 'platform'
+              ? 'Painel consolidado da plataforma'
+              : 'Equilíbrio Prime & Créditos WhatsApp'}
+          </Text>
+        </View>
       </View>
 
-              <View style={styles.billingTopSection}>
-          <View style={styles.metricsRow}>
-            <Metric label="Assinantes" value={metrics.totalAssinantes} />
-            <Metric label="Ativos" value={metrics.ativos} />
-            <Metric label="Pendentes" value={metrics.pendentes} />
-            <Metric label="Receita aprovada" value={formatCurrency(metrics.receitaAprovada)} />
-          </View>
+      {/* Seletor Super Admin (caso usuário seja Super Admin) */}
+      {isSuperAdmin ? (
+        <View style={styles.adminSelectorWrap}>
+          <Pressable
+            style={[
+              styles.adminTabBtn,
+              adminTab === 'my_subscription' ? styles.adminTabBtnActive : null,
+            ]}
+            onPress={() => setAdminTab('my_subscription')}
+          >
+            <MaterialCommunityIcons
+              name="account-cog-outline"
+              size={16}
+              color={adminTab === 'my_subscription' ? colors.primaryStrong : colors.mutedText}
+            />
+            <Text
+              style={[
+                styles.adminTabText,
+                adminTab === 'my_subscription' ? styles.adminTabTextActive : null,
+              ]}
+            >
+              Minha Assinatura
+            </Text>
+          </Pressable>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Assinaturas</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.tableWrap}>
-                {subscriptions.map((row) => (
-                  <View key={row.user_id} style={styles.tableRow}>
-                    <Text style={[styles.cell, styles.cellId]}>{row.user_id}</Text>
-                    <Text style={styles.cell}>{row.plan_id ?? '-'}</Text>
-                    <Text style={styles.cell}>{formatCurrency(row.amount_cents != null ? row.amount_cents / 100 : null)}</Text>
-                    <Text style={styles.cell}>{row.status}</Text>
-                    <Text style={styles.cell}>{row.last_payment_status ?? '-'}</Text>
-                  </View>
-                ))}
-                {subscriptions.length === 0 ? <Text style={styles.caption}>Nenhuma assinatura encontrada.</Text> : null}
-              </View>
-            </ScrollView>
-          </View>
+          <Pressable
+            style={[
+              styles.adminTabBtn,
+              adminTab === 'platform' ? styles.adminTabBtnActive : null,
+            ]}
+            onPress={() => setAdminTab('platform')}
+          >
+            <MaterialCommunityIcons
+              name="view-dashboard-outline"
+              size={16}
+              color={adminTab === 'platform' ? colors.primaryStrong : colors.mutedText}
+            />
+            <Text
+              style={[
+                styles.adminTabText,
+                adminTab === 'platform' ? styles.adminTabTextActive : null,
+              ]}
+            >
+              Visão da Plataforma
+            </Text>
+          </Pressable>
         </View>
+      ) : null}
 
-              <View style={styles.card}>
-          <Text style={styles.cardTitle}>Pagamentos recentes</Text>
-          {payments.slice(0, 40).map((row) => (
-            <View key={row.id} style={styles.paymentCard}>
-              <Text style={styles.item}>{new Date(row.processed_at).toLocaleString('pt-BR')}</Text>
-              <Text style={styles.item}>Status: {row.status}</Text>
-              <Text style={styles.item}>Valor: {formatCurrency(row.amount, row.currency ?? 'BRL')}</Text>
-              <Text style={styles.item}>Metodo: {row.payment_method_id ?? '-'}</Text>
-              <Text style={styles.item}>Pagador: {row.payer_email ?? '-'}</Text>
+      {/* Conteúdo Principal */}
+      <View style={styles.contentWrap}>
+        {isSuperAdmin && adminTab === 'platform' ? (
+          loading && !refreshing ? (
+            <View style={styles.loadingCenter}>
+              <ActivityIndicator size="large" color={colors.primaryStrong} />
+              <Text style={styles.loadingText}>Carregando métricas da plataforma...</Text>
             </View>
-          ))}
-          {payments.length === 0 ? <Text style={styles.caption}>Nenhum pagamento encontrado.</Text> : null}
-        </View>
-          </Screen>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <View style={styles.metricCard}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-    </View>
+          ) : (
+            <SuperAdminBillingView
+              subscriptions={subscriptions}
+              payments={payments}
+              refreshing={refreshing}
+              error={error}
+              onRefresh={() => void handleRefreshPlatform()}
+            />
+          )
+        ) : (
+          <CustomerBillingView />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
-  back: { color: colors.mutedText, fontSize: 13, fontWeight: '600' },
-  err: { color: colors.dangerText, backgroundColor: colors.dangerBg, borderRadius: 8, padding: 8 },
-  rowBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  btnGhost: { minHeight: 36, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
-  smallText: { color: colors.text, fontSize: 12, fontWeight: '600' },
-  billingTopSection: { gap: 14 },
-  metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  metricCard: { flexBasis: '48%', borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.card, padding: 10, gap: 4 },
-  metricLabel: { color: colors.mutedText, fontSize: 11, fontWeight: '600' },
-  metricValue: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  card: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 10, gap: 8 },
-  cardTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  tableWrap: { gap: 6 },
-  tableRow: { flexDirection: 'row', gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 8, minWidth: 900 },
-  cell: { width: 150, color: colors.text, fontSize: 12 },
-  cellId: { width: 260, color: colors.mutedText },
-  item: { color: colors.text, fontSize: 12, fontWeight: '600' },
-  paymentCard: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 8, gap: 3 },
-  caption: { color: colors.mutedText, fontSize: 12 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+    gap: 12,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  backText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  topHeaderCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  screenTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  screenSubtitle: {
+    fontSize: 11,
+    color: colors.mutedText,
+    fontWeight: '500',
+  },
+  adminSelectorWrap: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 8,
+  },
+  adminTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: '#FFFFFF',
+  },
+  adminTabBtnActive: {
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.primarySoft,
+  },
+  adminTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.mutedText,
+  },
+  adminTabTextActive: {
+    color: colors.primaryStrong,
+    fontWeight: '800',
+  },
+  contentWrap: {
+    flex: 1,
+  },
+  loadingCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 24,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.mutedText,
+    fontWeight: '600',
+  },
 });

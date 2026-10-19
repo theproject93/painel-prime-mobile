@@ -2,7 +2,7 @@
   "expo": {
     "name": "Painel Prime",
     "slug": "lucas-ferreira",
-    "version": "1.6.0",
+    "version": "1.5.1",
     "scheme": "painelprime",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,7 +24,7 @@
     },
     "android": {
       "package": "br.com.painelprime.app",
-      "versionCode": 12,
+      "versionCode": 11,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -82,7 +82,7 @@
       [
         "@sentry/react-native/expo",
         {
-          "url": "https://errors.painelprime.com.br",
+          "url": "https://sentry.io/",
           "project": "painel-prime-mobile",
           "organization": "painel-prime"
         }

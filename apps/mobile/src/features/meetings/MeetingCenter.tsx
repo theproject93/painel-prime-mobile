@@ -23,6 +23,7 @@ import { groupMeetings, parseBrazilianDateTime, shouldOfferAtaRetry } from './me
 import { defaultMeetingSchedule, formatMeetingDateTime, meetingError, type Meeting } from './meetingModel';
 import { invokeMeetingAction } from './meetingService';
 import { useMeetingsData } from './useMeetingsData';
+import { AtaDocumentModal } from './AtaDocumentModal';
 
 type MeetingCenterProps = {
   eventId: string;
@@ -36,6 +37,7 @@ export function MeetingCenter({ eventId }: MeetingCenterProps) {
   const [title, setTitle] = useState('Alinhamento com o cliente');
   const [scheduledAt, setScheduledAt] = useState(defaultMeetingSchedule);
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
+  const [selectedAtaMeeting, setSelectedAtaMeeting] = useState<Meeting | null>(null);
 
   useEffect(() => {
     setNotesDraft((current) => { const next = { ...current }; for (const meeting of meetings) if (next[meeting.id] === undefined) next[meeting.id] = meeting.notes ?? ''; return next; });
@@ -164,19 +166,8 @@ export function MeetingCenter({ eventId }: MeetingCenterProps) {
     }
   }
 
-  async function openMinutes(meeting: Meeting) {
-    const fileId = meeting.meeting_minutes?.find((minute) => minute.pdf_url)?.pdf_url;
-    if (!fileId || busyAction) return;
-    setBusyAction(`pdf:${meeting.id}`);
-    setError('');
-    try {
-      const url = await getPrivateFileDownloadUrl(fileId);
-      await WebBrowser.openBrowserAsync(url);
-    } catch (pdfError) {
-      setError(meetingError(pdfError, 'Não foi possível abrir a ata.'));
-    } finally {
-      setBusyAction('');
-    }
+  function openMinutes(meeting: Meeting) {
+    setSelectedAtaMeeting(meeting);
   }
 
   if (loading) {
@@ -366,6 +357,14 @@ export function MeetingCenter({ eventId }: MeetingCenterProps) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {selectedAtaMeeting ? (
+        <AtaDocumentModal
+          visible={Boolean(selectedAtaMeeting)}
+          onClose={() => setSelectedAtaMeeting(null)}
+          meeting={selectedAtaMeeting}
+        />
+      ) : null}
     </View>
   );
 }

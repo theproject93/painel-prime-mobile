@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { withTimeout } from '../events/eventPresentation';
 import { supabase } from '../../lib/supabase';
 import { FIXTURE_LIBRARY, MAP_HEIGHT, MAP_WIDTH } from './constants';
-import { buildInitialTablePositions, buildOccupancy, fixtureLabel, parseFixtureRows, snap } from './core';
-import type { ActiveDragKeys, AutosaveState, FixtureItem, FixtureType, GuestRow, TablePositions, TableRow } from './types';
+import { buildInitialTablePositions, buildOccupancy, fixtureLabel, getFixtureSpace, parseFixtureRows, snap } from './core';
+import type { ActiveDragKeys, AutosaveState, FixtureItem, FixtureType, GuestRow, MapSpace, TablePositions, TableRow } from './types';
 
 function friendlyMapError(error: unknown, fallback: string) {
   const message = error instanceof Error
@@ -28,10 +28,12 @@ type Params = {
   activeDragKeys: ActiveDragKeys;
   onError: (message: string) => void;
   onTablePositionLocalUpdate?: (tableId: string, x: number, y: number) => void;
+  initialSpace?: MapSpace;
 };
 
 export function useTableMapModel(params: Params) {
   const { eventId, tables, guests, activeDragKeys, onTablePositionLocalUpdate } = params;
+  const [activeSpace, setActiveSpace] = useState<MapSpace>(params.initialSpace ?? 'party');
   const [tablePositions, setTablePositions] = useState<TablePositions>({});
   const [fixtures, setFixtures] = useState<FixtureItem[]>([]);
   const [loadingFixtures, setLoadingFixtures] = useState(false);
@@ -61,7 +63,7 @@ export function useTableMapModel(params: Params) {
       try {
         const full = await withTimeout(
           // egress-guard: allow-unbounded -- every event-scoped fixture is required to reconstruct the map.
-          supabase.from('event_map_fixtures').select('id,type,x,y,w,h,custom_label').eq('event_id', eventId).order('created_at', { ascending: true }),
+          supabase.from('event_map_fixtures').select('id,type,x,y,w,h,custom_label,space').eq('event_id', eventId).order('created_at', { ascending: true }),
           12_000,
         );
         let rows: Array<Record<string, unknown>>;
@@ -69,14 +71,23 @@ export function useTableMapModel(params: Params) {
           setHasCustomLabelColumn(true);
           rows = (full.data ?? []) as Array<Record<string, unknown>>;
         } else {
-          const fallback = await withTimeout(
-            // egress-guard: allow-unbounded -- legacy schema fallback must reconstruct the complete event map.
-            supabase.from('event_map_fixtures').select('id,type,x,y,w,h').eq('event_id', eventId).order('created_at', { ascending: true }),
+          const withLabel = await withTimeout(
+            supabase.from('event_map_fixtures').select('id,type,x,y,w,h,custom_label').eq('event_id', eventId).order('created_at', { ascending: true }),
             12_000,
           );
-          if (fallback.error) throw fallback.error;
-          setHasCustomLabelColumn(false);
-          rows = (fallback.data ?? []) as Array<Record<string, unknown>>;
+          if (!withLabel.error) {
+            setHasCustomLabelColumn(true);
+            rows = (withLabel.data ?? []) as Array<Record<string, unknown>>;
+          } else {
+            const fallback = await withTimeout(
+              // egress-guard: allow-unbounded -- legacy schema fallback must reconstruct the complete event map.
+              supabase.from('event_map_fixtures').select('id,type,x,y,w,h').eq('event_id', eventId).order('created_at', { ascending: true }),
+              12_000,
+            );
+            if (fallback.error) throw fallback.error;
+            setHasCustomLabelColumn(false);
+            rows = (fallback.data ?? []) as Array<Record<string, unknown>>;
+          }
         }
         if (alive) setFixtures(parseFixtureRows(rows));
       } catch (error) {
@@ -93,6 +104,29 @@ export function useTableMapModel(params: Params) {
   }, [eventId, loadAttempt]);
 
   const occupancy = useMemo(() => buildOccupancy(guests), [guests]);
+
+  const currentFixtures = useMemo(
+    () => fixtures.filter((f) => (f.space ? f.space === activeSpace : getFixtureSpace(f.type) === activeSpace)),
+    [fixtures, activeSpace],
+  );
+
+  const churchFixturesCount = useMemo(
+    () => fixtures.filter((f) => (f.space ? f.space === 'church' : getFixtureSpace(f.type) === 'church')).length,
+    [fixtures],
+  );
+
+  const partyFixturesCount = useMemo(
+    () => fixtures.filter((f) => (f.space ? f.space === 'party' : getFixtureSpace(f.type) === 'party')).length,
+    [fixtures],
+  );
+
+  const currentTables = useMemo(() => {
+    if (activeSpace === 'party') {
+      return tables.filter((t) => t.space !== 'church');
+    }
+    return tables.filter((t) => t.space === 'church');
+  }, [activeSpace, tables]);
+
   const selectedFixture = useMemo(
     () => fixtures.find((fixture) => fixture.id === selectedFixtureId) ?? null,
     [fixtures, selectedFixtureId],
@@ -130,8 +164,9 @@ export function useTableMapModel(params: Params) {
     } else setAutosaveState('saved');
   }, []);
 
-  const addFixture = useCallback(async (type: FixtureType) => {
+  const addFixture = useCallback(async (type: FixtureType, spaceParam?: MapSpace) => {
     setAutosaveState('saving');
+    const targetSpace = spaceParam ?? activeSpace;
     const config = FIXTURE_LIBRARY[type];
     const count = fixturesRef.current.length;
     const payload: Record<string, unknown> = {
@@ -141,19 +176,24 @@ export function useTableMapModel(params: Params) {
       y: Math.min(50 + Math.floor(count / 5) * 120, MAP_HEIGHT - config.h),
       w: config.w,
       h: config.h,
+      space: targetSpace,
     };
     if (hasCustomLabelColumn) payload.custom_label = null;
-    const columns = hasCustomLabelColumn ? 'id,type,x,y,w,h,custom_label' : 'id,type,x,y,w,h';
-    const result = await supabase.from('event_map_fixtures').insert(payload).select(columns).maybeSingle();
+    const columns = hasCustomLabelColumn ? 'id,type,x,y,w,h,custom_label,space' : 'id,type,x,y,w,h';
+    let result = await supabase.from('event_map_fixtures').insert(payload).select(columns).maybeSingle();
+    if (result.error) {
+      delete payload.space;
+      result = await supabase.from('event_map_fixtures').insert(payload).select(hasCustomLabelColumn ? 'id,type,x,y,w,h,custom_label' : 'id,type,x,y,w,h').maybeSingle();
+    }
     if (result.error || !result.data) {
       setAutosaveState('error');
       onErrorRef.current(friendlyMapError(result.error, 'Não foi possível adicionar este item ao mapa. Tente novamente.'));
       return;
     }
     const [fixture] = parseFixtureRows([result.data as unknown as Record<string, unknown>]);
-    if (fixture) setFixtures((current) => [...current, fixture]);
+    if (fixture) setFixtures((current) => [...current, { ...fixture, space: targetSpace }]);
     setAutosaveState('saved');
-  }, [eventId, hasCustomLabelColumn]);
+  }, [activeSpace, eventId, hasCustomLabelColumn]);
 
   const deleteFixture = useCallback(async (fixtureId: string) => {
     setAutosaveState('saving');
@@ -213,5 +253,8 @@ export function useTableMapModel(params: Params) {
     fixtureLabelDraft, setFixtureLabelDraft, savingFixtureLabel,
     persistTablePosition, persistFixturePosition,
     addFixture, deleteFixture, saveFixtureLabel, resetMap,
+    activeSpace, setActiveSpace,
+    currentFixtures, currentTables,
+    churchFixturesCount, partyFixturesCount,
   };
 }

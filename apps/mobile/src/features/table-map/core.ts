@@ -40,11 +40,21 @@ export function buildOccupancy(guests: GuestRow[]) {
   }, new Map<string, number>());
 }
 
+export function getFixtureSpace(type: string): import('./types').MapSpace {
+  if (type.startsWith('church_') || type === 'altar') {
+    return 'church';
+  }
+  return 'party';
+}
+
 export function parseFixtureRows(rows: Array<Record<string, unknown>>) {
   return rows.flatMap((row) => {
     const type = String(row.type ?? '');
     if (!isFixtureType(type)) return [];
     const config = FIXTURE_LIBRARY[type];
+    const space = row.space === 'church' || row.space === 'party'
+      ? (row.space as import('./types').MapSpace)
+      : getFixtureSpace(type);
     return [{
       id: String(row.id),
       type,
@@ -53,6 +63,7 @@ export function parseFixtureRows(rows: Array<Record<string, unknown>>) {
       w: toNumber(row.w, config.w),
       h: toNumber(row.h, config.h),
       custom_label: typeof row.custom_label === 'string' ? row.custom_label : null,
+      space,
     } satisfies FixtureItem];
   });
 }

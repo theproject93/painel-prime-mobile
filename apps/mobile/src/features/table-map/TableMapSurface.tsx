@@ -13,6 +13,7 @@ type Props = {
   fixtures: FixtureItem[];
   occupancy: Map<string, number>;
   fullscreen?: boolean;
+  isDragging?: boolean;
   getTableHandlers: (id: string) => GestureResponderHandlers;
   getFixtureHandlers: (id: string) => GestureResponderHandlers;
   onSelectFixture: (id: string) => void;
@@ -22,8 +23,17 @@ type Props = {
 export const TableMapSurface = forwardRef<View, Props>(function TableMapSurface(props, ref) {
   return (
     <View ref={ref} collapsable={false} style={[styles.mapFrame, props.fullscreen ? styles.fullscreenMapFrame : null]}>
-      <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false}>
-        <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        scrollEnabled={!props.isDragging}
+        showsHorizontalScrollIndicator={false}
+      >
+        <ScrollView
+          nestedScrollEnabled
+          scrollEnabled={!props.isDragging}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.gridWrap}>
             <View style={styles.gridUnderlay}>
               {Array.from({ length: Math.floor(MAP_WIDTH / GRID) }).map((_, index) => (

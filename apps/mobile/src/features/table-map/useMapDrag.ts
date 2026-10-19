@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { PanResponder } from 'react-native';
 
 import { MAP_HEIGHT, MAP_WIDTH } from './constants';
@@ -13,9 +13,11 @@ type Params = {
   setFixtures: Dispatch<SetStateAction<FixtureItem[]>>;
   persistTablePosition: (id: string) => Promise<void>;
   persistFixturePosition: (id: string) => Promise<void>;
+  onDragStatusChange?: (dragging: boolean) => void;
 };
 
 export function useMapDrag(params: Params) {
+  const [isDragging, setIsDragging] = useState(false);
   const tableResponders = useRef<Record<string, ReturnType<typeof PanResponder.create>>>({});
   const fixtureResponders = useRef<Record<string, ReturnType<typeof PanResponder.create>>>({});
   const starts = useRef<Record<string, Point>>({});
@@ -80,6 +82,8 @@ export function useMapDrag(params: Params) {
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         params.activeDragKeys.current.add(key);
+        setIsDragging(true);
+        params.onDragStatusChange?.(true);
         starts.current[key] = params.tablePositionsRef.current[tableId] ?? { x: 40, y: 140 };
       },
       onPanResponderMove: (_event, gesture) => {
@@ -91,12 +95,20 @@ export function useMapDrag(params: Params) {
       },
       onPanResponderRelease: () => {
         params.activeDragKeys.current.delete(key);
+        if (params.activeDragKeys.current.size === 0) {
+          setIsDragging(false);
+          params.onDragStatusChange?.(false);
+        }
         flushTable(tableId);
         delete starts.current[key];
         void persistTableRef.current(tableId);
       },
       onPanResponderTerminate: () => {
         params.activeDragKeys.current.delete(key);
+        if (params.activeDragKeys.current.size === 0) {
+          setIsDragging(false);
+          params.onDragStatusChange?.(false);
+        }
         pendingTable.current.delete(tableId);
         const start = starts.current[key];
         if (start) {
@@ -107,7 +119,7 @@ export function useMapDrag(params: Params) {
       },
     });
     return tableResponders.current[key];
-  }, [flushTable, params.activeDragKeys, params.setTablePositions, params.tablePositionsRef, scheduleTable]);
+  }, [flushTable, params.activeDragKeys, params.onDragStatusChange, params.setTablePositions, params.tablePositionsRef, scheduleTable]);
 
   const getFixturePanResponder = useCallback((fixtureId: string) => {
     const key = `fixture:${fixtureId}`;
@@ -117,6 +129,8 @@ export function useMapDrag(params: Params) {
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         params.activeDragKeys.current.add(key);
+        setIsDragging(true);
+        params.onDragStatusChange?.(true);
         const fixture = params.fixturesRef.current.find((item) => item.id === fixtureId);
         starts.current[key] = { x: fixture?.x ?? 60, y: fixture?.y ?? 60 };
       },
@@ -131,12 +145,20 @@ export function useMapDrag(params: Params) {
       },
       onPanResponderRelease: () => {
         params.activeDragKeys.current.delete(key);
+        if (params.activeDragKeys.current.size === 0) {
+          setIsDragging(false);
+          params.onDragStatusChange?.(false);
+        }
         flushFixture(fixtureId);
         delete starts.current[key];
         void persistFixtureRef.current(fixtureId);
       },
       onPanResponderTerminate: () => {
         params.activeDragKeys.current.delete(key);
+        if (params.activeDragKeys.current.size === 0) {
+          setIsDragging(false);
+          params.onDragStatusChange?.(false);
+        }
         pendingFixture.current.delete(fixtureId);
         const start = starts.current[key];
         if (start) {
@@ -147,7 +169,7 @@ export function useMapDrag(params: Params) {
       },
     });
     return fixtureResponders.current[key];
-  }, [flushFixture, params.activeDragKeys, params.fixturesRef, params.setFixtures, scheduleFixture]);
+  }, [flushFixture, params.activeDragKeys, params.fixturesRef, params.onDragStatusChange, params.setFixtures, scheduleFixture]);
 
-  return { getTablePanResponder, getFixturePanResponder };
+  return { getTablePanResponder, getFixturePanResponder, isDragging };
 }

@@ -1,6 +1,8 @@
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { MutableRefObject } from 'react';
 
+export type MapSpace = 'party' | 'church';
+
 export type TableRow = {
   id: string;
   name: string | null;
@@ -8,9 +10,29 @@ export type TableRow = {
   note?: string | null;
   posx?: number | null;
   posy?: number | null;
+  space?: MapSpace;
 };
-export type GuestRow = { id: string; table_id: string | null };
-export type FixtureType = 'altar' | 'photo_totem' | 'cake_table' | 'dance_floor' | 'bar' | 'entry_door' | 'exit_door' | 'restroom';
+
+export type GuestRow = {
+  id: string;
+  name?: string | null;
+  phone?: string | null;
+  table_id: string | null;
+  confirmed?: boolean | null;
+  rsvp_status?: string | null;
+  family_group_id?: string | null;
+};
+
+export type FixtureType =
+  | 'altar'
+  | 'photo_totem'
+  | 'cake_table'
+  | 'dance_floor'
+  | 'bar'
+  | 'entry_door'
+  | 'exit_door'
+  | 'restroom';
+
 export type FixtureConfig = {
   label: string;
   color: string;
@@ -20,6 +42,7 @@ export type FixtureConfig = {
   w: number;
   h: number;
 };
+
 export type FixtureItem = {
   id: string;
   type: FixtureType;
@@ -28,7 +51,9 @@ export type FixtureItem = {
   w: number;
   h: number;
   custom_label?: string | null;
+  space?: MapSpace;
 };
+
 export type Point = { x: number; y: number };
 export type TablePositions = Record<string, Point>;
 export type AutosaveState = 'saved' | 'saving' | 'error';

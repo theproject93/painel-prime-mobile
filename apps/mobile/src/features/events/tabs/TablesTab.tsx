@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, TextInput } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { EventTablesVisualMap } from '../../../components/EventTablesVisualMap';
 import {
@@ -46,6 +48,7 @@ export function TablesTab({
   onReload,
   onTablePositionLocalUpdate,
 }: TablesTabProps) {
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   return (
@@ -61,6 +64,28 @@ export function TablesTab({
       actionLabel="Adicionar mesa"
       onAction={onOpenComposer}
     >
+      <Pressable
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          backgroundColor: '#EFF6FF',
+          borderWidth: 1,
+          borderColor: '#BFDBFE',
+          borderRadius: 12,
+          paddingVertical: 10,
+          paddingHorizontal: 14,
+          marginBottom: 8,
+        }}
+        onPress={() => router.push(`/(app)/eventos/${eventId}/mesas` as any)}
+      >
+        <Ionicons name="finger-print-outline" size={18} color="#1D4ED8" />
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#1D4ED8' }}>
+          Abrir Mapa Touch Completo
+        </Text>
+        <Ionicons name="arrow-forward" size={15} color="#1D4ED8" />
+      </Pressable>
       <EventFilterChips
         selected={viewMode}
         onSelect={(value) => setViewMode(value as typeof viewMode)}
