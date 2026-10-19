@@ -21,6 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_GCP_KEY: ${{ secrets.GCP_SA_KEY != '' }}
+      TMPDIR: /home/runner/tmp
+      TEMP: /home/runner/tmp
+      TMP: /home/runner/tmp
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -39,9 +42,13 @@ jobs:
           sudo rm -rf /usr/local/lib/android/sdk/ndk/23* || true
           sudo rm -rf /usr/local/lib/android/sdk/ndk/25* || true
           sudo rm -rf /usr/local/lib/android/sdk/ndk/26* || true
+          # Redireciona /tmp/runner (onde o EAS faz o build local) para o disco raiz com 90GB+ livres
+          mkdir -p /home/runner/tmp/runner
+          mkdir -p /tmp/runner
+          sudo mount --bind /home/runner/tmp/runner /tmp/runner
           echo "NDKs disponíveis:"
           ls -la /usr/local/lib/android/sdk/ndk/ || true
-          echo "Espaço em disco após a limpeza:"
+          echo "Espaço em disco após a limpeza e bind mount:"
           df -h
 
       - name: Setup Java
@@ -120,6 +127,7 @@ jobs:
         working-directory: apps/mobile
         run: eas build --platform android --profile release-apk --local --non-interactive --output=../../${{ steps.vars.outputs.APK_NAME }}
         env:
+          TMPDIR: /home/runner/tmp
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           SENTRY_URL: https://errors.painelprime.com.br
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
