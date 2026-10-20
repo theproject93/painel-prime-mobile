@@ -527,4 +527,77 @@ Diretrizes normativas para paridade estrita de recursos entre Web e Mobile (`app
 
 ---
 
-**Última atualização:** 2026-10-18 — Adicionadas as **Seções 16 a 21** (Módulos de Paridade Mobile Padrinhos, RSVP, Mesas, Atas e SuperBilling; Pré-validação de Créditos WhatsApp; Bootstrap Resiliente de Billing e Prevenção de Loop de Onboarding; Observabilidade e Anotação `// observability-ignore:`; Higiene de Build, CI/CD e Robo Scripts; e Sincronização Compulsória Multi-Repositório).
+## 22. ARQUITETURA DE ALERTAS E NOTIFICAÇÕES NATIVAS NA BANDEJA ANDROID (API 26+), ÍCONE OFICIAL E CANAIS DE NOTIFICAÇÃO (2026-10-19)
+
+- **Causa Raiz & Incidente (Outubro/2026):** No Android, ícones coloridos de notificação eram convertidos pelo sistema em blocos retangulares brancos/cinzas desprovidos de forma, além de notificações sem canal explícito serem sumariamente silenciadas a partir do Android Oreo (API 26). Adicionalmente, cerimonialistas em locais remotos e sem internet estável perdiam avisos de reuniões e prazos caso a notificação dependesse exclusivamente de push remoto.
+- **Cláusulas Pétreas:**
+  1. **Ícone Monocromático com Canal Alfa Transparente:**
+     - O arquivo `apps/mobile/assets/notification-icon.png` DEVE possuir resolução `96x96px`, ser estritamente monocromático com pixels brancos puros (`#FFFFFF`) e fundo em canal alfa transparente. É proibido qualquer pixel colorido ou fundo opaco.
+     - A cor de destaque institucional (`#023c69`) DEVE ser configurada em `app.json` sob `expo.notification.color`.
+  2. **Registro dos 4 Canais Nativos Obrigatórios:**
+     - Toda notificação local ou push DEVE especificar um canal registrado via `setupNotificationChannels()`:
+       - `reunioes_alertas` (`AndroidImportance.MAX`): Chamadas e reuniões (som, vibração padrão e heads-up banner).
+       - `tarefas_prazos` (`AndroidImportance.HIGH`): Prazos críticos do evento e tarefas.
+       - `rsvp_atividade` (`AndroidImportance.DEFAULT`): Confirmações de convidados e mensagens.
+       - `financeiro_avisos` (`AndroidImportance.LOW`): Alertas de faturamento e extrato.
+  3. **Agendamento Local Defensivo (Offline-First):**
+     - Ao sincronizar reuniões e tarefas, o app DEVE agendar localmente no dispositivo lembretes de 15 minutos antes e hora de início via `Notifications.scheduleNotificationAsync`, assegurando entrega mesmo sem sinal de internet em campo.
+  4. **Deep Linking no Toque da Notificação:**
+     - O payload da notificação DEVE conter `data: { url: 'painelprime://...' }` e o ouvinte `addNotificationResponseReceivedListener` deve despachar o usuário imediatamente para a rota interna relevante.
+
+---
+
+## 23. PADRÕES CORPORATIVOS DE UI/UX MOBILE: ALVOS DE TOQUE (TOUCH TARGETS >= 44x44PT), FEEDBACK HÁPTICO TÁTIL E SKELETONS SHIMMER ANTI-CLS (2026-10-19)
+
+- **Causa Raiz & Incidente (Outubro/2026):** Durante eventos ao vivo, botões menores que 44pt causavam toques erráticos e acidentais pelos operadores em trânsito. Carregamentos com spinners circulares causavam deslocamento repentino de layout (CLS), e ausência de resposta tátil gerava dúvidas se o toque havia sido registrado.
+- **Cláusulas Pétreas:**
+  1. **Dimensão Mínima de Toque (44x44pt):**
+     - Todo componente interativo móvel (`Button`, fechar de `Modal`, CTAs de `EmptyState`, botões de cabeçalho, chips de filtro) DEVE atender à área mínima de toque de `44x44pt` recomendada por Apple HIG e Google Material. Para ícones menores, é compulsório o uso de `hitSlop` (`hitSlop={12}` ou `hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}`).
+  2. **Feedback Háptico Centralizado (`AppHaptics`):**
+     - O módulo `apps/mobile/src/lib/haptics.ts` DEVE ser acionado para feedback tátil:
+       - `AppHaptics.selection()`: Seleção de filtros, chips e ciclo de billing.
+       - `AppHaptics.light()`: Toques em cards e abertura de modais.
+       - `AppHaptics.medium()`: Arrastar mesas no mapa do salão ou reordenar convidados.
+       - `AppHaptics.success()`: Confirmação de tarefas, RSVP e envios Plan IA.
+       - `AppHaptics.error()`: Falhas de validação e créditos esgotados.
+     - As chamadas DEVEM conter guardas defensivas para evitar erros em simuladores ou aparelhos sem suporte.
+  3. **Skeleton Shimmer Loaders Anti-CLS:**
+     - Substituir integralmente spinners isolados pelo componente `Skeleton` com dimensões espelhadas nos cards e listas finais, eliminando Content Layout Shift (CLS).
+
+---
+
+## 24. PROTEÇÃO CONTRA SKEW DE RELÓGIO DO CLIENTE E CÁLCULOS DE JANELA TEMPORAL (2026-10-19)
+
+- **Causa Raiz & Incidente (Outubro/2026):** Discrepâncias entre o relógio local do smartphone do operador e o relógio UTC dos servidores geravam contagens regressivas negativas ou cálculos bizarros na contagem regressiva da janela de 24h do WhatsApp RSVP (`rsvpInboxModel.ts`).
+- **Cláusulas Pétreas:**
+  1. **Validação Defensiva de Tempo Decorrido (`elapsed`):**
+     - Funções de contagem regressiva no cliente DEVEM verificar defensivamente desvios de relógio:
+       ```ts
+       const elapsed = nowMs - parsed;
+       if (elapsed < 0 || elapsed >= TWENTY_FOUR_HOURS_MS) return 'Janela 24h fechada';
+       const remainingMs = TWENTY_FOUR_HOURS_MS - elapsed;
+       if (remainingMs <= 0) return 'Janela 24h fechada';
+       ```
+  2. **Segurança contra Relógio Adiantado/Atrasado:**
+     - Se o tempo decorrido for menor que zero (`elapsed < 0`), o sistema DEVE assumir imediatamente que a janela está fechada, evitando contagens incorretas na UI.
+
+---
+
+## 25. GOVERNANÇA DE BUILD NATIVO E CI/CD ANDROID NO GITHUB ACTIONS: LIMPEZA DE DISCO, PRESERVAÇÃO DO NDK 27 E BIND MOUNT DE /tmp/runner (2026-10-19)
+
+- **Causa Raiz & Incidente (Outubro/2026):** A compilação do APK de release via EAS Build Local no GitHub Actions (`preview-build.yml`) falhava repetidamente com erro `ENOSPC: no space left on device` devido ao consumo excessivo de disco da imagem `ubuntu-latest` e ao limite rígido de espaço na partição `/tmp`.
+- **Cláusulas Pétreas:**
+  1. **Limpeza Prévia com Preservação Mandatória do NDK 27:**
+     - O step de preparação no workflow DEVE remover SDKs desnecessários (`dotnet`, `ghc`, `boost` e NDKs 23, 25 e 26), PRESERVANDO OBRIGATORIAMENTE o NDK 27 (`/usr/local/lib/android/sdk/ndk/27*`) exigido pelo React Native 0.81.5 e Expo SDK 54:
+       ```bash
+       sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk/23* /usr/local/lib/android/sdk/ndk/25* /usr/local/lib/android/sdk/ndk/26*
+       ```
+  2. **Redirecionamento de Variáveis Temporárias e Bind Mount de `/tmp/runner`:**
+     - O workflow DEVE exportar `TMPDIR=/home/runner/tmp`, `TEMP=/home/runner/tmp` e `TMP=/home/runner/tmp`.
+     - O diretório `/tmp/runner` utilizado pelo EAS DEVE ser redirecionado via `mount --bind /home/runner/tmp/runner /tmp/runner` para o disco raiz com mais de 90 GB livres.
+  3. **Instalação Frozen de Dependências:**
+     - O lockfile `pnpm-lock.yaml` do repositório mobile DEVE ser estritamente mantido para compilações com `--frozen-lockfile`, garantindo determinismo na esteira de CI/CD.
+
+---
+
+**Última atualização:** 2026-10-19 — Adicionadas as **Seções 22 a 25** (Arquitetura de Alertas e Notificações na Bandeja Android; Padrões Corporativos de UI/UX Mobile, Touch Targets e Skeletons; Proteção contra Clock Skew; e Governança de Build Nativo, Bind Mount e Preservação do NDK 27).
