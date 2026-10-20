@@ -14,7 +14,7 @@ export function SettingsScreen() {
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
-    <Screen title="Configurações" subtitle="Segurança, privacidade e informações do aplicativo">
+    <Screen title="Configurações" subtitle="Segurança, privacidade e informações do aplicativo" showBack>
       <View style={styles.card}>
         <View style={styles.iconWrap}>
           <Ionicons name="shield-checkmark-outline" size={22} color={colors.primaryStrong} />

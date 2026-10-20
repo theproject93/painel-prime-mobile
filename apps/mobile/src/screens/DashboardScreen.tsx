@@ -186,7 +186,27 @@ export function DashboardScreen() {
           <Text style={styles.nextTitle}>{nextAction.title}</Text>
           <Text style={styles.nextDetail}>{nextAction.detail}</Text>
         </View>
-        {nextEvent ? <Pressable style={styles.nextButton} onPress={() => goToEventTab(nextEvent.id, nextAction.tab)}><Ionicons name="arrow-forward" size={20} color="#FFFFFF" /></Pressable> : <Pressable style={styles.nextButton} onPress={() => router.push('/eventos' as never)}><Ionicons name="add" size={22} color="#FFFFFF" /></Pressable>}
+        {nextEvent ? (
+          <Pressable
+            style={styles.nextButton}
+            onPress={() => goToEventTab(nextEvent.id, nextAction.tab)}
+            accessibilityRole="button"
+            accessibilityLabel="Ir para o evento"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+          </Pressable>
+        ) : (
+          <Pressable
+            style={styles.nextButton}
+            onPress={() => router.push('/eventos' as never)}
+            accessibilityRole="button"
+            accessibilityLabel="Criar evento"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="add" size={22} color="#FFFFFF" />
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.statRow}>
@@ -200,7 +220,23 @@ export function DashboardScreen() {
       </View>
 
       <View style={styles.sectionHeader}><Text style={styles.cardTitle}>Ações rápidas</Text><Text style={styles.cardDescription}>Escolha o que você quer avançar agora.</Text></View>
-      <View style={styles.shortcutGrid}>{SHORTCUTS.map((shortcut) => <Pressable key={shortcut.id} style={styles.shortcut} onPress={() => openShortcut(shortcut)}><View style={styles.shortcutIcon}><Ionicons name={shortcut.icon} size={21} color={colors.primaryStrong} /></View><Text style={styles.shortcutTitle}>{shortcut.label}</Text><Text style={styles.shortcutDescription}>{shortcut.description}</Text></Pressable>)}</View>
+      <View style={styles.shortcutGrid}>
+        {SHORTCUTS.map((shortcut) => (
+          <Pressable
+            key={shortcut.id}
+            style={({ pressed }) => [styles.shortcut, pressed && styles.shortcutPressed]}
+            onPress={() => openShortcut(shortcut)}
+            accessibilityRole="button"
+            accessibilityLabel={shortcut.label}
+          >
+            <View style={styles.shortcutIcon}>
+              <Ionicons name={shortcut.icon} size={21} color={colors.primaryStrong} />
+            </View>
+            <Text style={styles.shortcutTitle}>{shortcut.label}</Text>
+            <Text style={styles.shortcutDescription}>{shortcut.description}</Text>
+          </Pressable>
+        ))}
+      </View>
 
       <Modal visible={shortcutModal.open} animationType="slide" onRequestClose={() => setShortcutModal({ open: false, shortcut: null, eventId: '' })}>
         <View style={styles.eventPickerPage}>
@@ -209,7 +245,13 @@ export function DashboardScreen() {
               <Text style={styles.eventPickerTitle}>Eventos</Text>
               <Text style={styles.eventPickerSubtitle}>Escolha onde avançar agora</Text>
             </View>
-            <Pressable style={styles.eventPickerClose} onPress={() => setShortcutModal({ open: false, shortcut: null, eventId: '' })} accessibilityLabel="Fechar seleção de eventos">
+            <Pressable
+              style={styles.eventPickerClose}
+              onPress={() => setShortcutModal({ open: false, shortcut: null, eventId: '' })}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar seleção de eventos"
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
               <Ionicons name="close" size={20} color={colors.text} />
             </Pressable>
           </View>
@@ -276,7 +318,7 @@ const styles = StyleSheet.create({
   eyebrow: { color: '#72550A', fontSize: 10, fontWeight: '800', letterSpacing: 1.1 },
   nextTitle: { color: '#111318', fontSize: 16, fontWeight: '800' },
   nextDetail: { color: '#5C4A18', fontSize: 12, lineHeight: 17 },
-  nextButton: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#111318', alignItems: 'center', justifyContent: 'center' },
+  nextButton: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#111318', alignItems: 'center', justifyContent: 'center' },
   statRow: { flexDirection: 'row', gap: 10 },
   statCard: { flex: 1, minHeight: 132, borderRadius: 20, padding: 15, gap: 7, justifyContent: 'space-between' },
   statLavender: { backgroundColor: '#EEEAFE', borderWidth: 1, borderColor: '#DCD3FF' },
@@ -293,6 +335,7 @@ const styles = StyleSheet.create({
   cardDescription: { color: colors.mutedText, fontSize: 12, lineHeight: 17 },
   shortcutGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   shortcut: { width: '48%', minHeight: 144, padding: 14, borderRadius: 19, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, gap: 8 },
+  shortcutPressed: { opacity: 0.75, transform: [{ scale: 0.98 }] },
   shortcutIcon: { width: 39, height: 39, borderRadius: 13, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   shortcutTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
   shortcutDescription: { color: colors.mutedText, fontSize: 11, lineHeight: 16 },
@@ -300,7 +343,7 @@ const styles = StyleSheet.create({
   eventPickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   eventPickerTitle: { color: colors.text, fontSize: 26, fontWeight: '800' },
   eventPickerSubtitle: { color: colors.mutedText, fontSize: 13 },
-  eventPickerClose: { width: 42, height: 42, borderRadius: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  eventPickerClose: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   eventPickerSearch: { height: 43, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, color: colors.text, backgroundColor: colors.card, marginBottom: 10 },
   eventPickerList: { gap: 10, paddingBottom: 28 },
   eventPickerCard: { backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 10, gap: 6 },

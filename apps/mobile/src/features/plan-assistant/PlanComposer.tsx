@@ -21,7 +21,14 @@ export function PlanComposer(props: {
         onSubmitEditing={props.onSend}
         returnKeyType="send"
       />
-      <Pressable style={styles.sendButton} disabled={props.disabled} onPress={props.onSend}>
+      <Pressable
+        style={styles.sendButton}
+        disabled={props.disabled}
+        onPress={props.onSend}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel="Enviar mensagem para o assistente"
+      >
         <Ionicons name="send" size={16} color="#FFFFFF" />
       </Pressable>
     </View>
@@ -31,5 +38,5 @@ export function PlanComposer(props: {
 const styles = StyleSheet.create({
   wrap: { borderTopWidth: 1, borderTopColor: colors.border, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.card },
   input: { flex: 1, minHeight: 40, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, color: colors.text, backgroundColor: '#FFFFFF' },
-  sendButton: { height: 40, width: 40, borderRadius: 10, backgroundColor: colors.primaryStrong, alignItems: 'center', justifyContent: 'center' },
+  sendButton: { height: 44, width: 44, borderRadius: 10, backgroundColor: colors.primaryStrong, alignItems: 'center', justifyContent: 'center' },
 });

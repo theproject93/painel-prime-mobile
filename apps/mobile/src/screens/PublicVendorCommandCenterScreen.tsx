@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { supabase } from '../lib/supabase';
 import { goBackOrReplace, normalizeSingleParam } from '../lib/router';
 import { colors } from '../theme/colors';
+import { EmptyState } from '../components/ui/EmptyState';
 
 type VendorStatus = 'pending' | 'en_route' | 'arrived' | 'done';
 
@@ -116,14 +117,26 @@ export function PublicVendorCommandCenterScreen() {
   if (!info) {
     return (
       <View style={styles.center}>
-        <Text style={styles.err}>Link inválido.</Text>
+        <EmptyState
+          iconName="alert-circle-outline"
+          title="Link inválido ou expirado"
+          message="Não foi possível carregar as informações deste fornecedor. Verifique o link e tente novamente."
+          actionLabel="Voltar ao início"
+          onAction={() => goBackOrReplace(router, routeHrefs.landing())}
+        />
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Pressable onPress={() => goBackOrReplace(router, routeHrefs.landing())}>
+      <Pressable
+        onPress={() => goBackOrReplace(router, routeHrefs.landing())}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel="Voltar ao início"
+        style={{ minHeight: 44, justifyContent: 'center' }}
+      >
         <Text style={styles.back}>Voltar</Text>
       </Pressable>
       {error ? <Text style={styles.err}>{error}</Text> : null}

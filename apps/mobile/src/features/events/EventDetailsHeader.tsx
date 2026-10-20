@@ -43,10 +43,18 @@ export function EventDetailsHeader(props: Props) {
   const { event, basicDraft } = props;
   return (
     <>
-      <Modal visible={props.loadingTab} transparent animationType="fade" statusBarTranslucent>
+      <Modal visible={props.loadingTab} transparent animationType="fade" statusBarTranslucent onRequestClose={() => {}}>
         <View style={styles.loadingOverlay}><PrimeLogoLoader variant="screen" label="Carregando esta área" /></View>
       </Modal>
-      <Pressable onPress={props.onBack}><Text style={styles.back}>Voltar para eventos</Text></Pressable>
+      <Pressable
+        onPress={props.onBack}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityRole="button"
+        accessibilityLabel="Voltar para eventos"
+        style={{ minHeight: 44, justifyContent: 'center' }}
+      >
+        <Text style={styles.back}>Voltar para eventos</Text>
+      </Pressable>
       {event ? (
         <View style={styles.heroCard}>
           <View style={styles.heroTopRow}>

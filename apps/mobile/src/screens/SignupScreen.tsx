@@ -18,11 +18,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { normalizeSingleParam } from '../lib/router';
 import { typography } from '../theme/fonts';
 import { colors } from '../theme/colors';
+import { AppHaptics } from '../lib/haptics';
+import { mapAuthErrorMessage } from '../lib/authError';
 
 const plans = [
-  { id: 'essencial', name: 'Essencial', price: 'R$ 39/mes', desc: 'CRM + Eventos + Convites + Portais' },
+  { id: 'essencial', name: 'Essencial', price: 'R$ 39/mês', desc: 'CRM + Eventos + Convites + Portais' },
   { id: 'profissional', name: 'Profissional', price: 'R$ 59/mês', desc: 'Tudo do Essencial + reuniões e financeiro completo' },
-  { id: 'elite', name: 'Elite', price: 'R$ 89/mes', desc: 'Tudo + IA comercial + automações avançadas + Prioridade máxima' },
+  { id: 'elite', name: 'Elite', price: 'R$ 89/mês', desc: 'Tudo + IA comercial + automações avançadas + Prioridade máxima' },
 ] as const;
 
 export function SignupScreen() {
@@ -58,12 +60,14 @@ export function SignupScreen() {
 
     if (password !== confirmPassword) {
       setError('As senhas não conferem.');
+      void AppHaptics.error();
       return;
     }
 
     const passwordError = validateStrongPassword(password);
     if (passwordError) {
       setError(passwordError);
+      void AppHaptics.error();
       return;
     }
 
@@ -75,6 +79,7 @@ export function SignupScreen() {
       setError(
         'Esta senha já foi exposta em vazamentos públicos de dados. Por segurança, escolha outra senha.'
       );
+      void AppHaptics.error();
       return;
     }
     try {
@@ -82,10 +87,10 @@ export function SignupScreen() {
       setSuccess(
         `Conta criada no plano ${planLabel}. Teste grátis de 30 dias ativado com acesso completo.`,
       );
+      void AppHaptics.success();
     } catch (signupError: unknown) {
-      const message =
-        signupError instanceof Error ? signupError.message : 'Falha ao criar conta.';
-      setError(message);
+      setError(mapAuthErrorMessage(signupError));
+      void AppHaptics.error();
     } finally {
       setLoading(false);
     }
@@ -98,7 +103,13 @@ export function SignupScreen() {
     >
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.card}>
-          <Pressable onPress={() => router.push(routeHrefs.landing())}>
+          <Pressable
+            onPress={() => router.push(routeHrefs.landing())}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={styles.backLinkWrap}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar ao início"
+          >
             <Text style={styles.backLink}>Voltar ao início</Text>
           </Pressable>
           <Text style={styles.title}>Assinar Painel Prime</Text>
@@ -110,7 +121,10 @@ export function SignupScreen() {
               return (
                 <Pressable
                   key={plan.id}
-                  onPress={() => setSelectedPlan(plan.id)}
+                  onPress={() => {
+                    setSelectedPlan(plan.id);
+                    void AppHaptics.selection();
+                  }}
                   style={[styles.planCard, selected ? styles.planCardSelected : null]}
                 >
                   <Text style={[styles.planName, selected && styles.planNameSelected]}>{plan.name}</Text>
@@ -173,7 +187,13 @@ export function SignupScreen() {
             )}
           </Pressable>
 
-          <Pressable onPress={() => router.push(routeHrefs.login())}>
+          <Pressable
+            onPress={() => router.push(routeHrefs.login())}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={styles.loginLinkWrap}
+            accessibilityRole="button"
+            accessibilityLabel="Já tem conta? Entrar"
+          >
             <Text style={styles.loginLink}>Já tem conta? Entrar</Text>
           </Pressable>
         </View>
@@ -193,6 +213,7 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 12,
   },
+  backLinkWrap: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   backLink: { color: '#A1A1AA', fontSize: 13, fontFamily: typography.fontFamily.sansSemiBold },
   title: { color: '#FFFFFF', fontSize: 30, fontFamily: typography.fontFamily.sansExtraBold },
   subtitle: { color: '#A1A1AA', fontSize: 14, fontFamily: typography.fontFamily.sansMedium, marginBottom: 4 },
@@ -249,5 +270,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryText: { color: '#151922', fontWeight: '700', fontSize: 15, fontFamily: typography.fontFamily.sansBold },
+  loginLinkWrap: { alignSelf: 'center', minHeight: 44, justifyContent: 'center' },
   loginLink: { color: '#A1A1AA', textAlign: 'center', fontFamily: typography.fontFamily.sansSemiBold, fontSize: 13 },
 });

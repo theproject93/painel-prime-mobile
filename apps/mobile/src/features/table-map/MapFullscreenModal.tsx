@@ -35,7 +35,7 @@ type Props = {
 
 export function MapFullscreenModal(props: Props) {
   return (
-    <Modal visible={props.visible} animationType="slide">
+    <Modal visible={props.visible} animationType="slide" onRequestClose={props.onClose}>
       <View style={styles.modalPage}>
         <View style={styles.modalHeader}>
           <View style={styles.modalHeadingCopy}>

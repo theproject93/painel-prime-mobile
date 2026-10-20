@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Badge } from '../../../src/components/ui/Badge';
 import { EmptyState } from '../../../src/components/ui/EmptyState';
+import { SkeletonBox } from '../../../src/components/ui/Skeleton';
 import { AppHaptics } from '../../../src/lib/haptics';
 import { supabase } from '../../../src/lib/supabase';
 import { colors, radii, shadows } from '../../../src/theme/colors';
@@ -213,9 +214,21 @@ export default function TaskDetailRoute() {
       </View>
 
       {loading ? (
-        <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Carregando detalhes da tarefa...</Text>
+        <View style={styles.skeletonContainer}>
+          <View style={[styles.card, shadows.card, { gap: 14 }]}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <SkeletonBox width={90} height={26} borderRadius={13} />
+              <SkeletonBox width={80} height={26} borderRadius={13} />
+            </View>
+            <SkeletonBox width="85%" height={26} borderRadius={6} />
+            <SkeletonBox width="50%" height={16} borderRadius={4} />
+            <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+            <SkeletonBox width="100%" height={48} borderRadius={12} />
+          </View>
+          <View style={[styles.card, shadows.card, { gap: 12, marginTop: 14 }]}>
+            <SkeletonBox width="40%" height={18} borderRadius={4} />
+            <SkeletonBox width="100%" height={60} borderRadius={8} />
+          </View>
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
@@ -432,6 +445,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  skeletonContainer: {
+    padding: 16,
+    gap: 14,
   },
   centerLoading: {
     flex: 1,

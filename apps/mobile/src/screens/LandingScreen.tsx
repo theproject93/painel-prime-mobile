@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Animated, Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -10,9 +10,9 @@ import { colors } from '../theme/colors';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const PLANS = [
-  { id: 'essencial', name: 'Essencial', price: 'R$ 39/m', desc: 'CRM + Eventos + Convites', popular: false },
-  { id: 'profissional', name: 'Profissional', price: 'R$ 59/m', desc: 'Tudo do Essencial + Torre + Financeiro', popular: true },
-  { id: 'elite', name: 'Elite', price: 'R$ 89/m', desc: 'Tudo + IA comercial + automações avançadas', popular: false },
+  { id: 'essencial', name: 'Essencial', price: 'R$ 39/mês', desc: 'CRM + Eventos + Convites', popular: false },
+  { id: 'profissional', name: 'Profissional', price: 'R$ 59/mês', desc: 'Tudo do Essencial + Torre + Financeiro', popular: true },
+  { id: 'elite', name: 'Elite', price: 'R$ 89/mês', desc: 'Tudo + IA comercial + automações avançadas', popular: false },
 ];
 
 const FEATURES = [
@@ -36,12 +36,12 @@ function FadeInView({ children, delay = 0, style }: { children: React.ReactNode;
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(24)).current;
 
-  useState(() => {
+  useEffect(() => {
     Animated.parallel([
       Animated.timing(opacity, { toValue: 1, duration: 600, delay, useNativeDriver: true }),
       Animated.timing(translateY, { toValue: 0, duration: 600, delay, useNativeDriver: true }),
     ]).start();
-  });
+  }, [delay, opacity, translateY]);
 
   return (
     <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>
@@ -60,6 +60,15 @@ export function LandingScreen() {
   const [scrolled, setScrolled] = useState(false);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
 
+  function navigateTo(href: any) {
+    try {
+      player.pause();
+    } catch {
+      // Best effort
+    }
+    router.push(href);
+  }
+
   return (
     <View style={styles.page}>
       <ScrollView
@@ -73,7 +82,10 @@ export function LandingScreen() {
           <Text style={styles.logo}>Painel Prime</Text>
           <Pressable
             style={styles.loginBtn}
-            onPress={() => router.push(routeHrefs.login())}
+            onPress={() => navigateTo(routeHrefs.login())}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Entrar na plataforma"
           >
             <Text style={styles.loginBtnText}>Entrar</Text>
           </Pressable>
@@ -81,7 +93,13 @@ export function LandingScreen() {
 
         {/* Hero */}
         <View style={styles.heroWrap}>
-          <VideoView player={player} style={styles.video} contentFit="cover" allowsPictureInPicture={false} />
+          <VideoView
+            player={player}
+            style={styles.video}
+            contentFit="cover"
+            allowsPictureInPicture={false}
+            nativeControls={false}
+          />
           <Image
             source={require('../../assets/plan-face-real.png')}
             style={styles.heroPoster}
@@ -113,11 +131,11 @@ export function LandingScreen() {
               ))}
             </View>
             <View style={styles.ctaRow}>
-              <Pressable style={styles.primaryBtn} onPress={() => router.push(routeHrefs.signup('profissional'))}>
+              <Pressable style={styles.primaryBtn} onPress={() => navigateTo(routeHrefs.signup('profissional'))}>
                 <Text style={styles.primaryBtnText}>Começar Agora</Text>
                 <Ionicons name="arrow-forward" size={16} color="#151922" />
               </Pressable>
-              <Pressable style={styles.secondaryBtn} onPress={() => router.push(routeHrefs.login())}>
+              <Pressable style={styles.secondaryBtn} onPress={() => navigateTo(routeHrefs.login())}>
                 <Ionicons name="play" size={14} color="#FFFFFF" />
                 <Text style={styles.secondaryBtnText}>Ver Recursos</Text>
               </Pressable>
@@ -159,7 +177,7 @@ export function LandingScreen() {
                 <Text style={styles.planDesc}>{plan.desc}</Text>
                 <Pressable
                   style={[styles.planBtn, plan.popular ? styles.planBtnPrimary : styles.planBtnOutline]}
-                  onPress={() => router.push(routeHrefs.signup(plan.id))}
+                  onPress={() => navigateTo(routeHrefs.signup(plan.id))}
                 >
                   <Text style={[styles.planBtnText, plan.popular && styles.planBtnTextPrimary]}>
                     Assinar
@@ -179,7 +197,7 @@ export function LandingScreen() {
           </Text>
           <Pressable
             style={styles.iaBtn}
-            onPress={() => router.push(routeHrefs.legacyAi())}
+            onPress={() => navigateTo(routeHrefs.legacyAi())}
           >
             <Ionicons name="sparkles" size={18} color="#FFFFFF" />
             <Text style={styles.iaBtnText}>Falar com Plan IA</Text>
@@ -212,7 +230,7 @@ export function LandingScreen() {
           <View style={styles.ctaGlow} />
           <Text style={styles.ctaTitle}>Pronto para transformar sua operação?</Text>
           <Text style={styles.ctaText}>30 dias grátis. Sem compromisso. Sem cartão de crédito.</Text>
-          <Pressable style={styles.ctaBtn} onPress={() => router.push(routeHrefs.signup('profissional'))}>
+          <Pressable style={styles.ctaBtn} onPress={() => navigateTo(routeHrefs.signup('profissional'))}>
             <Text style={styles.ctaBtnText}>Experimentar Grátis</Text>
             <Ionicons name="arrow-forward" size={16} color="#151922" />
           </Pressable>
@@ -222,10 +240,20 @@ export function LandingScreen() {
         <View style={styles.footer}>
           <Text style={styles.footerLogo}>Painel Prime</Text>
           <View style={styles.footerLinks}>
-            <Pressable onPress={() => router.push(routeHrefs.privacyPolicy())}>
+            <Pressable
+              onPress={() => navigateTo(routeHrefs.privacyPolicy())}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Política de Privacidade"
+            >
               <Text style={styles.footerLink}>Política de Privacidade</Text>
             </Pressable>
-            <Pressable>
+            <Pressable
+              onPress={() => navigateTo(routeHrefs.privacyPolicy())}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Termos de Uso"
+            >
               <Text style={styles.footerLink}>Termos de Uso</Text>
             </Pressable>
           </View>
@@ -253,7 +281,7 @@ const styles = StyleSheet.create({
   logo: { fontFamily: typography.fontFamily.sansBold, fontSize: 20, color: '#FFFFFF' },
   loginBtn: {
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 999,
-    paddingHorizontal: 18, paddingVertical: 8,
+    paddingHorizontal: 18, minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center',
   },
   loginBtnText: { fontFamily: typography.fontFamily.sansSemiBold, fontSize: 13, color: '#FFFFFF' },
 
@@ -363,7 +391,7 @@ const styles = StyleSheet.create({
   planPrice: { fontFamily: typography.fontFamily.sansExtraBold, fontSize: 24, color: '#DEC479' },
   planDesc: { fontFamily: typography.fontFamily.sansMedium, fontSize: 12, color: '#A1A1AA' },
   planBtn: {
-    marginTop: 8, minHeight: 42, borderRadius: 999, alignItems: 'center', justifyContent: 'center',
+    marginTop: 8, minHeight: 44, minWidth: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center',
   },
   planBtnPrimary: { backgroundColor: '#DEC479' },
   planBtnOutline: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },

@@ -278,6 +278,9 @@ export function RsvpChatView({
             <Pressable
               onPress={handleSendText}
               disabled={submittingAction === 'send' || !inputText.trim()}
+              accessibilityRole="button"
+              accessibilityLabel="Enviar mensagem"
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={[
                 styles.sendBtn,
                 (!inputText.trim() || submittingAction === 'send') &&
@@ -425,9 +428,9 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.primaryStrong,
     alignItems: 'center',
     justifyContent: 'center',

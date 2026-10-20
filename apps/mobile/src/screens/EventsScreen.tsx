@@ -31,6 +31,8 @@ import { eventStatusLabel } from '../features/events/eventPresentation';
 import { EVENT_TYPE_CARDS, filterEvents, type EventItem, type EventType } from '../features/events/eventsModel';
 import { createEvent } from '../features/events/eventsService';
 import { useEventsData } from '../features/events/useEventsData';
+import { EmptyState } from '../components/ui/EmptyState';
+import { AppHaptics } from '../lib/haptics';
 
 export function EventsScreen() {
   const router = useRouter();
@@ -222,13 +224,34 @@ export function EventsScreen() {
             onChangeText={setSearch}
           />
           <View style={styles.typeRow}>
-            <Pill label="Todos" selected={statusFilter === 'all'} onPress={() => setStatusFilter('all')} />
-            <Pill label="Ativos" selected={statusFilter === 'active'} onPress={() => setStatusFilter('active')} />
-            <Pill label="Concluídos" selected={statusFilter === 'completed'} onPress={() => setStatusFilter('completed')} />
+            <Pill
+              label="Todos"
+              selected={statusFilter === 'all'}
+              onPress={() => {
+                setStatusFilter('all');
+                void AppHaptics.selection();
+              }}
+            />
+            <Pill
+              label="Ativos"
+              selected={statusFilter === 'active'}
+              onPress={() => {
+                setStatusFilter('active');
+                void AppHaptics.selection();
+              }}
+            />
+            <Pill
+              label="Concluídos"
+              selected={statusFilter === 'completed'}
+              onPress={() => {
+                setStatusFilter('completed');
+                void AppHaptics.selection();
+              }}
+            />
           </View>
         </View>
 
-              <FlatList
+        <FlatList
           data={filteredEvents}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
@@ -253,10 +276,20 @@ export function EventsScreen() {
             </Pressable>
           )}
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>Nenhum evento encontrado</Text>
-              <Text style={styles.emptyText}>Crie seu primeiro evento para comecar.</Text>
-            </View>
+            <EmptyState
+              iconName="calendar-outline"
+              title="Nenhum evento encontrado"
+              message={
+                search.trim() || statusFilter !== 'all'
+                  ? 'Nenhum evento corresponde aos filtros selecionados. Tente ajustar a busca.'
+                  : 'Crie seu primeiro evento para começar a gerenciar sua assessoria com maestria.'
+              }
+              actionLabel="Criar Primeiro Evento"
+              onAction={() => {
+                void AppHaptics.medium();
+                setIsCreateModalOpen(true);
+              }}
+            />
           }
           ListFooterComponent={
             hasMore ? (
@@ -325,7 +358,13 @@ export function EventsScreen() {
 
 function Pill({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.typePill, selected ? styles.typePillSelected : null]}>
+    <Pressable
+      onPress={onPress}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      accessibilityRole="button"
+      accessibilityLabel={`Filtrar por ${label}`}
+      style={[styles.typePill, selected ? styles.typePillSelected : null]}
+    >
       <Text style={styles.typePillText}>{label}</Text>
     </Pressable>
   );

@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { CustomerBillingView } from '../features/billing/CustomerBillingView';
 import { SuperAdminBillingView } from '../features/billing/SuperAdminBillingView';
+import { SkeletonBox } from '../components/ui/Skeleton';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
 
@@ -170,9 +171,33 @@ export function SuperBillingScreen() {
       <View style={styles.contentWrap}>
         {isSuperAdmin && adminTab === 'platform' ? (
           loading && !refreshing ? (
-            <View style={styles.loadingCenter}>
-              <ActivityIndicator size="large" color={colors.primaryStrong} />
-              <Text style={styles.loadingText}>Carregando métricas da plataforma...</Text>
+            <View style={styles.platformSkeletonContainer}>
+              <View style={styles.platformSkeletonGrid}>
+                <View style={styles.platformSkeletonCard}>
+                  <SkeletonBox width="50%" height={14} />
+                  <SkeletonBox width="70%" height={26} />
+                </View>
+                <View style={styles.platformSkeletonCard}>
+                  <SkeletonBox width="50%" height={14} />
+                  <SkeletonBox width="70%" height={26} />
+                </View>
+              </View>
+              <View style={styles.platformSkeletonGrid}>
+                <View style={styles.platformSkeletonCard}>
+                  <SkeletonBox width="50%" height={14} />
+                  <SkeletonBox width="70%" height={26} />
+                </View>
+                <View style={styles.platformSkeletonCard}>
+                  <SkeletonBox width="50%" height={14} />
+                  <SkeletonBox width="70%" height={26} />
+                </View>
+              </View>
+              <View style={[styles.platformSkeletonCard, { marginTop: 12, height: 160 }]}>
+                <SkeletonBox width="40%" height={16} />
+                <SkeletonBox width="100%" height={20} />
+                <SkeletonBox width="100%" height={20} />
+                <SkeletonBox width="80%" height={20} />
+              </View>
             </View>
           ) : (
             <SuperAdminBillingView
@@ -272,6 +297,23 @@ const styles = StyleSheet.create({
   },
   contentWrap: {
     flex: 1,
+  },
+  platformSkeletonContainer: {
+    padding: 16,
+    gap: 12,
+  },
+  platformSkeletonGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  platformSkeletonCard: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    gap: 10,
   },
   loadingCenter: {
     flex: 1,

@@ -25,7 +25,13 @@ export function SensitiveMoney({ value, hidden }: { value: number; hidden: boole
 
 export function PrivacyToggle({ hidden, onPress }: { hidden: boolean; onPress: () => void }) {
   return (
-    <Pressable style={styles.eye} onPress={onPress} accessibilityRole="button" accessibilityLabel={hidden ? 'Exibir valores financeiros' : 'Ocultar valores financeiros'}>
+    <Pressable
+      style={styles.eye}
+      onPress={onPress}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      accessibilityRole="button"
+      accessibilityLabel={hidden ? 'Exibir valores financeiros' : 'Ocultar valores financeiros'}
+    >
       <Ionicons name={hidden ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.text} />
     </Pressable>
   );
@@ -70,7 +76,7 @@ export function PtBrDateField({ value, onChange, minimumDate }: { value: string;
 const styles = StyleSheet.create({
   input: { minHeight: 50, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 14, color: colors.text, fontSize: 16, fontWeight: '700' },
   money: { color: colors.text, fontSize: 22, fontWeight: '800' },
-  eye: { width: 40, height: 40, flexShrink: 0, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.78)', borderWidth: 1, borderColor: colors.border },
+  eye: { width: 44, height: 44, flexShrink: 0, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.78)', borderWidth: 1, borderColor: colors.border },
   dateButton: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, paddingHorizontal: 14 },
   dateText: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
   placeholder: { color: colors.mutedText, fontWeight: '500' },

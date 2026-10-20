@@ -5,6 +5,7 @@ import { Screen } from '../components/Screen';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
+import { mapAuthErrorMessage } from '../lib/authError';
 
 type BillingSubscription = {
   status: string | null;
@@ -113,7 +114,7 @@ export function ProfileScreen() {
     });
     setSaving(false);
     if (error) {
-      setMessage(error.message);
+      setMessage(mapAuthErrorMessage(error));
       return;
     }
     setMessage('Perfil atualizado com sucesso.');
@@ -168,7 +169,7 @@ export function ProfileScreen() {
   }
 
   return (
-    <Screen title="Perfil" subtitle="Conta, contatos oficiais e assinatura">
+    <Screen title="Perfil" subtitle="Conta, contatos oficiais e assinatura" showBack>
               <View style={styles.identityStack}>
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Informações pessoais</Text>
