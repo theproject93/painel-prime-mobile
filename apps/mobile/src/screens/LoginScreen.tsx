@@ -123,11 +123,13 @@ export function LoginScreen() {
     try {
       await signInWithProvider(provider);
       void AppHaptics.success();
-    } catch {
+    } catch (err) {
       setError(
-        provider === 'google'
-          ? 'Não foi possível iniciar login com Google.'
-          : 'Não foi possível iniciar login com Microsoft.'
+        err instanceof Error && err.message
+          ? mapAuthErrorMessage(err)
+          : provider === 'google'
+            ? 'Não foi possível iniciar login com Google.'
+            : 'Não foi possível iniciar login com Microsoft.'
       );
       void AppHaptics.error();
     } finally {
@@ -165,9 +167,11 @@ export function LoginScreen() {
               style={styles.oauthBtn}
               onPress={() => void handleOAuth('google')}
               disabled={submitting || oauthLoading !== null}
+              accessibilityRole="button"
+              accessibilityLabel="Entrar com Google"
             >
               {oauthLoading === 'google' ? (
-                <ActivityIndicator size="small" color="#151922" />
+                <ActivityIndicator size="small" color="#DEC479" />
               ) : (
                 <GoogleIcon />
               )}
@@ -177,9 +181,11 @@ export function LoginScreen() {
               style={styles.oauthBtn}
               onPress={() => void handleOAuth('azure')}
               disabled={submitting || oauthLoading !== null}
+              accessibilityRole="button"
+              accessibilityLabel="Entrar com Microsoft"
             >
               {oauthLoading === 'azure' ? (
-                <ActivityIndicator size="small" color="#151922" />
+                <ActivityIndicator size="small" color="#DEC479" />
               ) : (
                 <MicrosoftIcon />
               )}

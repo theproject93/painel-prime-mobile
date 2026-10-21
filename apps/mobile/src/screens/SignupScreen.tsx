@@ -17,18 +17,17 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { normalizeSingleParam } from '../lib/router';
 import { typography } from '../theme/fonts';
-import { colors } from '../theme/colors';
 import { AppHaptics } from '../lib/haptics';
 import { mapAuthErrorMessage } from '../lib/authError';
 
 const plans = [
   { id: 'essencial', name: 'Essencial', price: 'R$ 39/mês', desc: 'CRM + Eventos + Convites + Portais' },
   { id: 'profissional', name: 'Profissional', price: 'R$ 59/mês', desc: 'Tudo do Essencial + reuniões e financeiro completo' },
-  { id: 'elite', name: 'Elite', price: 'R$ 89/mês', desc: 'Tudo + IA comercial + automações avançadas + Prioridade máxima' },
+  { id: 'elite', name: 'Elite', price: 'R$ 89/mês', desc: 'Eventos ilimitados + Salas de Reunião com Atas por IA + Prioridade máxima' },
 ] as const;
 
 export function SignupScreen() {
-  const { signUp } = useAuth();
+  const { signUp, signInWithProvider, user } = useAuth();
   const { plano } = useLocalSearchParams<{ plano?: string | string[] }>();
   const router = useRouter();
   const [name, setName] = useState('');
@@ -41,6 +40,7 @@ export function SignupScreen() {
   }, [plano]);
   const [selectedPlan, setSelectedPlan] = useState<string>(resolvedPlan);
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<'google' | 'azure' | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -52,6 +52,29 @@ export function SignupScreen() {
   useEffect(() => {
     setSelectedPlan(resolvedPlan);
   }, [resolvedPlan]);
+
+  useEffect(() => {
+    if (!user) return;
+    router.replace(routeHrefs.dashboard());
+  }, [router, user]);
+
+  async function handleOAuth(provider: 'google' | 'azure') {
+    setError('');
+    setOauthLoading(provider);
+    try {
+      await signInWithProvider(provider);
+      void AppHaptics.success();
+    } catch {
+      setError(
+        provider === 'google'
+          ? 'Não foi possível iniciar cadastro com Google.'
+          : 'Não foi possível iniciar cadastro com Microsoft.'
+      );
+      void AppHaptics.error();
+    } finally {
+      setOauthLoading(null);
+    }
+  }
 
   async function handleSignup() {
     if (loading) return;
@@ -101,7 +124,7 @@ export function SignupScreen() {
       behavior={Platform.select({ ios: 'padding', android: undefined })}
       style={styles.page}
     >
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <Pressable
             onPress={() => router.push(routeHrefs.landing())}
@@ -133,6 +156,43 @@ export function SignupScreen() {
                 </Pressable>
               );
             })}
+          </View>
+
+          <View style={styles.oauthRow}>
+            <Pressable
+              style={styles.oauthBtn}
+              onPress={() => void handleOAuth('google')}
+              disabled={loading || oauthLoading !== null}
+              accessibilityRole="button"
+              accessibilityLabel="Continuar com Google"
+            >
+              {oauthLoading === 'google' ? (
+                <ActivityIndicator size="small" color="#DEC479" />
+              ) : (
+                <GoogleIcon />
+              )}
+              <Text style={styles.oauthBtnText}>Google</Text>
+            </Pressable>
+            <Pressable
+              style={styles.oauthBtn}
+              onPress={() => void handleOAuth('azure')}
+              disabled={loading || oauthLoading !== null}
+              accessibilityRole="button"
+              accessibilityLabel="Continuar com Microsoft"
+            >
+              {oauthLoading === 'azure' ? (
+                <ActivityIndicator size="small" color="#DEC479" />
+              ) : (
+                <MicrosoftIcon />
+              )}
+              <Text style={styles.oauthBtnText}>Microsoft</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>ou cadastre com e-mail</Text>
+            <View style={styles.dividerLine} />
           </View>
 
           <TextInput
@@ -212,6 +272,25 @@ export function SignupScreen() {
   );
 }
 
+function GoogleIcon() {
+  return (
+    <View style={{ width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: 16, fontWeight: '700', color: '#EA4335' }}>G</Text>
+    </View>
+  );
+}
+
+function MicrosoftIcon() {
+  return (
+    <View style={{ width: 18, height: 18, flexDirection: 'row', flexWrap: 'wrap' }}>
+      <View style={{ width: 9, height: 9, backgroundColor: '#F35325' }} />
+      <View style={{ width: 9, height: 9, backgroundColor: '#81BC06' }} />
+      <View style={{ width: 9, height: 9, backgroundColor: '#05A6F0' }} />
+      <View style={{ width: 9, height: 9, backgroundColor: '#FFBA08' }} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#111113' },
   content: { padding: 20, justifyContent: 'center', minHeight: '100%' },
@@ -245,6 +324,43 @@ const styles = StyleSheet.create({
   planPrice: { color: '#A1A1AA', fontSize: 18, fontFamily: typography.fontFamily.sansExtraBold },
   planPriceSelected: { color: '#DEC479' },
   planDesc: { color: '#71717A', fontSize: 12, fontFamily: typography.fontFamily.sans, marginTop: 2 },
+  oauthRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  oauthBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  oauthBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: typography.fontFamily.sansSemiBold,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  dividerText: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontFamily: typography.fontFamily.sansMedium,
+  },
   input: {
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',

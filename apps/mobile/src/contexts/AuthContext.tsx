@@ -1,8 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { type Session, type User } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
+import { consumeAuthCallback, isAuthCallbackUrl } from '../lib/oauthCallback';
 import { supabase } from '../lib/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 type AuthContextType = {
   user: User | null;
@@ -56,9 +60,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
+    // Escuta deep links de retorno OAuth (painelprime://auth/callback#access_token=...)
+    void Linking.getInitialURL()
+      .then((initialUrl) => {
+        if (initialUrl && isAuthCallbackUrl(initialUrl)) {
+          void consumeAuthCallback({ url: initialUrl });
+        }
+      })
+      .catch(() => undefined);
+
+    const urlSubscription = Linking.addEventListener('url', ({ url }) => {
+      if (url && isAuthCallbackUrl(url)) {
+        void consumeAuthCallback({ url });
+      }
+    });
+
     return () => {
       clearTimeout(fallbackTimer);
       subscription.unsubscribe();
+      urlSubscription.remove();
     };
   }, []);
 
@@ -94,17 +114,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signInWithProvider(provider: 'google' | 'azure') {
-    const redirectTo = `painelprime://auth/callback`;
+    const redirectTo = 'painelprime://auth/callback';
+    const scopes = provider === 'azure' ? 'openid profile email' : undefined;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo,
+        scopes,
         skipBrowserRedirect: true,
       },
     });
     if (error) throw error;
     if (data?.url) {
-      await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type === 'success' && result.url) {
+        const outcome = await consumeAuthCallback({ url: result.url });
+        if (outcome.error) {
+          throw new Error(outcome.error);
+        }
+      }
     }
   }
 

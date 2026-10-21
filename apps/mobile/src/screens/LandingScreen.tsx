@@ -12,14 +12,14 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PLANS = [
   { id: 'essencial', name: 'Essencial', price: 'R$ 39/mês', desc: 'CRM + Eventos + Convites', popular: false },
   { id: 'profissional', name: 'Profissional', price: 'R$ 59/mês', desc: 'Tudo do Essencial + Torre + Financeiro', popular: true },
-  { id: 'elite', name: 'Elite', price: 'R$ 89/mês', desc: 'Tudo + IA comercial + automações avançadas', popular: false },
+  { id: 'elite', name: 'Elite', price: 'R$ 89/mês', desc: 'Eventos ilimitados + Salas de Reunião com Atas por IA', popular: false },
 ];
 
 const FEATURES = [
   { icon: 'grid-outline' as const, title: 'Mapa de Mesas', desc: 'Layout interativo com drag and drop' },
   { icon: 'heart-outline' as const, title: 'Site dos Noivos', desc: 'Portal personalizável para cada casal' },
   { icon: 'people-outline' as const, title: 'Recepção & RSVP', desc: 'Confirmações em tempo real' },
-  { icon: 'chatbubbles-outline' as const, title: 'Plan IA', desc: 'Inteligência artificial comercial' },
+  { icon: 'document-text-outline' as const, title: 'Contratos por IA', desc: 'Leitura automática de PDF e prazos' },
   { icon: 'trending-up-outline' as const, title: 'Financeiro', desc: 'Relatórios e controle de despesas' },
   { icon: 'briefcase-outline' as const, title: 'Fornecedores', desc: 'Central de homologação' },
 ];
@@ -188,24 +188,8 @@ export function LandingScreen() {
           </View>
         </FadeInView>
 
-        {/* Plan IA */}
-        <FadeInView delay={400} style={styles.section}>
-          <Text style={styles.sectionTag}>PLAN IA</Text>
-          <Text style={styles.sectionTitle}>Atendimento inteligente</Text>
-          <Text style={styles.sectionText}>
-            Tire dúvidas, receba recomendações de plano e agilize sua assinatura com nossa IA comercial.
-          </Text>
-          <Pressable
-            style={styles.iaBtn}
-            onPress={() => navigateTo(routeHrefs.legacyAi())}
-          >
-            <Ionicons name="sparkles" size={18} color="#FFFFFF" />
-            <Text style={styles.iaBtnText}>Falar com Plan IA</Text>
-          </Pressable>
-        </FadeInView>
-
         {/* FAQ */}
-        <FadeInView delay={500} style={styles.section}>
+        <FadeInView delay={400} style={styles.section}>
           <Text style={styles.sectionTag}>FAQ</Text>
           <Text style={styles.sectionTitle}>Perguntas frequentes</Text>
           {FAQ_ITEMS.map((item, idx) => (
@@ -226,7 +210,7 @@ export function LandingScreen() {
         </FadeInView>
 
         {/* CTA */}
-        <FadeInView delay={600} style={styles.ctaSection}>
+        <FadeInView delay={500} style={styles.ctaSection}>
           <View style={styles.ctaGlow} />
           <Text style={styles.ctaTitle}>Pronto para transformar sua operação?</Text>
           <Text style={styles.ctaText}>30 dias grátis. Sem compromisso. Sem cartão de crédito.</Text>
@@ -397,14 +381,6 @@ const styles = StyleSheet.create({
   planBtnOutline: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   planBtnText: { fontFamily: typography.fontFamily.sansBold, fontSize: 13, color: '#FFFFFF' },
   planBtnTextPrimary: { color: '#151922' },
-
-  // IA
-  iaBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: 'rgba(107,91,255,0.15)', borderWidth: 1, borderColor: 'rgba(107,91,255,0.3)',
-    minHeight: 48, borderRadius: 999,
-  },
-  iaBtnText: { fontFamily: typography.fontFamily.sansBold, fontSize: 14, color: '#FFFFFF' },
 
   // FAQ
   faqItem: {
