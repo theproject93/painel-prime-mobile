@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,8 +19,10 @@ import { useFinanceData } from '../features/finance/useFinanceData';
 import { parseBRLInput, shouldShowEmptyAnalytics } from '../features/finance/financePresentation';
 import { deleteStoredFile, getPrivateFileDownloadUrl, linkStoredFile, uploadPrivateAsset } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
+import { AppHaptics } from '../lib/haptics';
 import { colors } from '../theme/colors';
 
+const ONBOARDING_DEFERRED_PREFIX = 'painelprime.finance.onboarding_deferred.';
 const EMPTY_ENTRY: EntryForm = { title: '', client_name: '', amount: '', status: 'confirmado', date: '', payment_method: '', notes: '' };
 const EMPTY_EXPENSE: ExpenseForm = { title: '', amount: '', status: 'pago', date: '', category_id: '', team_member_name: '', payment_method: '', notes: '' };
 const ENTRY_COLUMNS = 'id,user_id,client_name,title,amount,status,received_at,expected_at,payment_method,proof_file_id,proof_url,notes,created_at';
@@ -50,6 +53,40 @@ export function FinanceScreen() {
     [data.entries, data.expenses, search, tab],
   );
 
+  const [onboardingDeferred, setOnboardingDeferred] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function checkDeferred() {
+      if (!user?.id) return;
+      try {
+        const stored = await AsyncStorage.getItem(`${ONBOARDING_DEFERRED_PREFIX}${user.id}`);
+        if (isMounted) {
+          setOnboardingDeferred(stored === '1');
+        }
+      } catch {
+        // Ignora erro de leitura para não interromper navegação
+      }
+    }
+    void checkDeferred();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  async function handleDismissOnboarding() {
+    void AppHaptics.light();
+    if (user?.id) {
+      try {
+        await AsyncStorage.setItem(`${ONBOARDING_DEFERRED_PREFIX}${user.id}`, '1');
+      } catch {
+        // Ignora erro de gravação
+      }
+    }
+    setOnboardingDeferred(true);
+    data.setOnboardingOpen(false);
+  }
+
   async function saveOnboardingCash() {
     if (!user) return;
     const value = parseBRLInput(data.cashInput);
@@ -58,6 +95,7 @@ export function FinanceScreen() {
       supabase.from('user_finance_onboarding').upsert({ user_id: user.id, completed_at: new Date().toISOString() }),
     ]);
     if (balanceResult.error || onboardingResult.error) { data.setError(friendlyFinanceError()); return; }
+    void AppHaptics.success();
     data.setBaseBalance(value);
     data.setOnboardingOpen(false);
   }
@@ -167,6 +205,6 @@ export function FinanceScreen() {
         return <View key={row.id} style={styles.movementCard}><View style={[styles.movementIcon, entry ? styles.inIcon : styles.outIcon]}><Ionicons name={entry ? 'arrow-down' : 'arrow-up'} size={18} color={entry ? colors.success600 : colors.dangerText} /></View><View style={styles.movementBody}><Text style={styles.movementTitle} numberOfLines={1}>{row.title}</Text><Text style={styles.movementMeta} numberOfLines={1}>{context || displayDate(date)}</Text><Text style={[styles.statusText, confirmed ? styles.statusConfirmed : styles.statusPlanned]}>{entry ? confirmed ? 'Recebida' : 'Prevista' : confirmed ? 'Paga' : 'Prevista'} · {displayDate(date)}</Text></View><View style={styles.movementRight}><Text style={[styles.amountText, entry ? styles.amountIn : styles.amountOut]}>{entry ? '+' : '−'} {toBRL(Number(row.amount || 0))}</Text>{row.proof_file_id || row.proof_url ? <Pressable onPress={() => void openProof(row.proof_file_id, row.proof_url, row.id)}>{openingProofId === row.id ? <ActivityIndicator size="small" color={colors.gold700} /> : <Ionicons name="document-attach-outline" size={20} color={colors.gold700} />}</Pressable> : null}</View></View>;
       })}
     </Screen>
-    <FinanceModals bottomInset={insets.bottom} tab={tab} setTab={setTab} movementOpen={movementOpen} setMovementOpen={setMovementOpen} categoriesOpen={categoriesOpen} setCategoriesOpen={setCategoriesOpen} onboardingOpen={data.onboardingOpen} setOnboardingOpen={data.setOnboardingOpen} saving={saving} entryForm={entryForm} setEntryForm={setEntryForm} expenseForm={expenseForm} setExpenseForm={setExpenseForm} entryProof={entryProof} expenseProof={expenseProof} categories={data.categories} newCategoryName={newCategoryName} setNewCategoryName={setNewCategoryName} newCategoryType={newCategoryType} setNewCategoryType={setNewCategoryType} cashInput={data.cashInput} setCashInput={data.setCashInput} onPickProof={(kind) => void pickProof(kind)} onSaveMovement={() => void (tab === 'entrada' ? createEntry() : createExpense())} onCreateCategory={() => void createCategory()} onSaveOnboarding={() => void saveOnboardingCash()} />
+    <FinanceModals bottomInset={insets.bottom} tab={tab} setTab={setTab} movementOpen={movementOpen} setMovementOpen={setMovementOpen} categoriesOpen={categoriesOpen} setCategoriesOpen={setCategoriesOpen} onboardingOpen={data.onboardingOpen && !onboardingDeferred} setOnboardingOpen={data.setOnboardingOpen} onDismissOnboarding={handleDismissOnboarding} saving={saving} entryForm={entryForm} setEntryForm={setEntryForm} expenseForm={expenseForm} setExpenseForm={setExpenseForm} entryProof={entryProof} expenseProof={expenseProof} categories={data.categories} newCategoryName={newCategoryName} setNewCategoryName={setNewCategoryName} newCategoryType={newCategoryType} setNewCategoryType={setNewCategoryType} cashInput={data.cashInput} setCashInput={data.setCashInput} onPickProof={(kind) => void pickProof(kind)} onSaveMovement={() => void (tab === 'entrada' ? createEntry() : createExpense())} onCreateCategory={() => void createCategory()} onSaveOnboarding={() => void saveOnboardingCash()} />
   </>;
 }

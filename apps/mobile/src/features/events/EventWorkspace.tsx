@@ -241,7 +241,7 @@ export function EventFormSheet({ visible, title, subtitle, onClose, children }: 
       <View style={styles.sheetOverlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Fechar formulário" />
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.sheetKeyboard}
         >
           <SafeAreaView style={styles.sheet} edges={['bottom']}>

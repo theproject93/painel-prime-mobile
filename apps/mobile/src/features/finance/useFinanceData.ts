@@ -2,6 +2,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
 import { supabase } from '../../lib/supabase';
+import { formatBrlInput } from '../../components/ui/PremiumInputs';
 import { friendlyFinanceError, normalizeExpenseRow } from './financeScreenHelpers';
 import type { FinanceCategory, FinanceEntry, FinanceExpense } from './types';
 
@@ -13,7 +14,7 @@ export function useFinanceData(userId: string | null) {
   const [expenses, setExpenses] = useState<FinanceExpense[]>([]);
   const [categories, setCategories] = useState<FinanceCategory[]>([]);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
-  const [cashInput, setCashInput] = useState('0');
+  const [cashInput, setCashInput] = useState(() => formatBrlInput(0));
 
   const reload = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
@@ -34,7 +35,7 @@ export function useFinanceData(userId: string | null) {
       setCategories((categoryRows.data ?? []) as FinanceCategory[]);
       const nextBalance = Number(balance.data?.base_balance ?? 0);
       setBaseBalance(nextBalance);
-      setCashInput(String(nextBalance));
+      setCashInput(formatBrlInput(Math.round(nextBalance * 100)));
       setOnboardingOpen(!onboarding.data?.completed_at);
     } catch {
       setError(friendlyFinanceError());

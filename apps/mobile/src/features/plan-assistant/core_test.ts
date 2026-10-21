@@ -109,6 +109,22 @@ Deno.test('sanitizeAssistantMessage scrubs internal tool names and blocks infra 
     sanitizeAssistantMessage('jwt expired or invalid claim'),
     'Não consegui concluir a resposta agora. Tente novamente em alguns instantes.',
   );
+  assertEquals(
+    sanitizeAssistantMessage('Error query on plan_ai_threads or plan_ai_messages table'),
+    'Não consegui concluir a resposta agora. Tente novamente em alguns instantes.',
+  );
+  assertEquals(
+    sanitizeAssistantMessage('Database function resolve_primary_tenant_id failed'),
+    'Não consegui concluir a resposta agora. Tente novamente em alguns instantes.',
+  );
+  assertEquals(
+    sanitizeAssistantMessage('HTTP 400 invalid_request_id provided'),
+    'Não consegui concluir a resposta agora. Tente novamente em alguns instantes.',
+  );
+  assertEquals(
+    sanitizeAssistantMessage('cf-ray: 88123abcf0123-GRU cf-cache-status: DYNAMIC'),
+    'Não consegui concluir a resposta agora. Tente novamente em alguns instantes.',
+  );
   assertEquals(getAssistantAnswer({ error: 'rate_limited', message: 'Rate limit exceeded' }), '');
 });
 

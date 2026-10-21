@@ -1,7 +1,7 @@
 import { PropsWithChildren, RefObject, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleProp, View, ViewStyle, useWindowDimensions } from 'react-native';
 
-type AnchorRect = {
+export type AnchorRect = {
   x: number;
   y: number;
   w: number;

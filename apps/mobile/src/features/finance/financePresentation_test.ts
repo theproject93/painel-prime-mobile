@@ -11,6 +11,14 @@ Deno.test('parseBRLInput accepts Brazilian thousand and decimal separators', () 
   assertEquals(parseBRLInput('89,90'), 89.9);
 });
 
+Deno.test('parseBRLInput accepts values already masked by MoneyField', () => {
+  assertEquals(parseBRLInput('R$ 1.000,50'), 1000.5);
+  assertEquals(parseBRLInput('R$ 0,00'), 0);
+  assertEquals(parseBRLInput('R$ 12,34'), 12.34);
+  assertEquals(parseBRLInput(''), 0);
+  assertEquals(parseBRLInput('R$ 1.500,50'), 1500.5);
+});
+
 Deno.test('cash forecast never calls zero movement positive', () => {
   assertEquals(classifyCashForecast(0, 0), 'empty');
   assertEquals(classifyCashForecast(100, 100), 'neutral');

@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { normalizeAccessToken, parsePlanAssistantResponseText } from './core';
 import type { PlanAssistantApiResponse, PlanAssistantRequest } from './types';
+import { generateUuidV4 } from './uuid';
 
 const TRANSPORT_TIMEOUT_MS = 25_000;
 
@@ -19,6 +20,10 @@ export async function invokePlanAssistantChat(
   body: PlanAssistantRequest,
   providedAccessToken?: string | null,
 ) {
+  const reqId = body.requestId || body.request_id || generateUuidV4();
+  body.requestId = reqId;
+  body.request_id = reqId;
+
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) throw new Error('plan_assistant_missing_env');
@@ -63,6 +68,10 @@ export async function invokePlanAssistantChatViaSupabase(
   body: PlanAssistantRequest,
   accessToken?: string | null,
 ) {
+  const reqId = body.requestId || body.request_id || generateUuidV4();
+  body.requestId = reqId;
+  body.request_id = reqId;
+
   let normalizedToken = normalizeAccessToken(accessToken) ?? (await resolveTransportAccessToken());
   const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 

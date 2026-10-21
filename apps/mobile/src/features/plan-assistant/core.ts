@@ -148,7 +148,12 @@ export function sanitizeAssistantMessage(text: string): string {
     /\b(?:sqlstate|syntax\s*error\s+at\s+or\s+near)\b/i.test(trimmed) ||
     /\b(?:jwt\s+expired|invalid\s+claim|invalid\s+signature)\b/i.test(trimmed) ||
     /\b(?:cors\s+error|fetch\s+failed|networkrequestfailed)\b/i.test(trimmed) ||
-    /\b(?:wrangler|cloudflare\s*worker)\b/i.test(trimmed) ||
+    /plan_ai_threads/i.test(trimmed) ||
+    /plan_ai_messages/i.test(trimmed) ||
+    /resolve_primary_tenant_id/i.test(trimmed) ||
+    /invalid_request_id/i.test(trimmed) ||
+    /\bcf-[a-z0-9-]+\b/i.test(trimmed) ||
+    /\brpc\/[a-z0-9_]+\b/i.test(trimmed) ||
     /supabase_service_role/i.test(trimmed) ||
     /service_role_key/i.test(trimmed) ||
     /anon_key/i.test(trimmed) ||

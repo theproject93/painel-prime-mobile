@@ -107,6 +107,12 @@ export function PlanAssistantFloating() {
         onOpenCta={openCta}
         onChangeInput={chat.setInput}
         onSend={() => void chat.sendMessage()}
+        threads={chat.threads}
+        activeThreadId={chat.activeThreadId}
+        onSelectThread={(thread) => void chat.selectThread(thread)}
+        onCreateNewThread={chat.createNewThread}
+        onRenameThread={chat.renameThread}
+        onDeleteThread={chat.deleteThread}
       />
     </View>
   );

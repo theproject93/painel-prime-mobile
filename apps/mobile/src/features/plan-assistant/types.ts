@@ -32,6 +32,9 @@ export type PlanAssistantApiResponse = {
   assistant?: string;
   output_text?: string;
   text?: string;
+  jobId?: string;
+  job_id?: string;
+  quota?: Record<string, unknown>;
   suggested_actions?: Array<{ label?: string; path?: string }>;
   meta?: {
     ai_used?: boolean;
@@ -41,6 +44,8 @@ export type PlanAssistantApiResponse = {
 };
 
 export type PlanAssistantRequest = {
+  requestId?: string;
+  request_id?: string;
   message: string;
   current_path: string;
   current_event_id: string | null;
@@ -48,6 +53,12 @@ export type PlanAssistantRequest = {
   message_history?: MessageHistoryItem[];
   user_name: string;
 };
+
+export type {
+  PlanAiThread,
+  PlanAiMessageRow,
+  PlanThreadGroup,
+} from './planAssistantThreads';
 
 export type HintStateRow = {
   hint_id: string;

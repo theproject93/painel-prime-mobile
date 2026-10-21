@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -15,8 +25,38 @@ export function parseBrlInput(value: string) {
   return Number(value.replace(/[^\d]/g, '') || '0') / 100;
 }
 
-export function MoneyField({ value, onChangeValue, placeholder = 'R$ 0,00' }: { value: string; onChangeValue: (formatted: string) => void; placeholder?: string }) {
-  return <TextInput style={styles.input} value={value} onChangeText={(text) => onChangeValue(formatBrlInput(text))} placeholder={placeholder} keyboardType="numeric" />;
+export type MoneyFieldProps = {
+  value: string;
+  onChangeValue: (formatted: string) => void;
+  placeholder?: string;
+  style?: StyleProp<TextStyle>;
+  placeholderTextColor?: string;
+  accessibilityLabel?: string;
+  editable?: boolean;
+};
+
+export function MoneyField({
+  value,
+  onChangeValue,
+  placeholder = 'R$ 0,00',
+  style,
+  placeholderTextColor = colors.mutedText,
+  accessibilityLabel = 'Valor em reais',
+  editable = true,
+}: MoneyFieldProps) {
+  return (
+    <TextInput
+      style={[styles.input, style]}
+      value={value}
+      onChangeText={(text) => onChangeValue(formatBrlInput(text))}
+      placeholder={placeholder}
+      placeholderTextColor={placeholderTextColor}
+      keyboardType="numeric"
+      accessibilityRole="text"
+      accessibilityLabel={accessibilityLabel}
+      editable={editable}
+    />
+  );
 }
 
 export function SensitiveMoney({ value, hidden }: { value: number; hidden: boolean }) {
@@ -52,7 +92,23 @@ export function formatPtBrDate(value?: string | null) {
   return parseIsoDate(value.slice(0, 10)).toLocaleDateString('pt-BR');
 }
 
-export function PtBrDateField({ value, onChange, minimumDate }: { value: string; onChange: (isoDate: string) => void; minimumDate?: Date }) {
+export type PtBrDateFieldProps = {
+  value: string;
+  onChange: (isoDate: string) => void;
+  minimumDate?: Date;
+  placeholder?: string;
+  label?: string;
+  buttonStyle?: StyleProp<ViewStyle>;
+};
+
+export function PtBrDateField({
+  value,
+  onChange,
+  minimumDate,
+  placeholder = 'Escolher data',
+  label = 'Prazo',
+  buttonStyle,
+}: PtBrDateFieldProps) {
   const [open, setOpen] = useState(false);
   const selected = parseIsoDate(value);
 
@@ -63,12 +119,28 @@ export function PtBrDateField({ value, onChange, minimumDate }: { value: string;
 
   return (
     <View>
-      <Pressable style={styles.dateButton} onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`Prazo: ${formatPtBrDate(value)}`}>
+      <Pressable
+        style={[styles.dateButton, buttonStyle]}
+        onPress={() => setOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value ? formatPtBrDate(value) : placeholder}`}
+      >
         <Ionicons name="calendar-outline" size={20} color={colors.primaryStrong} />
-        <Text style={[styles.dateText, !value && styles.placeholder]}>{formatPtBrDate(value)}</Text>
+        <Text style={[styles.dateText, !value && styles.placeholder]}>
+          {value ? formatPtBrDate(value) : placeholder}
+        </Text>
         <Ionicons name="chevron-down" size={17} color={colors.mutedText} />
       </Pressable>
-      {open ? <DateTimePicker value={selected} mode="date" locale="pt-BR" display={Platform.OS === 'ios' ? 'inline' : 'default'} minimumDate={minimumDate} onChange={handleChange} /> : null}
+      {open ? (
+        <DateTimePicker
+          value={selected}
+          mode="date"
+          locale="pt-BR"
+          display={Platform.OS === 'ios' ? 'inline' : 'default'}
+          minimumDate={minimumDate}
+          onChange={handleChange}
+        />
+      ) : null}
     </View>
   );
 }
