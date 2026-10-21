@@ -5,7 +5,9 @@ import {
   biometricPreferenceKey,
   shouldInitializeBiometricForUser,
   shouldRelock,
+  shouldShowPrivacyCurtain,
   shouldStartBackgroundTimer,
+  isCurtainOnlyMode,
 } from './biometricPolicy.ts';
 
 Deno.test('biometric preferences are isolated by account and use SecureStore-safe keys', () => {
@@ -31,4 +33,25 @@ Deno.test('token refresh for the same user never reinitializes biometric access'
   assertEquals(shouldInitializeBiometricForUser('user-a', 'user-a'), false);
   assertEquals(shouldInitializeBiometricForUser('user-a', 'user-b'), true);
   assertEquals(shouldInitializeBiometricForUser('user-a', null), false);
+});
+
+Deno.test('privacy curtain activates on lock or non-active background states when biometric is enabled', () => {
+  // Enabled and locked -> curtain active
+  assertEquals(shouldShowPrivacyCurtain(true, true, 'active', false), true);
+  // Enabled and background/inactive -> curtain active
+  assertEquals(shouldShowPrivacyCurtain(true, false, 'background', false), true);
+  assertEquals(shouldShowPrivacyCurtain(true, false, 'inactive', false), true);
+  // Enabled, unlocked, active -> curtain hidden
+  assertEquals(shouldShowPrivacyCurtain(true, false, 'active', false), false);
+  // Disabled -> curtain never active
+  assertEquals(shouldShowPrivacyCurtain(false, true, 'active', false), false);
+  assertEquals(shouldShowPrivacyCurtain(false, false, 'background', false), false);
+  // During in-flight native biometric prompt in active app -> not curtain-only
+  assertEquals(shouldShowPrivacyCurtain(true, false, 'inactive', true), false);
+  assertEquals(isCurtainOnlyMode('inactive', true), false);
+  assertEquals(isCurtainOnlyMode('inactive', false), true);
+  assertEquals(isCurtainOnlyMode('background', false), true);
+  assertEquals(isCurtainOnlyMode('background', true), true);
+  assertEquals(shouldShowPrivacyCurtain(true, false, 'background', true), true);
+  assertEquals(isCurtainOnlyMode('active', false), false);
 });

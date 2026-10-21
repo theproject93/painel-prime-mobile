@@ -1,7 +1,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type PropsWithChildren } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, BackHandler, Keyboard, StyleSheet, View, type AppStateStatus } from 'react-native';
 
 import { useAuth } from './AuthContext';
 import { BiometricLockScreen } from '../components/BiometricLockScreen';
@@ -9,8 +9,10 @@ import { BiometricOptInModal } from '../components/BiometricOptInModal';
 import {
   biometricOfferKey,
   biometricPreferenceKey,
+  isCurtainOnlyMode,
   shouldInitializeBiometricForUser,
   shouldRelock,
+  shouldShowPrivacyCurtain,
   shouldStartBackgroundTimer,
 } from '../security/biometricPolicy';
 
@@ -18,6 +20,7 @@ type BiometricAccessValue = {
   available: boolean;
   enabled: boolean;
   busy: boolean;
+  isCurtainActive: boolean;
   enable: () => Promise<boolean>;
   disable: () => Promise<void>;
 };
@@ -31,8 +34,10 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [offerVisible, setOfferVisible] = useState(false);
+  const [appState, setAppState] = useState<AppStateStatus>(() => AppState.currentState);
   const backgroundedAt = useRef<number | null>(null);
   const authenticationInFlight = useRef(false);
+  const lastAuthenticatedAt = useRef(0);
   const initializedUserId = useRef<string | null>(null);
   const userId = user?.id ?? null;
 
@@ -50,7 +55,10 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
         biometricsSecurityLevel: 'strong',
         requireConfirmation: false,
       });
-      if (result.success) setLocked(false);
+      if (result.success) {
+        lastAuthenticatedAt.current = Date.now();
+        setLocked(false);
+      }
       return result.success;
     } finally {
       authenticationInFlight.current = false;
@@ -100,6 +108,7 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const handleState = (nextState: AppStateStatus) => {
+      setAppState(nextState);
       if (!enabled || authenticationInFlight.current) return;
       if (shouldStartBackgroundTimer(nextState)) {
         backgroundedAt.current = Date.now();
@@ -109,13 +118,15 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
         if (shouldRelock(backgroundedAt.current, Date.now())) {
           setLocked(true);
           void authenticate();
+        } else if (locked) {
+          void authenticate();
         }
         backgroundedAt.current = null;
       }
     };
     const subscription = AppState.addEventListener('change', handleState);
     return () => subscription.remove();
-  }, [authenticate, enabled]);
+  }, [authenticate, enabled, locked]);
 
   const enable = useCallback(async () => {
     if (!userId || !available) return false;
@@ -141,19 +152,70 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
     setOfferVisible(false);
   }, [userId]);
 
+  const justAuthenticated = Date.now() - lastAuthenticatedAt.current < 1500;
+  const inFlightOrRecent = authenticationInFlight.current || justAuthenticated;
+  const isCurtainActive = shouldShowPrivacyCurtain(
+    enabled,
+    locked,
+    appState,
+    inFlightOrRecent,
+  );
+  const isCurtainOnly = isCurtainOnlyMode(appState, inFlightOrRecent);
+
+  useEffect(() => {
+    if (!isCurtainActive) return;
+    Keyboard.dismiss();
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      return true;
+    });
+    return () => subscription.remove();
+  }, [isCurtainActive]);
+
   const usePassword = useCallback(async () => {
-    setLocked(false);
-    await signOut();
+    setBusy(true);
+    try {
+      await signOut();
+    } catch (error) {
+      console.warn('Sign out failed on usePassword', error);
+    } finally {
+      setLocked(false);
+      setBusy(false);
+    }
   }, [signOut]);
 
   return (
-    <BiometricAccessContext.Provider value={{ available, enabled, busy, enable, disable }}>
-      {children}
-      <BiometricOptInModal visible={offerVisible} busy={busy} onEnable={() => void enable()} onDismiss={() => void dismissOffer()} />
-      {locked ? <BiometricLockScreen busy={busy} onAuthenticate={() => void authenticate()} onUsePassword={() => void usePassword()} /> : null}
+    <BiometricAccessContext.Provider value={{ available, enabled, busy, isCurtainActive, enable, disable }}>
+      <View
+        style={styles.contentContainer}
+        pointerEvents={isCurtainActive ? 'none' : 'auto'}
+        importantForAccessibility={isCurtainActive ? 'no-hide-descendants' : 'auto'}
+        aria-hidden={isCurtainActive}
+      >
+        {children}
+      </View>
+      <BiometricOptInModal
+        visible={offerVisible && !isCurtainActive}
+        busy={busy}
+        onEnable={() => void enable()}
+        onDismiss={() => void dismissOffer()}
+      />
+      {isCurtainActive ? (
+        <BiometricLockScreen
+          busy={busy}
+          isCurtainOnly={isCurtainOnly}
+          onAuthenticate={() => void authenticate()}
+          onUsePassword={() => void usePassword()}
+        />
+      ) : null}
     </BiometricAccessContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  contentContainer: {
+    flex: 1,
+  },
+});
 
 export function useBiometricAccess() {
   const value = useContext(BiometricAccessContext);

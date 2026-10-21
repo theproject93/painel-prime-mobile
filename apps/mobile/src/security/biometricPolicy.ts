@@ -22,3 +22,17 @@ export function shouldInitializeBiometricForUser(
 ) {
   return currentUserId !== null && initializedUserId !== currentUserId;
 }
+
+export function shouldShowPrivacyCurtain(
+  enabled: boolean,
+  locked: boolean,
+  appState: string,
+  authenticationInFlight = false,
+) {
+  return enabled && (locked || appState === 'background' || (appState !== 'active' && !authenticationInFlight));
+}
+
+export function isCurtainOnlyMode(appState: string, authenticationInFlight = false) {
+  return appState === 'background' || (appState !== 'active' && !authenticationInFlight);
+}
+

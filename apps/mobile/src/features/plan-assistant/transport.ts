@@ -1,6 +1,8 @@
 import { supabase } from '../../lib/supabase';
-import { normalizeAccessToken } from './core';
+import { normalizeAccessToken, parsePlanAssistantResponseText } from './core';
 import type { PlanAssistantApiResponse, PlanAssistantRequest } from './types';
+
+const TRANSPORT_TIMEOUT_MS = 25_000;
 
 async function resolveTransportAccessToken(forceRefresh = false) {
   if (forceRefresh) {
@@ -21,8 +23,11 @@ export async function invokePlanAssistantChat(
   const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) throw new Error('plan_assistant_missing_env');
 
-  const sendWithToken = (token: string) =>
-    fetch(`${supabaseUrl}/functions/v1/plan-assistant-chat`, {
+  const cleanUrl = supabaseUrl.trim().replace(/\/+$/u, '');
+  const sendWithToken = (token: string) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TRANSPORT_TIMEOUT_MS);
+    return fetch(`${cleanUrl}/functions/v1/plan-assistant-chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -30,7 +35,9 @@ export async function invokePlanAssistantChat(
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
-    });
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+  };
 
   let accessToken = normalizeAccessToken(providedAccessToken) ?? await resolveTransportAccessToken();
   if (!accessToken) throw new Error('plan_assistant_unauthorized');
@@ -44,12 +51,8 @@ export async function invokePlanAssistantChat(
   }
 
   const text = await response.text();
-  let payload: PlanAssistantApiResponse = {};
-  try {
-    payload = text ? JSON.parse(text) as PlanAssistantApiResponse : {};
-  } catch {
-    payload = {};
-  }
+  const payload = parsePlanAssistantResponseText(text);
+
   if (!response.ok) {
     throw new Error(`plan_assistant_http_${response.status}:${text || payload.message || `http_${response.status}`}`);
   }
@@ -60,38 +63,45 @@ export async function invokePlanAssistantChatViaSupabase(
   body: PlanAssistantRequest,
   accessToken?: string | null,
 ) {
-  const headers: Record<string, string> = {};
-  const normalizedToken = normalizeAccessToken(accessToken);
+  let normalizedToken = normalizeAccessToken(accessToken) ?? (await resolveTransportAccessToken());
   const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  if (normalizedToken) headers.Authorization = `Bearer ${normalizedToken}`;
-  if (supabaseAnonKey) headers.apikey = supabaseAnonKey;
 
-  const { data, error } = await supabase.functions.invoke('plan-assistant-chat', {
-    body,
-    headers: Object.keys(headers).length > 0 ? headers : undefined,
-  });
+  const invokeWithToken = (token: string | null) => {
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (supabaseAnonKey) headers.apikey = supabaseAnonKey;
+    return supabase.functions.invoke('plan-assistant-chat', {
+      body,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
+    });
+  };
+
+  let { data, error } = await invokeWithToken(normalizedToken);
+  if (error && (String(error.message).includes('401') || (error as { status?: number }).status === 401)) {
+    const refreshed = await resolveTransportAccessToken(true);
+    if (refreshed) {
+      normalizedToken = refreshed;
+      const secondAttempt = await invokeWithToken(normalizedToken);
+      data = secondAttempt.data;
+      error = secondAttempt.error;
+    }
+  }
+
   if (error) throw new Error(`plan_assistant_invoke_error:${error.message}`);
+  if (typeof data === 'string') {
+    return parsePlanAssistantResponseText(data);
+  }
   return (data ?? {}) as PlanAssistantApiResponse;
 }
 
 export async function getPlanAssistantAccessToken(forceRefresh = false) {
   if (forceRefresh) {
     const { data: refreshed } = await supabase.auth.refreshSession();
-    const token = normalizeAccessToken(refreshed.session?.access_token ?? null);
-    if (!token) return null;
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data.user) {
-      await supabase.auth.signOut();
-      throw new Error('plan_assistant_relogin_required');
-    }
-    return token;
+    return normalizeAccessToken(refreshed.session?.access_token ?? null);
   }
 
   const { data: sessionData } = await supabase.auth.getSession();
   const current = normalizeAccessToken(sessionData.session?.access_token ?? null);
-  if (current) {
-    const { data, error } = await supabase.auth.getUser(current);
-    if (!error && data.user) return current;
-  }
+  if (current) return current;
   return getPlanAssistantAccessToken(true);
 }

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Alert, Modal as RNModal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../theme/colors';
+import { useBiometricAccess } from '../../contexts/BiometricAccessContext';
 
 type ModalProps = {
   visible: boolean;
@@ -11,8 +12,16 @@ type ModalProps = {
 };
 
 export function Modal({ visible, onClose, title, children }: ModalProps) {
+  let isCurtainActive = false;
+  try {
+    const biometric = useBiometricAccess();
+    isCurtainActive = biometric?.isCurtainActive ?? false;
+  } catch {
+    // Fallback when rendered outside BiometricAccessProvider
+  }
+
   return (
-    <RNModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <RNModal visible={visible && !isCurtainActive} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.header}>

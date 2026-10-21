@@ -134,19 +134,28 @@ export function usePlanAssistantChat(params: Params) {
       const actions = getSuggestedActions(data);
       if (!answer) throw new Error('empty_answer');
       if (data.meta?.ai_used === false && data.meta.response_mode !== 'deterministic') {
-        console.warn('plan-assistant-chat returned fallback mode', data.meta.ai_error);
+        console.warn('plan assistant returned fallback mode', data.meta.ai_error);
       }
       if (primaryError) {
-        console.warn('plan-assistant-chat primary transport failed, fallback transport succeeded', primaryError);
+        console.warn('plan assistant primary transport failed, fallback transport succeeded', primaryError);
       }
       pushBotMessage({ text: answer, ctaLabel: actions[0]?.label, ctaPath: actions[0]?.path });
     } catch (error) {
-      console.warn('plan-assistant-chat failed on both transports', error);
-      if (String(error).includes('plan_assistant_relogin_required')) {
-        pushBotMessage({ text: 'Sua sessão expirou e foi desconectada por segurança. Entre novamente no app para usar a PLAN IA.' });
+      console.warn('plan assistant failed on both transports', error);
+      const errorStr = String(error).toLowerCase();
+      if (
+        errorStr.includes('plan_assistant_relogin_required') ||
+        errorStr.includes('plan_assistant_unauthorized') ||
+        errorStr.includes('unauthorized') ||
+        errorStr.includes('jwt') ||
+        errorStr.includes('401')
+      ) {
+        pushBotMessage({
+          text: 'Sua sessão expirou por segurança. Entre novamente no aplicativo para continuar conversando com a Plan IA.',
+        });
       } else {
         pushBotMessage({
-          text: 'Não consegui conectar a PLAN IA na nuvem agora.\n\nTente novamente em alguns segundos. Se persistir, verifique se a Edge Function `plan-assistant-chat` está ativa e com os segredos Cloudflare configurados.',
+          text: 'Não consegui concluir a resposta agora. Tente novamente em alguns instantes.',
         });
       }
     } finally {

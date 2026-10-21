@@ -5,6 +5,7 @@ import type {
   ChatMessage,
   HintStateRow,
   MessageHistoryItem,
+  PlanAssistantApiResponse,
   PlanHint,
   Point,
   RouteContext,
@@ -125,11 +126,147 @@ export function buildRouteContext(
   return { currentPath: '/dashboard', currentEventId: null };
 }
 
+export function sanitizeAssistantMessage(text: string): string {
+  if (!text || !text.trim()) return '';
+  const trimmed = text.trim();
+
+  // Guard against internal infra leaks, Edge Function names, database tables, secrets, AI provider names
+  const containsInfraLeak =
+    /plan-assistant-chat/i.test(trimmed) ||
+    /functions\/v1/i.test(trimmed) ||
+    /cloudflare/i.test(trimmed) ||
+    /edge\s*function/i.test(trimmed) ||
+    /relation\s*["'][a-z0-9_]+["']/i.test(trimmed) ||
+    /\btable\s*["'][a-z0-9_]+["']/i.test(trimmed) ||
+    /\bcolumn\s*["'][a-z0-9_]+["']/i.test(trimmed) ||
+    /\b(?:from|into|update)\s+["']?[a-z0-9_]+["']?\s+(?:where|set|values)\b/i.test(trimmed) ||
+    /functionsfetcherror/i.test(trimmed) ||
+    /pgerror/i.test(trimmed) ||
+    /\b(?:postgrest|postgresql|postgres|sqlite)\b/i.test(trimmed) ||
+    /\b(?:groq|bedrock|anthropic|openai|gemini|deepseek|ollama|cohere)\b/i.test(trimmed) ||
+    /\b(?:bad\s*gateway|gateway\s*timeout|service\s*unavailable|econnrefused|etimedout)\b/i.test(trimmed) ||
+    /\b(?:sqlstate|syntax\s*error\s+at\s+or\s+near)\b/i.test(trimmed) ||
+    /\b(?:jwt\s+expired|invalid\s+claim|invalid\s+signature)\b/i.test(trimmed) ||
+    /\b(?:cors\s+error|fetch\s+failed|networkrequestfailed)\b/i.test(trimmed) ||
+    /\b(?:wrangler|cloudflare\s*worker)\b/i.test(trimmed) ||
+    /supabase_service_role/i.test(trimmed) ||
+    /service_role_key/i.test(trimmed) ||
+    /anon_key/i.test(trimmed) ||
+    /\bbearer\s+[a-z0-9_.-]{20,}/i.test(trimmed) ||
+    /internal\s+server\s+error/i.test(trimmed) ||
+    /\b(?:unhandled\s+rejection|uncaught\s+exception|typeerror:|referenceerror:|syntaxerror:)\b/i.test(trimmed);
+
+  if (containsInfraLeak) {
+    return 'Não consegui concluir a resposta agora. Tente novamente em alguns instantes.';
+  }
+
+  // Remove internal tool call residue (e.g., "→ get_event_details", "(get_event_details)", etc.)
+  const cleaned = trimmed
+    .replace(/\s*(?:→|->|:)\s*`?(?:get|create|update|delete|check|search|notify|export|checkin|calculate|register)_[a-z0-9_]+`?/gi, '')
+    .replace(/\(\s*`?(?:get|create|update|delete|check|search|notify|export|checkin|calculate|register)_[a-z0-9_]+`?\s*\)/gi, '')
+    .replace(/`?(?:get|create|update|delete|check|search|notify|export|checkin|calculate|register)_[a-z0-9_]{3,35}`?/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  return cleaned || 'Não consegui concluir a resposta agora. Tente novamente em alguns instantes.';
+}
+
+export function parsePlanAssistantResponseText(text: string): PlanAssistantApiResponse {
+  if (!text || !text.trim()) return {};
+  const trimmed = text.trim();
+
+  // 1. Direct JSON payload
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      return JSON.parse(trimmed) as PlanAssistantApiResponse;
+    } catch {
+      // not direct JSON, proceed to SSE stream parsing
+    }
+  }
+
+  // 2. Server-Sent Events (SSE) format
+  const blocks = trimmed.split(/\r?\n\r?\n/u);
+  let accumulatedAnswer = '';
+  let donePayload: PlanAssistantApiResponse | null = null;
+  let actions: Array<{ label?: string; path?: string }> = [];
+
+  for (const block of blocks) {
+    const lines = block.split(/\r?\n/u);
+    let eventName = 'message';
+    const dataLines: string[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith('event:')) {
+        eventName = line.slice(6).trim();
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice(5).trimStart());
+      }
+    }
+
+    if (dataLines.length === 0) continue;
+    const rawData = dataLines.join('\n').trim();
+    if (!rawData || rawData === '[DONE]') continue;
+
+    try {
+      const parsedData = JSON.parse(rawData) as Record<string, unknown>;
+
+      // Delta extraction: support event: delta OR default event: message with text or delta.content
+      const deltaContent =
+        typeof parsedData.text === 'string'
+          ? parsedData.text
+          : typeof (parsedData.choices as Array<{ delta?: { content?: unknown } }>)?.[0]?.delta?.content === 'string'
+            ? String((parsedData.choices as Array<{ delta?: { content?: unknown } }>)[0].delta?.content)
+            : '';
+
+      if (eventName === 'delta' || (eventName === 'message' && Boolean(deltaContent) && !parsedData.answer)) {
+        if (deltaContent) accumulatedAnswer += deltaContent;
+      } else if (eventName === 'done' || (eventName === 'message' && typeof parsedData.answer === 'string')) {
+        donePayload = parsedData as PlanAssistantApiResponse;
+        if (Array.isArray(parsedData.suggested_actions)) {
+          actions = parsedData.suggested_actions as Array<{ label?: string; path?: string }>;
+        }
+      } else if (eventName === 'error' || (eventName === 'message' && parsedData.error)) {
+        const errorMsg =
+          typeof parsedData.message === 'string'
+            ? parsedData.message
+            : typeof parsedData.error === 'string'
+              ? parsedData.error
+              : 'stream_error';
+        throw new Error(`plan_assistant_stream_error:${errorMsg}`);
+      }
+    } catch (err) {
+      if (String(err).includes('plan_assistant_stream_error')) throw err;
+    }
+  }
+
+  if (donePayload) {
+    return {
+      ...donePayload,
+      answer: donePayload.answer || accumulatedAnswer || undefined,
+      suggested_actions: donePayload.suggested_actions || (actions.length > 0 ? actions : undefined),
+    };
+  }
+
+  if (accumulatedAnswer) {
+    return {
+      answer: accumulatedAnswer,
+      suggested_actions: actions.length > 0 ? actions : undefined,
+    };
+  }
+
+  return {};
+}
+
 export function getAssistantAnswer(data: unknown) {
   if (!data || typeof data !== 'object') return '';
   const payload = data as Record<string, unknown>;
+  if (payload.error && !payload.answer) {
+    return '';
+  }
   for (const candidate of [payload.answer, payload.reply, payload.message, payload.assistant, payload.output_text, payload.text]) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return sanitizeAssistantMessage(candidate.trim());
+    }
   }
   return '';
 }

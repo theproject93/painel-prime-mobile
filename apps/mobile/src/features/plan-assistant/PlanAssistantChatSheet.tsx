@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { colors } from '../../theme/colors';
+import { useBiometricAccess } from '../../contexts/BiometricAccessContext';
 import { PLAN_FACE_IMAGE } from './assets';
 import { PlanComposer } from './PlanComposer';
 import { PlanMessageList } from './PlanMessageList';
@@ -34,12 +35,20 @@ type Props = {
 
 export function PlanAssistantChatSheet(props: Props) {
   const listRef = useRef<ScrollView | null>(null);
+  let isCurtainActive = false;
+  try {
+    const biometric = useBiometricAccess();
+    isCurtainActive = biometric?.isCurtainActive ?? false;
+  } catch {
+    // Fallback when rendered outside BiometricAccessProvider
+  }
+
   useEffect(() => {
     listRef.current?.scrollToEnd({ animated: true });
   }, [props.isReplying, props.messages, props.visible]);
 
   return (
-    <Modal visible={props.visible} animationType="fade" transparent onRequestClose={props.onClose}>
+    <Modal visible={props.visible && !isCurtainActive} animationType="fade" transparent onRequestClose={props.onClose}>
       <View style={styles.modalRoot}>
         <Pressable style={styles.backdrop} onPress={props.onClose} />
         <KeyboardAvoidingView style={styles.modalContent} behavior="padding" keyboardVerticalOffset={0}>
