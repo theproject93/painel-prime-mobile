@@ -598,6 +598,67 @@ Diretrizes normativas para paridade estrita de recursos entre Web e Mobile (`app
   3. **Instalação Frozen de Dependências:**
      - O lockfile `pnpm-lock.yaml` do repositório mobile DEVE ser estritamente mantido para compilações com `--frozen-lockfile`, garantindo determinismo na esteira de CI/CD.
 
+
 ---
 
-**Última atualização:** 2026-10-19 — Adicionadas as **Seções 22 a 25** (Arquitetura de Alertas e Notificações na Bandeja Android; Padrões Corporativos de UI/UX Mobile, Touch Targets e Skeletons; Proteção contra Clock Skew; e Governança de Build Nativo, Bind Mount e Preservação do NDK 27).
+## 26. PREVENÇÃO DE ANR EM COMPONENTES DE VÍDEO NATIVO E ANIMAÇÕES NA NOVA ARQUITETURA FABRIC (REACT 19) (2026-10-20)
+
+- **Causa Raiz & Incidente (Outubro/2026):** O aplicativo sofria com congelamento da thread de UI (Application Not Responding - ANR de mais de 45 segundos no Looper principal) ao navegar da Landing page com vídeo (`hero-video.mp4`) para o Login. O componente nativo `VideoView` mantinha a visualização `surface_player_view` ativa interceptando toques globais, ao mesmo tempo que `Animated.parallel` era acionado no ciclo síncrono de render do componente `FadeInView`, violando as restrições de concorrência da Nova Arquitetura Fabric do React Native 0.81 / React 19.
+- **Cláusulas Pétreas:**
+  1. **Controles Nativos Desativados em Vídeos de Fundo:**
+     - Todo `<VideoView />` de fundo DEVE utilizar expressamente `nativeControls={false}` para impedir a criação de camadas interceptadoras de toque nativas.
+  2. **Pausa Preventiva de Mídia Antes da Navegação:**
+     - Rotinas de transição de rota (`router.push`, `router.replace`) DEVEM pausar o player em bloco defensivo antes de despachar a rota:
+       ```ts
+       const navigateTo = (href: string) => {
+         try { player.pause(); } catch {}
+         router.push(href as any);
+       };
+       ```
+  3. **Animações Exclusivamente Dentro de `useEffect`:**
+     - Qualquer animação orientada pela API `Animated` DEVE ser instanciada e iniciada estritamente dentro de hooks `useEffect`, nunca no corpo síncrono da função de renderização.
+
+---
+
+## 27. MAPEAMENTO CENTRALIZADO E HUMANIZAÇÃO DE ERROS DE AUTENTICAÇÃO E REDE EM PT-BR (`authError.ts`) (2026-10-20)
+
+- **Causa Raiz & Incidente (Outubro/2026):** Falhas de rede transitórias ou erros de validação exibiam strings cruas em inglês diretamente na interface do usuário (ex: `"Network request failed"`, `"Invalid login credentials"`, `"missing email or phone"`), violando a governança de idioma PT-BR do `AGENTS.md` e degradando a percepção de produto premium.
+- **Cláusulas Pétreas:**
+  1. **Higienização Compulsória via `mapAuthErrorMessage`:**
+     - Nenhuma exceção bruta lançada por `fetch` ou `supabase.auth` deve ser repassada diretamente para componentes visuais. Toda captura DEVE ser processada pelo utilitário `apps/mobile/src/lib/authError.ts`:
+       - Falha de conexão: `"Falha de conexão com a internet. Verifique sua rede e tente novamente."`
+       - Credenciais inválidas: `"E-mail ou senha incorretos. Verifique suas credenciais."`
+       - Usuário já registrado: `"Este e-mail já está cadastrado. Tente entrar ou recupere sua senha."`
+       - Senha curta: `"A senha deve conter no mínimo 6 caracteres."`
+  2. **Feedback Tátil em Erros de Validação:**
+     - Ao capturar e exibir um erro de autenticação, o fluxo DEVE acionar `AppHaptics.error()` para confirmação sensorial tátil do operador.
+
+---
+
+## 28. GOVERNANÇA ZERO DEAD ENDS: RECUPERAÇÃO DE SENHA FUNCIONAL, EMPTY STATES COM CTAS DE RETORNO E `onRequestClose` OBRIGATÓRIO EM MODAIS (2026-10-20)
+
+- **Causa Raiz & Incidente (Outubro/2026):** A auditoria de QA detectou múltiplos becos sem saída: o texto "Esqueceu sua senha?" era um elemento inerte sem `onPress`; e a rota pública de fornecedores (`PublicVendorCommandCenterScreen`) exibia tela preta com mensagem estática `"Link inválido."` sem opção de retorno. Além disso, modais sem a prop `onRequestClose` aprisionavam o usuário ao acionar o botão físico de voltar do Android.
+- **Cláusulas Pétreas:**
+  1. **Modal Funcional de Recuperação de Senha:**
+     - O link de recuperação de senha DEVE abrir modal no padrão Dark Luxury com preenchimento prévio do e-mail digitado (`prefill`), validação de formato e disparo para `supabase.auth.resetPasswordForEmail`, fornecendo feedback claro e háptico ao usuário.
+  2. **Empty States Educativos com CTA de Escape:**
+     - É estritamente proibido renderizar telas de erro estáticas ou sem navegação. Estados vazios ou inválidos DEVEM utilizar `<EmptyState>` com texto descritivo amigável e botão CTA de retorno primário (`"Voltar ao início"` direcionando para `/landing` ou rota principal).
+  3. **Manipulação Mandatória de Botão Voltar Físico (`onRequestClose`):**
+     - Todo componente nativo `<Modal>` DEVE declarar `onRequestClose` com callback de fechamento gracioso, garantindo que o gesto de borda ou botão físico de voltar feche o modal sem bloquear a interface.
+
+---
+
+## 29. ERGONOMIA TÁTIL DE ALTO PADRÃO: ALVOS DE TOQUE (44x44PT), SKELETON SHIMMERS ANTI-CLS E NAVEGAÇÃO REVERSA UNIFORME (`Screen.tsx`) (2026-10-20)
+
+- **Causa Raiz & Incidente (Outubro/2026):** Botões e ícones menores que 44pt causavam toques erráticos por cerimonialistas em eventos dinâmicos; telas exibiam spinners circulares solitários que geravam Content Layout Shift (CLS); e telas profundas não possuíam botão voltar padronizado no cabeçalho.
+- **Cláusulas Pétreas:**
+  1. **Área de Toque Mínima de 44x44pt ou `hitSlop: 12`:**
+     - Todos os elementos interativos (`PremiumInputs` eye toggle, botão de envio de chat, ícone de fechar modal, botões de ação de telas) DEVEM cumprir a dimensão mínima de 44x44pt ou definir compensação com `hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}`.
+  2. **Estrutura de Carregamento com Skeleton Shimmers:**
+     - É proibido o uso de `ActivityIndicator` isolado ocupando telas escuras. O carregamento DEVE empregar o componente `<SkeletonBox>` espelhando a topologia real dos dados finais.
+  3. **Navegação Reversa Padronizada com `Screen.tsx`:**
+     - Telas profundas DEVEM utilizar as propriedades `showBack` e `onBack` (com fallback nativo para `router.back()`) do componente `<Screen>`, provendo botão chevron-back ergonômico no padrão Dark Luxury.
+
+---
+
+**Última atualização:** 2026-10-20 — Adicionadas as **Seções 26 a 29** (Prevenção de ANR em Vídeo Nativo e Animações Fabric React 19; Mapeamento Centralizado e Humanização de Erros em PT-BR; Governança Zero Dead Ends com Recuperação de Senha, Empty States e onRequestClose; e Ergonomia Tátil de Alto Padrão com Touch Targets 44x44pt, Skeletons e Screen.tsx com Botão Voltar Unificado).
