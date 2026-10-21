@@ -196,6 +196,16 @@ export function SignupScreen() {
           >
             <Text style={styles.loginLink}>Já tem conta? Entrar</Text>
           </Pressable>
+
+          <Pressable
+            onPress={() => router.push(routeHrefs.privacyPolicy())}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={styles.privacyLinkWrap}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir política de privacidade"
+          >
+            <Text style={styles.privacyLink}>Política de Privacidade</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -272,4 +282,6 @@ const styles = StyleSheet.create({
   primaryText: { color: '#151922', fontWeight: '700', fontSize: 15, fontFamily: typography.fontFamily.sansBold },
   loginLinkWrap: { alignSelf: 'center', minHeight: 44, justifyContent: 'center' },
   loginLink: { color: '#A1A1AA', textAlign: 'center', fontFamily: typography.fontFamily.sansSemiBold, fontSize: 13 },
+  privacyLinkWrap: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
+  privacyLink: { color: '#71717A', fontSize: 12, fontFamily: typography.fontFamily.sansMedium, textAlign: 'center', textDecorationLine: 'underline' },
 });

@@ -267,6 +267,14 @@ export function LoginScreen() {
           >
             Não tem conta? Assinar agora
           </UniversalLink>
+
+          <UniversalLink
+            href={routeHrefs.privacyPolicy()}
+            style={styles.privacyLinkWrap}
+            textStyle={styles.privacyLink}
+          >
+            Política de Privacidade
+          </UniversalLink>
         </View>
       </ScrollView>
 
@@ -523,6 +531,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: typography.fontFamily.sansSemiBold,
     textAlign: 'center',
+  },
+  privacyLinkWrap: {
+    alignSelf: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  privacyLink: {
+    color: '#71717A',
+    fontSize: 12,
+    fontFamily: typography.fontFamily.sansMedium,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
   modalOverlay: {
     flex: 1,

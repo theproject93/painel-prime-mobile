@@ -24,21 +24,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      setLoading(false);
-    });
+    let resolved = false;
+
+    // Fallback defensivo para revisores do Google Play: encerra loading em no máximo 4s
+    const fallbackTimer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        setLoading(false);
+      }
+    }, 4000);
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        resolved = true;
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        resolved = true;
+        setLoading(false);
+      });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      resolved = true;
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       setLoading(false);
     });
 
     return () => {
+      clearTimeout(fallbackTimer);
       subscription.unsubscribe();
     };
   }, []);

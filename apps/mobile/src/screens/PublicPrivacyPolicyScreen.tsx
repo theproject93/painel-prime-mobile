@@ -1,63 +1,97 @@
 import { routeHrefs } from '@painel-prime/app/navigation';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { goBackOrReplace } from '../lib/router';
 import { colors } from '../theme/colors';
+import { typography } from '../theme/fonts';
 
-const updateDate = '10 de abril de 2026';
+const updateDate = '21 de outubro de 2026';
+const DELETION_URL = 'https://painelprime.com.br/privacidade/exclusao-de-dados';
 
 const sections = [
   {
-    title: '1. Papel do Painel Prime',
+    title: '1. Papel do Painel Prime no Tratamento de Dados',
     paragraphs: [
-      'Na maior parte dos fluxos ligados a convidados, listas, RSVP, recepção, documentos e comunicações do evento, o Painel Prime atua como operador de dados pessoais em nome dos clientes organizadores do evento, como noivos, responsáveis, assessorias e equipes autorizadas, que atuam como controladores.',
-      'Em fluxos próprios da plataforma, como cadastro, autenticação, cobrança, suporte, segurança e operação administrativa do serviço, o Painel Prime pode atuar como controlador dos dados estritamente necessários para prestar e proteger a plataforma.',
+      'Na maior parte dos fluxos operacionais ligados a convidados, confirmações de presença (RSVP), mesas, cronogramas, reuniões e documentos do evento, o Painel Prime atua estritamente como operador de dados pessoais em nome dos clientes organizadores (noivos, aniversariantes, comissões, cerimonialistas e assessorias de eventos), que figuram como controladores perante a LGPD.',
+      'Em fluxos próprios da plataforma (cadastro de contas, autenticação, cobrança de planos de assinatura, suporte técnico, telemetria de performance e segurança), o Painel Prime atua como controlador dos dados estritamente necessários para prestar e proteger a plataforma.',
     ],
   },
   {
-    title: '2. Dados tratados',
+    title: '2. Dados Tratados e Categorias Coletadas',
     paragraphs: [
-      'Podemos tratar dados de identificação e contato, nomes de convidados, RSVP, mesa, observações, restrições alimentares informadas, documentos, fotos, registros técnicos de acesso, suporte e operação da recepção.',
-      'Não vendemos dados pessoais nem usamos os dados do evento para finalidades incompatíveis com a organização do evento ou com a prestação do serviço.',
+      'Podemos tratar dados cadastrais e de contato (nome completo, e-mail, telefone, cargo e empresa), informações de eventos e noivos, listas de convidados (nomes, parentesco, mesa alocada e restrições informadas), histórico do CRM, atas geradas por inteligência artificial e registros técnicos de conexão.',
+      'Não comercializamos dados pessoais com terceiros e não utilizamos os dados para finalidades incompatíveis com o serviço contratado.',
     ],
   },
   {
-    title: '3. Finalidades e base legal',
+    title: '3. Finalidades e Bases Legais',
     paragraphs: [
-      'Os dados são tratados para viabilizar a organização do evento, confirmar presença, operar listas e mesas, controlar acessos, permitir uso do portal do cliente, prestar suporte, proteger a segurança da plataforma e manter trilhas de auditoria.',
-      'A base legal aplicável pode incluir execução de contrato, procedimentos preliminares, legítimo interesse para segurança e operação do serviço, exercício regular de direitos e, quando necessário, consentimento.',
+      'Os dados são tratados para viabilizar a organização do evento, confirmação de presença (RSVP), controle de acesso, gestão de assinaturas, atendimento de suporte, cumprimento de obrigações legais (Marco Civil da Internet e normas fiscais) e legítimo interesse para segurança da plataforma.',
     ],
   },
   {
-    title: '4. Compartilhamento e retenção',
+    title: '4. Subprocessadores, Telemetria Técnica e Mensuração (Sentry e Meta)',
     paragraphs: [
-      'Os dados podem ser compartilhados com operadores e subprocessadores necessários para hospedagem, autenticação, banco de dados, armazenamento seguro, envio de e-mails transacionais e infraestrutura de nuvem, além dos controladores do evento e pessoas autorizadas por eles.',
-      'Mantemos os dados pelo tempo necessário para cumprir as finalidades desta política, atender exigências legais e resguardar direitos. Quando aplicável, realizamos exclusão, anonimização ou bloqueio dos dados ao fim do ciclo necessário.',
+      'Para garantir estabilidade, segurança e diagnóstico preventivo, compartilhamos dados técnicos exclusivamente com subprocessadores homologados:',
+      '• Sentry (Telemetria Técnica e Crashes): Coleta diagnósticos de performance, relatórios de falha (crash logs) e stack traces das aplicações. Dados de identificação pessoal (PII como e-mails e senhas) passam por sanitização ativa antes do envio.',
+      '• Meta Platforms / WhatsApp Business (Mensageria e Mensuração Web): Mensuração institucional via Meta Pixel e Conversions API (CAPI) com hashing criptográfico SHA-256 no portal web, além de disparos oficiais de confirmação de presença (RSVP) via API do WhatsApp.',
+      '• Supabase & Cloudflare: Provedores de banco de dados relacional e infraestrutura em nuvem protegidos por criptografia em trânsito (TLS 1.3) e em repouso (AES-256).',
     ],
   },
   {
-    title: '5. Recepção offline e segurança',
+    title: '5. Autenticação e Biometria Local no Aparelho',
     paragraphs: [
-      'Na recepção, o Painel Prime pode manter um snapshot local temporário dos dados operacionais do evento para permitir funcionamento offline. Esse armazenamento local é efêmero, não substitui o controlador do evento e não é usado como credencial.',
-      'Sem sessão ativa, o snapshot local é limpo automaticamente em até 48 horas. Em operação normal, esse ciclo pode ser encerrado antes, inclusive em janelas de 24 horas. O token de acesso da recepção não fica armazenado de forma durável no aparelho.',
+      'A autenticação dos usuários é realizada via Supabase Auth, utilizando tokens de sessão criptografados (JWT).',
+      'O recurso de entrada por biometria no aplicativo Android opera 100% no hardware de segurança do dispositivo (Android Keystore / Secure Element via expo-local-authentication). O Painel Prime NÃO armazena, NÃO transmite e NÃO tem acesso a impressões digitais, mapeamentos faciais ou dados biométricos do usuário.',
     ],
   },
   {
-    title: '6. Direitos do titular e contato',
+    title: '6. Recepção Offline e Retenção de Dados',
     paragraphs: [
-      'O titular pode solicitar acesso, correção, atualização, anonimização, bloqueio, informações sobre compartilhamento e exclusão de dados pessoais, observadas as hipóteses legais aplicáveis e o papel do Painel Prime em cada fluxo.',
-      'Para assuntos de privacidade e exercício de direitos, entre em contato com o encarregado pelo canal oficial lgpd@painelprime.com.br. Nosso prazo operacional de resposta é de até 15 dias corridos.',
+      'Para viabilizar a recepção presencial sem conexão à internet, o aplicativo pode manter um snapshot local temporário e criptografado da lista de convidados. Sem sessão ativa, esse snapshot é purgado automaticamente em até 48 horas.',
+      'Registros de conexão e logs de acesso a aplicações de internet são retidos sob sigilo por 6 meses conforme exigência do Artigo 15 do Marco Civil da Internet (Lei 12.965/2014), com expurgo automatizado após o prazo.',
+    ],
+  },
+  {
+    title: '7. Exclusão de Conta e Dados Pessoais (LGPD & Google Play)',
+    paragraphs: [
+      'Conforme as políticas da Google Play Store e a LGPD, você pode excluir sua conta e dados pessoais diretamente no app em Mais > Perfil ou Mais > Configurações > Zona de Perigo, confirmando a ação com a digitação de "EXCLUIR MINHA CONTA".',
+      'Caso não tenha o aplicativo instalado, você pode solicitar a exclusão pela nossa página web pública oficial ou via e-mail direto com nosso DPO.',
+    ],
+  },
+  {
+    title: '8. Direitos do Titular e Contato do DPO',
+    paragraphs: [
+      'O titular pode solicitar confirmação de tratamento, acesso, retificação, eliminação, portabilidade ou revogação do consentimento contatando nosso Encarregado pelo e-mail oficial: lgpd@painelprime.com.br.',
+      'O prazo regulamentar de resposta é de até 15 (quinze) dias corridos.',
     ],
   },
 ];
 
 export function PublicPrivacyPolicyScreen() {
   const router = useRouter();
+
+  async function openDeletionUrl() {
+    try {
+      await Linking.openURL(DELETION_URL);
+    } catch {
+      // noop
+    }
+  }
+
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Pressable onPress={() => goBackOrReplace(router, routeHrefs.landing())}>
-        <Text style={styles.back}>Voltar</Text>
+      <Pressable
+        onPress={() => goBackOrReplace(router, routeHrefs.landing())}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={styles.backButton}
+        accessibilityRole="button"
+        accessibilityLabel="Voltar para a tela anterior"
+      >
+        <Ionicons name="arrow-back" size={20} color="#DEC479" />
+        <Text style={styles.backText}>Voltar</Text>
       </Pressable>
 
       <View style={styles.card}>
@@ -65,12 +99,22 @@ export function PublicPrivacyPolicyScreen() {
         <Text style={styles.updated}>Última atualização: {updateDate}</Text>
 
         <View style={styles.highlight}>
+          <Ionicons name="shield-checkmark" size={18} color="#DEC479" />
           <Text style={styles.highlightText}>
-            Em fluxos de organização do evento, o Painel Prime atua, em regra, como operador de
-            dados pessoais em nome dos clientes organizadores. Para exclusão de dados e exercício
-            de direitos, use lgpd@painelprime.com.br.
+            Em fluxos operacionais de eventos, o Painel Prime atua predominantemente como operador de dados sob diretriz dos organizadores. Para solicitar exclusão ou exercer seus direitos, utilize lgpd@painelprime.com.br.
           </Text>
         </View>
+
+        <Pressable
+          style={styles.deletionBtn}
+          onPress={() => void openDeletionUrl()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir página pública com regras e instruções de exclusão de dados"
+        >
+          <Ionicons name="trash-outline" size={16} color="#DEC479" />
+          <Text style={styles.deletionBtnText}>Página pública de exclusão de conta e dados →</Text>
+        </Pressable>
 
         {sections.map((section) => (
           <Section key={section.title} title={section.title} paragraphs={section.paragraphs} />
@@ -84,8 +128,8 @@ function Section({ title, paragraphs }: { title: string; paragraphs: string[] })
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      {paragraphs.map((paragraph) => (
-        <Text key={paragraph} style={styles.sectionText}>
+      {paragraphs.map((paragraph, idx) => (
+        <Text key={idx} style={styles.sectionText}>
           {paragraph}
         </Text>
       ))}
@@ -94,28 +138,97 @@ function Section({ title, paragraphs }: { title: string; paragraphs: string[] })
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16, gap: 8, paddingBottom: 28 },
-  back: { color: colors.mutedText, fontSize: 13, fontWeight: '600' },
-  card: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 14,
-    gap: 12,
+  page: {
+    flex: 1,
+    backgroundColor: '#0A0D14',
   },
-  title: { color: colors.text, fontSize: 24, fontWeight: '700' },
-  updated: { color: colors.mutedText, fontSize: 12, fontWeight: '600' },
+  content: {
+    padding: 16,
+    gap: 12,
+    paddingBottom: 36,
+  },
+  backButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  backText: {
+    color: '#DEC479',
+    fontSize: 14,
+    fontFamily: typography.fontFamily.sansSemiBold,
+  },
+  card: {
+    backgroundColor: '#11141E',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    padding: 18,
+    gap: 16,
+  },
+  title: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontFamily: typography.fontFamily.sansBold,
+  },
+  updated: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    fontFamily: typography.fontFamily.sansMedium,
+  },
   highlight: {
+    flexDirection: 'row',
+    gap: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#b7f0cf',
-    backgroundColor: '#ecfdf3',
-    padding: 12,
+    borderColor: 'rgba(222, 196, 121, 0.3)',
+    backgroundColor: 'rgba(222, 196, 121, 0.08)',
+    padding: 14,
+    alignItems: 'flex-start',
   },
-  highlightText: { color: '#166534', fontSize: 13, lineHeight: 20, fontWeight: '600' },
-  section: { gap: 6 },
-  sectionTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  sectionText: { color: colors.text, fontSize: 13, lineHeight: 20 },
+  highlightText: {
+    color: '#E4E4E7',
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: typography.fontFamily.sansMedium,
+    flex: 1,
+  },
+  deletionBtn: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(222, 196, 121, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(222, 196, 121, 0.35)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  deletionBtnText: {
+    color: '#DEC479',
+    fontSize: 13,
+    fontFamily: typography.fontFamily.sansBold,
+    flex: 1,
+  },
+  section: {
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    paddingTop: 14,
+  },
+  sectionTitle: {
+    color: '#F4F4F5',
+    fontSize: 15,
+    fontFamily: typography.fontFamily.sansBold,
+  },
+  sectionText: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: typography.fontFamily.sans,
+  },
 });

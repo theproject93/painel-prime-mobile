@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '../components/Screen';
+import { DeleteAccountModal } from '../components/DeleteAccountModal';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
@@ -62,6 +64,7 @@ export function ProfileScreen() {
   const [billingLoading, setBillingLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [billingSub, setBillingSub] = useState<BillingSubscription | null>(null);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   useEffect(() => {
     const meta = (user?.user_metadata as Record<string, any> | undefined) ?? {};
@@ -211,14 +214,56 @@ export function ProfileScreen() {
 
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
+      <View style={styles.dangerCard}>
+        <View style={styles.dangerHeader}>
+          <View style={styles.dangerBadge}>
+            <Ionicons name="warning-outline" size={18} color="#EF4444" />
+          </View>
+          <View style={styles.dangerTextWrap}>
+            <Text style={styles.dangerTitle}>Zona de Perigo / Excluir Conta e Dados</Text>
+            <Text style={styles.dangerDescription}>
+              Exclusão definitiva de conta, eventos e dados pessoais conforme a LGPD e as políticas do Google Play.
+            </Text>
+          </View>
+        </View>
+        <Pressable
+          onPress={() => setDeleteModalVisible(true)}
+          style={styles.deleteAccountButton}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Excluir minha conta e dados pessoais"
+        >
+          <Ionicons name="trash-outline" size={16} color="#EF4444" />
+          <Text style={styles.deleteAccountText}>Excluir minha conta e dados</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.rowBtns}>
-        <Pressable onPress={() => void saveProfile()} style={styles.saveButton}>
+        <Pressable
+          onPress={() => void saveProfile()}
+          style={styles.saveButton}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Salvar dados do perfil"
+          disabled={saving}
+        >
           {saving ? <ActivityIndicator color={colors.primaryTextOn} /> : <Text style={styles.saveText}>Salvar perfil</Text>}
         </Pressable>
-        <Pressable onPress={() => void signOut()} style={styles.logoutButton}>
+        <Pressable
+          onPress={() => void signOut()}
+          style={styles.logoutButton}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Sair da conta"
+        >
           <Text style={styles.logoutText}>Sair da conta</Text>
         </Pressable>
       </View>
+
+      <DeleteAccountModal
+        visible={deleteModalVisible}
+        onClose={() => setDeleteModalVisible(false)}
+      />
     </Screen>
   );
 }
@@ -235,8 +280,62 @@ const styles = StyleSheet.create({
   btnGhost: { minHeight: 36, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
   smallText: { color: colors.text, fontSize: 12, fontWeight: '600' },
   message: { color: colors.text, backgroundColor: colors.primarySoft, borderRadius: 8, padding: 8, textAlign: 'center' },
-  saveButton: { flex: 1, minHeight: 42, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  saveButton: { flex: 1, minHeight: 44, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   saveText: { color: colors.primaryTextOn, fontWeight: '700', fontSize: 14 },
-  logoutButton: { flex: 1, minHeight: 42, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
+  logoutButton: { flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
   logoutText: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  dangerCard: {
+    backgroundColor: '#0A0D14',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    padding: 14,
+    gap: 12,
+  },
+  dangerHeader: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  dangerBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  dangerTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  dangerTitle: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  dangerDescription: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  deleteAccountButton: {
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.45)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  deleteAccountText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '700',
+  },
 });
