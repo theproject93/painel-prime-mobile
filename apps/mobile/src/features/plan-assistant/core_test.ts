@@ -164,7 +164,7 @@ Deno.test('parsePlanAssistantResponseText parses direct JSON, standard SSE and d
 Deno.test('adaptWebPathsForMobile converts web routes into Android tabs and buttons', () => {
   assertEquals(
     adaptWebPathsForMobile('Acesse /dashboard/eventos para criar um evento.'),
-    'Acesse aba **Eventos** para criar um evento.',
+    'toque na aba **Eventos** no menu inferior para criar um evento.',
   );
   assertEquals(
     adaptWebPathsForMobile('Consulte /dashboard/clientes para ver a carteira.'),
@@ -197,7 +197,7 @@ Deno.test('sanitizeAssistantMessage preserves markdown linebreaks and converts w
   const sanitized = sanitizeAssistantMessage(multiline);
   assertEquals(
     sanitized,
-    'Linha 1.\n\nLinha 2 com itens:\n- Item A\n- Item B\n\nAcesse aba **Eventos**.',
+    'Linha 1.\n\nLinha 2 com itens:\n- Item A\n- Item B\n\ntoque na aba **Eventos** no menu inferior.',
   );
 });
 

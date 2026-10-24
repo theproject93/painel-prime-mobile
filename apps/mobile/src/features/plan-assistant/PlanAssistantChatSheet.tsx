@@ -198,7 +198,6 @@ export function PlanAssistantChatSheet(props: Props) {
         visible={props.visible && !isCurtainActive}
         animationType="fade"
         transparent
-        statusBarTranslucent
         onRequestClose={props.onClose}
       >
         <View style={styles.modalRoot}>
@@ -206,8 +205,8 @@ export function PlanAssistantChatSheet(props: Props) {
           <KeyboardAvoidingView
             style={[
               styles.modalContent,
-              { paddingTop: Math.max(insets.top + 8, 32) },
-              Platform.OS === 'android' && isKeyboardOpen && { paddingBottom: keyboardHeight + 8 },
+              { paddingTop: Math.max(insets.top, 8) },
+              isKeyboardOpen && { paddingBottom: keyboardHeight },
             ]}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={0}
@@ -335,7 +334,7 @@ export function PlanAssistantChatSheet(props: Props) {
 
 const styles = StyleSheet.create({
   modalRoot: { flex: 1 },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 17, 21, 0.75)' },
   modalContent: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
   panel: { width: '100%', height: '86%', maxHeight: '92%', backgroundColor: colors.card, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
   header: { backgroundColor: colors.primaryStrong, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

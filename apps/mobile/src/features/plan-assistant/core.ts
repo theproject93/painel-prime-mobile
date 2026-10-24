@@ -129,6 +129,16 @@ export function buildRouteContext(
 export function adaptWebPathsForMobile(text: string): string {
   if (!text) return '';
   return text
+    .replace(/(?:acesse|navegue at[eé]|v[aá] para|abra)\s+(?:a rota|o link|a p[aá]gina|a url)?\s*`?\/dashboard\/eventos(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'toque na aba **Eventos** no menu inferior')
+    .replace(/(?:acesse|navegue at[eé]|v[aá] para|abra)\s+(?:a rota|o link|a p[aá]gina|a url)?\s*`?\/dashboard\/clientes(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'toque na aba **Clientes** no menu inferior')
+    .replace(/(?:acesse|navegue at[eé]|v[aá] para|abra)\s+(?:a rota|o link|a p[aá]gina|a url)?\s*`?\/dashboard\/financeiro(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'toque na aba **Finanças** no menu inferior')
+    .replace(/(?:acesse|navegue at[eé]|v[aá] para|abra)\s+(?:a rota|o link|a p[aá]gina|a url)?\s*`?\/dashboard\/fornecedores(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'toque na aba **Fornec.** no menu inferior')
+    .replace(/(?:acesse|navegue at[eé]|v[aá] para|abra)\s+(?:a rota|o link|a p[aá]gina|a url)?\s*`?\/dashboard\/configura[cç][oõ]es`?/gi, 'toque na aba **Mais** > **Configurações**')
+    .replace(/(?:acesse|navegue at[eé]|v[aá] para|abra)\s+(?:a rota|o link|a p[aá]gina|a url)?\s*`?\/dashboard\/equipe`?/gi, 'toque na aba **Mais** > **Sua equipe**')
+    .replace(/(?:acesse|navegue at[eé]|v[aá] para|abra)\s+(?:a rota|o link|a p[aá]gina|a url)?\s*`?\/dashboard\/perfil`?/gi, 'toque na aba **Mais** > **Perfil**')
+    .replace(/(?:acesse|navegue at[eé]|v[aá] para|abra)\s+(?:a rota|o link|a p[aá]gina|a url)?\s*`?\/dashboard\/saude-operacional`?/gi, 'toque na aba **Mais** > **Saúde operacional**')
+    .replace(/(?:acesse|navegue at[eé]|v[aá] para|abra)\s+(?:a rota|o link|a p[aá]gina|a url)?\s*`?\/dashboard\/faturamento`?/gi, 'toque na aba **Mais** > **Assinatura e planos**')
+    .replace(/(?:acesse|navegue at[eé]|v[aá] para|abra)\s+(?:a rota|o link|a p[aá]gina|a url)?\s*`?\/dashboard(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'toque na aba **Início** no menu inferior')
     .replace(/`?\/configura[cç][oõ]es\?tab=planos`?/gi, 'aba **Mais** > **Assinatura e planos**')
     .replace(/`?\/dashboard\/configura[cç][oõ]es`?/gi, 'aba **Mais** > **Configurações**')
     .replace(/`?\/dashboard\/equipe`?/gi, 'aba **Mais** > **Sua equipe**')
@@ -139,7 +149,12 @@ export function adaptWebPathsForMobile(text: string): string {
     .replace(/`?\/dashboard\/clientes(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'aba **Clientes**')
     .replace(/`?\/dashboard\/financeiro(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'aba **Finanças**')
     .replace(/`?\/dashboard\/fornecedores(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'aba **Fornec.**')
-    .replace(/`?\/dashboard(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'aba **Início**');
+    .replace(/`?\/dashboard(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'aba **Início**')
+    .replace(/\bclique\s+no\s+bot[aã]o\b/gi, 'toque no botão')
+    .replace(/\bclique\s+no\b/gi, 'toque no')
+    .replace(/\bclique\s+na\b/gi, 'toque na')
+    .replace(/\bclique\s+em\b/gi, 'toque em')
+    .replace(/\bclicar\b/gi, 'tocar');
 }
 
 export function sanitizeAssistantMessage(text: string): string {

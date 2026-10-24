@@ -25,6 +25,7 @@ import { vendorCatalogStyles as styles } from '../features/vendors/vendorCatalog
 import { EMPTY_VENDOR_FORM, PRICE_RANGE_OPTIONS, VENDOR_CATEGORIES, filterVendors, sortVendors, type VendorForm, type VendorRecord } from '../features/vendors/vendorCatalogModel';
 import { useVendorCatalog } from '../features/vendors/useVendorCatalog';
 import { VendorCard } from '../features/vendors/VendorCard';
+import { CreateVendorWizardModal } from '../features/vendors/CreateVendorWizardModal';
 
 type CategoryPickerMode = 'filter' | 'form' | null;
 
@@ -214,147 +215,15 @@ export function VendorsCatalogScreen() {
         ) : <View style={styles.listContent}>{filtered.map((item, index) => <VendorCard key={item.id} item={item} index={index} total={filtered.length} gradientId={vcId} edit={() => openEditModal(item)} remove={() => handleDelete(item)} move={(direction) => void handleMoveVendor(item.id, direction)} />)}</View>}
       </ScrollView>
 
-      <Modal visible={isCreateModalOpen} onClose={closeModal} title={editingVendor ? 'Editar fornecedor' : 'Novo fornecedor'}>
-        <ScrollView
-          contentContainerStyle={styles.formContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Text style={styles.fieldLabel}>Nome</Text>
-          <TextInput
-            style={styles.textInput}
-            value={form.name}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, name: value }))}
-            placeholder="Ex.: Lumière Filmes"
-            placeholderTextColor={colors.mutedText}
-          />
-
-          <Text style={styles.fieldLabel}>Categoria</Text>
-          <Pressable
-            style={[styles.categorySelector, styles.formCategorySelector]}
-            onPress={() => setCategoryPickerMode('form')}
-            accessibilityRole="button"
-            accessibilityLabel={`Selecionar categoria do fornecedor. Categoria atual: ${form.category}`}
-          >
-            <Text style={styles.categorySelectorValue} numberOfLines={1}>
-              {form.category}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color={colors.primaryStrong} />
-          </Pressable>
-
-          <Text style={styles.fieldLabel}>Telefone</Text>
-          <TextInput
-            style={styles.textInput}
-            value={form.phone}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, phone: value }))}
-            placeholder="(31) 99999-9999"
-            placeholderTextColor={colors.mutedText}
-            keyboardType="phone-pad"
-          />
-
-          <Text style={styles.fieldLabel}>WhatsApp</Text>
-          <TextInput
-            style={styles.textInput}
-            value={form.whatsapp}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, whatsapp: value }))}
-            placeholder="(31) 99999-9999"
-            placeholderTextColor={colors.mutedText}
-            keyboardType="phone-pad"
-          />
-
-          <Text style={styles.fieldLabel}>Email</Text>
-          <TextInput
-            style={styles.textInput}
-            value={form.email}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, email: value }))}
-            placeholder="contato@fornecedor.com"
-            placeholderTextColor={colors.mutedText}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
-          <Text style={styles.fieldLabel}>Cidade</Text>
-          <TextInput
-            style={styles.textInput}
-            value={form.city}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, city: value }))}
-            placeholder="Ex.: Belo Horizonte"
-            placeholderTextColor={colors.mutedText}
-          />
-
-          <Text style={styles.fieldLabel}>Estado</Text>
-          <TextInput
-            style={styles.textInput}
-            value={form.state}
-            onChangeText={(value) => setForm((prev) => ({ ...prev, state: value }))}
-            placeholder="Ex.: MG"
-            placeholderTextColor={colors.mutedText}
-            autoCapitalize="characters"
-            maxLength={2}
-          />
-
-          <Text style={styles.fieldLabel}>Faixa de Preço</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryRow}
-          >
-            {PRICE_RANGE_OPTIONS.map((opt) => (
-              <Pressable
-                key={opt.value}
-                style={[
-                  styles.categoryPill,
-                  form.price_range === opt.value && styles.categoryPillActive,
-                ]}
-                onPress={() => setForm((prev) => ({ ...prev, price_range: opt.value }))}
-              >
-                <Text
-                  style={[
-                    styles.categoryPillText,
-                    form.price_range === opt.value && styles.categoryPillTextActive,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          <Pressable
-            style={styles.vitrineRow}
-            onPress={() => setForm((prev) => ({ ...prev, is_visible_in_vitrine: !prev.is_visible_in_vitrine }))}
-          >
-            <Ionicons
-              name={form.is_visible_in_vitrine ? 'checkbox' : 'square-outline'}
-              size={22}
-              color={form.is_visible_in_vitrine ? colors.primaryStrong : colors.mutedText}
-            />
-            <View style={styles.vitrineTextGroup}>
-              <Text style={styles.fieldLabel}>Exibir na vitrine pública</Text>
-              <Text style={styles.vitrineHint}>
-                Quando ativado, aparece na pígina pública da sua assessoria.
-              </Text>
-            </View>
-          </Pressable>
-
-          <View style={styles.modalActions}>
-            <Button
-              title="Cancelar"
-              onPress={closeModal}
-              variant="ghost"
-              size="md"
-            />
-            <Button
-              title={saving ? 'Salvando...' : 'Salvar'}
-              onPress={() => void saveVendor()}
-              variant="primary"
-              size="md"
-              loading={saving}
-              disabled={!form.name.trim() || !form.category.trim() || saving}
-            />
-          </View>
-        </ScrollView>
-      </Modal>
+      <CreateVendorWizardModal
+        visible={isCreateModalOpen}
+        editingVendor={editingVendor}
+        form={form}
+        setForm={setForm}
+        onClose={closeModal}
+        onSave={saveVendor}
+        saving={saving}
+      />
 
       <OptionPickerModal
         visible={categoryPickerMode !== null}
