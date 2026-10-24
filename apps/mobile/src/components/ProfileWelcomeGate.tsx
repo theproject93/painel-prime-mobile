@@ -92,14 +92,14 @@ export function ProfileWelcomeGate({ children }: PropsWithChildren) {
           if (!alive) return;
           setAvatarUrl(signedUrl);
           setComplete(true);
-          setCheckedUserId(userId);
+          setCheckedUserId(userId ?? null);
         } catch {
           setStep('photo');
         }
       } else if (profile?.avatar_url || externalAvatar) {
         setAvatarUrl(profile?.avatar_url || externalAvatar);
         setComplete(true);
-        setCheckedUserId(userId);
+        setCheckedUserId(userId ?? null);
       } else {
         setStep('name');
       }
