@@ -36,6 +36,7 @@ export function ProfileWelcomeGate({ children }: PropsWithChildren) {
   const keyboardHeight = useKeyboardBottomInset();
   const [checking, setChecking] = useState(true);
   const [complete, setComplete] = useState(false);
+  const [checkedUserId, setCheckedUserId] = useState<string | null>(null);
   const [step, setStep] = useState<Step>('name');
   const [name, setName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -47,15 +48,26 @@ export function ProfileWelcomeGate({ children }: PropsWithChildren) {
     [name, user?.email],
   );
 
+  const userId = user?.id;
+
   useEffect(() => {
     let alive = true;
+    if (!userId) {
+      setChecking(false);
+      return;
+    }
+
+    // Se já verificou e completou este usuário, não reseta checking para não desmontar a navegação
+    if (complete && checkedUserId === userId) {
+      return;
+    }
+
     async function checkProfile() {
-      if (!user?.id) return;
       setChecking(true);
       const { data, error: profileError } = await supabase
         .from('user_onboarding_state')
         .select('display_name,avatar_url,avatar_file_id')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (!alive) return;
@@ -66,11 +78,11 @@ export function ProfileWelcomeGate({ children }: PropsWithChildren) {
       }
 
       const profile = data as WelcomeProfile | null;
-      const externalAvatar = String(user.user_metadata?.avatar_url ?? '') || null;
+      const externalAvatar = String(user?.user_metadata?.avatar_url ?? '') || null;
       const existingName =
         profile?.display_name ||
-        String(user.user_metadata?.name ?? '') ||
-        String(user.email ?? '').split('@')[0];
+        String(user?.user_metadata?.name ?? '') ||
+        String(user?.email ?? '').split('@')[0];
 
       setName(existingName.trim());
 
@@ -80,12 +92,14 @@ export function ProfileWelcomeGate({ children }: PropsWithChildren) {
           if (!alive) return;
           setAvatarUrl(signedUrl);
           setComplete(true);
+          setCheckedUserId(userId);
         } catch {
           setStep('photo');
         }
       } else if (profile?.avatar_url || externalAvatar) {
         setAvatarUrl(profile?.avatar_url || externalAvatar);
         setComplete(true);
+        setCheckedUserId(userId);
       } else {
         setStep('name');
       }
@@ -96,7 +110,7 @@ export function ProfileWelcomeGate({ children }: PropsWithChildren) {
     return () => {
       alive = false;
     };
-  }, [user]);
+  }, [userId, complete, checkedUserId]);
 
   async function saveName() {
     const cleanName = name.trim();

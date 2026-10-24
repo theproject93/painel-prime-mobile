@@ -21,7 +21,7 @@ export async function callCrmWebApi<T>(path: string, init?: { method?: 'GET' | '
       },
       body: init?.body === undefined ? undefined : JSON.stringify(init.body),
     });
-    const payload = await response.json().catch(() => ({})) as T & { error?: string };
+    const payload = (await response.json().catch(() => ({}))) as T & { error?: string };
     return { response, payload };
   };
 
@@ -32,6 +32,9 @@ export async function callCrmWebApi<T>(path: string, init?: { method?: 'GET' | '
     token = await accessToken(true);
     if (token) result = await send(token);
   }
-  if (!result.response.ok) throw new Error(result.payload.error || `Falha ao acessar integração (${result.response.status}).`);
+  if (!result.response.ok) {
+    const errorMsg = result.payload?.error || `Falha ao acessar integração (${result.response.status}).`;
+    throw new Error(errorMsg);
+  }
   return result.payload;
 }

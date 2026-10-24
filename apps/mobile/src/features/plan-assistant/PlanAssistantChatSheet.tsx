@@ -198,6 +198,7 @@ export function PlanAssistantChatSheet(props: Props) {
         visible={props.visible && !isCurtainActive}
         animationType="fade"
         transparent
+        statusBarTranslucent
         onRequestClose={props.onClose}
       >
         <View style={styles.modalRoot}>

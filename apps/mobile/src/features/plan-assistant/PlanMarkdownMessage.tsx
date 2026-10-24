@@ -231,6 +231,13 @@ export const PlanMarkdownMessage = memo(function PlanMarkdownMessage({
                   );
                 }
 
+                // Horizontal Rule: "---", "***", "___"
+                if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+                  return (
+                    <View key={lineIndex} style={[styles.horizontalDivider, isUser && styles.userDivider]} />
+                  );
+                }
+
                 // Bullet: "- text", "• text", "* text"
                 const bulletMatch = trimmed.match(/^([-•*])\s+(.*)$/);
                 if (bulletMatch) {
@@ -438,5 +445,14 @@ const styles = StyleSheet.create({
   tableCellText: {
     fontSize: 12,
     color: colors.text,
+  },
+  horizontalDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 8,
+    width: '100%',
+  },
+  userDivider: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
 });
