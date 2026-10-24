@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, Platform, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getEventPersonaCopy } from '@painel-prime/app/eventPersona';
 
+import { useKeyboardBottomInset } from '../lib/useKeyboardBottomInset';
 import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { MeetingCenter } from '../features/meetings/MeetingCenter';
 import { useAuth } from '../contexts/AuthContext';
@@ -50,6 +51,7 @@ const TABS = EVENT_MODULES;
 export function EventDetailsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardBottomInset();
   const pageRef = useRef<ScrollView>(null);
   const params = useLocalSearchParams<{ id?: string | string[]; initialTab?: string | string[] }>();
   const eventId = Array.isArray(params.id) ? params.id[0] ?? '' : params.id ?? '';
@@ -552,8 +554,22 @@ export function EventDetailsScreen() {
   if (loadingEvent) return <PrimeLogoLoader label="Abrindo o evento" />;
 
   return (
-    <SafeAreaView style={styles.page} edges={['top']}>
-    <ScrollView ref={pageRef} style={styles.page} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]}>
+    <SafeAreaView
+      style={[
+        styles.page,
+        Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+      ]}
+      edges={['top']}
+    >
+      <ScrollView
+        ref={pageRef}
+        style={styles.page}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: keyboardHeight > 0 ? 32 : insets.bottom + 140 },
+        ]}
+      >
       <EventDetailsHeader
         {...{ event, displayName, uploadingPhoto, editingBasics, setEditingBasics, basicDraft, setBasicDraft, savingBasics,
           activeTabLabel, activeTabIcon, pickerOptions, activeTab }}

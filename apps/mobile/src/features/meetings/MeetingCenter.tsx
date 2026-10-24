@@ -24,12 +24,14 @@ import { defaultMeetingSchedule, formatMeetingDateTime, meetingError, type Meeti
 import { invokeMeetingAction } from './meetingService';
 import { useMeetingsData } from './useMeetingsData';
 import { AtaDocumentModal } from './AtaDocumentModal';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 
 type MeetingCenterProps = {
   eventId: string;
 };
 
 export function MeetingCenter({ eventId }: MeetingCenterProps) {
+  const keyboardHeight = useKeyboardBottomInset();
   const data = useMeetingsData(eventId);
   const { meetings, loading, refreshing, error, setError, fetchMeetings, patchFields } = data;
   const [busyAction, setBusyAction] = useState('');
@@ -300,7 +302,10 @@ export function MeetingCenter({ eventId }: MeetingCenterProps) {
 
       <Modal visible={scheduleOpen} transparent animationType="fade" onRequestClose={() => setScheduleOpen(false)}>
         <KeyboardAvoidingView
-          style={styles.modalBackdrop}
+          style={[
+            styles.modalBackdrop,
+            Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 },
+          ]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={styles.modalCard}>

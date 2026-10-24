@@ -85,6 +85,8 @@ export type PlanAssistantRequest = {
   attachments?: Array<{ stored_file_id: string; kind: 'contract_pdf' }>;
   context_type?: string;
   context_id?: string | null;
+  client_platform?: 'android' | 'ios' | string;
+  channel?: string;
 };
 
 export type {

@@ -1,11 +1,12 @@
 import { routeHrefs } from '@painel-prime/app/navigation';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { supabase } from '../lib/supabase';
 import { goBackOrReplace } from '../lib/router';
 import { colors } from '../theme/colors';
+import { useKeyboardBottomInset } from '../lib/useKeyboardBottomInset';
 
 type Message = { role: 'assistant' | 'user'; content: string };
 
@@ -52,6 +53,7 @@ function getAssistantText(data: unknown) {
 
 export function PublicAtendimentoIAScreen() {
   const router = useRouter();
+  const keyboardHeight = useKeyboardBottomInset();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -147,55 +149,67 @@ export function PublicAtendimentoIAScreen() {
   }
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Pressable
-        onPress={() => goBackOrReplace(router, routeHrefs.landing())}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        style={styles.backWrap}
-        accessibilityRole="button"
-        accessibilityLabel="Voltar ao início"
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[
+        styles.page,
+        Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+      ]}
+    >
+      <ScrollView
+        style={styles.page}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.back}>Voltar</Text>
-      </Pressable>
-      <View style={styles.card}>
-        <Text style={styles.title}>Atendimento IA</Text>
-        <Text style={styles.sub}>Atendimento comercial inteligente integrado à nuvem AWS do Painel Prime.</Text>
-        {leadCaptured ? <Text style={styles.badge}>Lead capturado com sucesso</Text> : null}
-      </View>
-
-      <View style={styles.chatCard}>
-        {messages.map((message, idx) => (
-          <View key={`${message.role}-${idx}`} style={[styles.bubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
-            <Text style={[styles.bubbleText, message.role === 'user' ? styles.userBubbleText : null]}>{message.content}</Text>
-          </View>
-        ))}
-
-        {loading ? (
-          <View style={styles.typingRow}>
-            <ActivityIndicator color={colors.primaryStrong} />
-            <Text style={styles.caption}>Plan está digitando...</Text>
-          </View>
-        ) : null}
-
-        {error ? <Text style={styles.err}>{error}</Text> : null}
-
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder="Digite sua resposta..."
-          placeholderTextColor={colors.mutedText}
-        />
-        <View style={styles.row}>
-          <Pressable style={styles.sendButton} onPress={send}>
-            <Text style={styles.sendButtonText}>Enviar</Text>
-          </Pressable>
-          <Pressable style={styles.waButton} onPress={() => void Linking.openURL(whatsappLink)}>
-            <Text style={styles.waButtonText}>Continuar no WhatsApp</Text>
-          </Pressable>
+        <Pressable
+          onPress={() => goBackOrReplace(router, routeHrefs.landing())}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.backWrap}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar ao início"
+        >
+          <Text style={styles.back}>Voltar</Text>
+        </Pressable>
+        <View style={styles.card}>
+          <Text style={styles.title}>Atendimento IA</Text>
+          <Text style={styles.sub}>Atendimento comercial inteligente integrado à nuvem AWS do Painel Prime.</Text>
+          {leadCaptured ? <Text style={styles.badge}>Lead capturado com sucesso</Text> : null}
         </View>
-      </View>
-    </ScrollView>
+
+        <View style={styles.chatCard}>
+          {messages.map((message, idx) => (
+            <View key={`${message.role}-${idx}`} style={[styles.bubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
+              <Text style={[styles.bubbleText, message.role === 'user' ? styles.userBubbleText : null]}>{message.content}</Text>
+            </View>
+          ))}
+
+          {loading ? (
+            <View style={styles.typingRow}>
+              <ActivityIndicator color={colors.primaryStrong} />
+              <Text style={styles.caption}>Plan está digitando...</Text>
+            </View>
+          ) : null}
+
+          {error ? <Text style={styles.err}>{error}</Text> : null}
+
+          <TextInput
+            style={styles.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Digite sua resposta..."
+            placeholderTextColor={colors.mutedText}
+          />
+          <View style={styles.row}>
+            <Pressable style={styles.sendButton} onPress={send}>
+              <Text style={styles.sendButtonText}>Enviar</Text>
+            </Pressable>
+            <Pressable style={styles.waButton} onPress={() => void Linking.openURL(whatsappLink)}>
+              <Text style={styles.waButtonText}>Continuar no WhatsApp</Text>
+            </Pressable>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

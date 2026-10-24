@@ -28,9 +28,11 @@ import {
   invokeMeetingAction,
 } from '../../../src/features/meetings/meetingService';
 import { supabase } from '../../../src/lib/supabase';
+import { useKeyboardBottomInset } from '../../../src/lib/useKeyboardBottomInset';
 
 export default function MeetingDetailRoute() {
   const router = useRouter();
+  const keyboardHeight = useKeyboardBottomInset();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const meetingId = Array.isArray(params.id) ? params.id[0] ?? '' : params.id ?? '';
 
@@ -220,10 +222,17 @@ export default function MeetingDetailRoute() {
       </View>
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={[
+          { flex: 1 },
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+        <ScrollView
+          style={styles.body}
+          contentContainerStyle={styles.bodyContent}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Main Card */}
           <View style={[styles.mainCard, shadows.sm]}>
             <View style={styles.metaRow}>

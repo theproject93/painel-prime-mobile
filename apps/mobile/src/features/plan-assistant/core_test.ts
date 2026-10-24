@@ -2,6 +2,8 @@ import { assertEquals } from 'jsr:@std/assert@1';
 
 import {
   HINT_REFRESH_TTL_MS,
+  adaptWebPathsForMobile,
+  buildHintMessage,
   buildMessageHistory,
   buildRouteContext,
   getAssistantAnswer,
@@ -157,4 +159,58 @@ Deno.test('parsePlanAssistantResponseText parses direct JSON, standard SSE and d
     'data: {"choices":[{"delta":{"content":"evento explícito."}}]}\n\n';
   const parsedMessage = parsePlanAssistantResponseText(messageStream);
   assertEquals(parsedMessage.answer, 'Texto sem evento explícito.');
+});
+
+Deno.test('adaptWebPathsForMobile converts web routes into Android tabs and buttons', () => {
+  assertEquals(
+    adaptWebPathsForMobile('Acesse /dashboard/eventos para criar um evento.'),
+    'Acesse aba **Eventos** para criar um evento.',
+  );
+  assertEquals(
+    adaptWebPathsForMobile('Consulte /dashboard/clientes para ver a carteira.'),
+    'Consulte aba **Clientes** para ver a carteira.',
+  );
+  assertEquals(
+    adaptWebPathsForMobile('Verifique o fluxo em /dashboard/financeiro agora.'),
+    'Verifique o fluxo em aba **Finanças** agora.',
+  );
+  assertEquals(
+    adaptWebPathsForMobile('Lista em /dashboard/fornecedores disponível.'),
+    'Lista em aba **Fornec.** disponível.',
+  );
+  assertEquals(
+    adaptWebPathsForMobile('Ajuste em /dashboard/configuracoes e no /dashboard/perfil.'),
+    'Ajuste em aba **Mais** > **Configurações** e no aba **Mais** > **Perfil**.',
+  );
+  assertEquals(
+    adaptWebPathsForMobile('Volte para o /dashboard inicial.'),
+    'Volte para o aba **Início** inicial.',
+  );
+  assertEquals(
+    adaptWebPathsForMobile('Evento específico em /dashboard/eventos/abc-123.'),
+    'Evento específico em aba **Eventos**.',
+  );
+});
+
+Deno.test('sanitizeAssistantMessage preserves markdown linebreaks and converts web paths', () => {
+  const multiline = 'Linha 1.\n\nLinha 2 com itens:\n- Item A\n- Item B\n\nAcesse /dashboard/eventos.';
+  const sanitized = sanitizeAssistantMessage(multiline);
+  assertEquals(
+    sanitized,
+    'Linha 1.\n\nLinha 2 com itens:\n- Item A\n- Item B\n\nAcesse aba **Eventos**.',
+  );
+});
+
+Deno.test('buildHintMessage uses touch verbs and event selector', () => {
+  const hintBuffet = {
+    id: 'h1',
+    severity: 'high' as const,
+    title: 'Buffet pendente',
+    message: 'Sem buffet',
+    ctaLabel: 'Ver',
+    ctaPath: '/eventos',
+  };
+  const msg = buildHintMessage(hintBuffet, 'Marina');
+  assertEquals(msg.includes('Toque no card do evento na aba **Eventos**'), true);
+  assertEquals(msg.includes('Use o seletor **Navegar pelo evento**'), true);
 });

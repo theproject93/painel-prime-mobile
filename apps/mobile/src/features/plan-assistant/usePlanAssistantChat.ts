@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { uploadPrivateAsset } from '../../lib/r2FileStorage';
 import { supabase } from '../../lib/supabase';
@@ -15,6 +16,7 @@ import {
   buildMessageHistory,
   getAssistantAnswer,
   getSuggestedActions,
+  sanitizeAssistantMessage,
 } from './core';
 import {
   buildThreadTitleFromText,
@@ -137,7 +139,7 @@ export function usePlanAssistantChat(params: Params) {
         const loadedMessages: ChatMessage[] = rows.map((r, idx) => ({
           id: `msg-${r.id || idx}`,
           role: r.role === 'user' ? 'user' : 'bot',
-          text: r.content,
+          text: r.role === 'user' ? r.content : sanitizeAssistantMessage(r.content),
           audioUrl: r.reply_audio_url || undefined,
         }));
         setMessages(loadedMessages);
@@ -333,7 +335,8 @@ export function usePlanAssistantChat(params: Params) {
         type: recording.mimeType,
       } as any);
       formData.append('current_path', currentPath);
-      formData.append('channel', 'app_mobile');
+      formData.append('client_platform', Platform.OS);
+      formData.append('channel', Platform.OS === 'android' ? 'app_android' : 'app_ios');
       if (currentEventId) formData.append('current_event_id', currentEventId);
       if (threadCtx?.threadId) formData.append('thread_id', threadCtx.threadId);
 
@@ -452,6 +455,8 @@ export function usePlanAssistantChat(params: Params) {
           hints: topHintPayload,
           message_history: buildMessageHistory(messages),
           user_name: userName,
+          client_platform: Platform.OS,
+          channel: Platform.OS === 'android' ? 'app_android' : 'app_ios',
         };
 
         const accessToken = await getPlanAssistantAccessToken();
@@ -526,6 +531,8 @@ export function usePlanAssistantChat(params: Params) {
       hints: topHintPayload,
       message_history: buildMessageHistory(messages),
       user_name: userName,
+      client_platform: Platform.OS,
+      channel: Platform.OS === 'android' ? 'app_android' : 'app_ios',
     };
 
     setMessages((previous) => [...previous, { id: nextMessageId('user'), role: 'user', text }]);

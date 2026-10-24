@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHaptics } from '../../lib/haptics';
 import { colors } from '../../theme/colors';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 import type { GuestRow, TableRow } from './types';
 
 export type TableGuestDrawerProps = {
@@ -37,6 +39,7 @@ export function TableGuestDrawer({
   onAllocateFamilyGroup,
   onSaveNote,
 }: TableGuestDrawerProps) {
+  const keyboardHeight = useKeyboardBottomInset();
   const [search, setSearch] = useState('');
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
@@ -140,7 +143,12 @@ export function TableGuestDrawer({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View
+        style={[
+          styles.backdrop,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+        ]}
+      >
         <Pressable style={styles.dismissOverlay} onPress={onClose} />
         <SafeAreaView edges={['bottom']} style={styles.sheetContainer}>
           {/* Barra de arraste visual */}
@@ -267,6 +275,7 @@ export function TableGuestDrawer({
             style={styles.scrollArea}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {/* Seção 1: Convidados já sentados nesta mesa */}
             {table && seatedGuests.length > 0 ? (

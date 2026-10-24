@@ -29,6 +29,7 @@ export function PlanComposer(props: {
   quota?: PlanIaQuotaInfo | null;
   onNavigateToPlans?: () => void;
   currentEventId?: string | null;
+  isKeyboardOpen?: boolean;
 }) {
   const formatTime = (secs = 0) => {
     const m = Math.floor(secs / 60);
@@ -91,7 +92,7 @@ export function PlanComposer(props: {
   return (
     <View style={styles.container}>
       {/* Quick Questions Horizontal Pills */}
-      {props.quickQuestions && props.quickQuestions.length > 0 && (
+      {!props.isKeyboardOpen && props.quickQuestions && props.quickQuestions.length > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -243,11 +244,13 @@ export function PlanComposer(props: {
       </View>
 
       {/* Footer Context Caption */}
-      <Text style={styles.footerCaption} numberOfLines={1}>
-        {props.currentEventId
-          ? 'No contexto deste evento • Análise de contratos em PDF e inteligência com dados reais'
-          : 'Você pode anexar contratos em PDF para análise e consultar clientes e caixa'}
-      </Text>
+      {!props.isKeyboardOpen && (
+        <Text style={styles.footerCaption} numberOfLines={1}>
+          {props.currentEventId
+            ? 'No contexto deste evento • Análise de contratos em PDF e inteligência com dados reais'
+            : 'Você pode anexar contratos em PDF para análise e consultar clientes e caixa'}
+        </Text>
+      )}
     </View>
   );
 }
@@ -417,6 +420,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 10,
+    paddingVertical: 8,
+    textAlignVertical: 'center',
     color: colors.text,
     backgroundColor: '#FFFFFF',
     fontSize: 13,

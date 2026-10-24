@@ -24,6 +24,7 @@ import {
   type GuestStatus,
   type ReviewSelectionStatus,
 } from './rsvpInboxModel';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 
 type Props = {
   thread: ConversationReviewThread;
@@ -49,6 +50,7 @@ export function RsvpChatView({
   onResendQr,
 }: Props) {
   const id = useId();
+  const keyboardHeight = useKeyboardBottomInset();
   const [inputText, setInputText] = useState('');
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   const [resendingGuestId, setResendingGuestId] = useState<string | null>(null);
@@ -130,7 +132,10 @@ export function RsvpChatView({
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[
+        styles.container,
+        Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+      ]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >

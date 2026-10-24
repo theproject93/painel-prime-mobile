@@ -19,6 +19,7 @@ import { AppHaptics } from '../lib/haptics';
 import { getPrivateFileDownloadUrl, uploadPrivateAsset } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
 import { PrimeLogoLoader } from './PrimeLogoLoader';
+import { useKeyboardBottomInset } from '../lib/useKeyboardBottomInset';
 
 type WelcomeProfile = {
   display_name: string | null;
@@ -32,6 +33,7 @@ const primeLogo = require('../../assets/splash-icon.png');
 export function ProfileWelcomeGate({ children }: PropsWithChildren) {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardBottomInset();
   const [checking, setChecking] = useState(true);
   const [complete, setComplete] = useState(false);
   const [step, setStep] = useState<Step>('name');
@@ -231,7 +233,16 @@ export function ProfileWelcomeGate({ children }: PropsWithChildren) {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.page, { paddingTop: insets.top + 18, paddingBottom: insets.bottom + 18 }]}
+      style={[
+        styles.page,
+        {
+          paddingTop: insets.top + 18,
+          paddingBottom:
+            Platform.OS === 'android' && keyboardHeight > 0
+              ? keyboardHeight + 16
+              : insets.bottom + 18,
+        },
+      ]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.glowTop} pointerEvents="none" />

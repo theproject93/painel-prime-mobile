@@ -22,8 +22,10 @@ import { colors } from '../theme/colors';
 import { AppHaptics } from '../lib/haptics';
 import { mapAuthErrorMessage } from '../lib/authError';
 import { supabase } from '../lib/supabase';
+import { useKeyboardBottomInset } from '../lib/useKeyboardBottomInset';
 
 export function LoginScreen() {
+  const keyboardHeight = useKeyboardBottomInset();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -139,8 +141,11 @@ export function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.select({ ios: 'padding', android: 'height' })}
-      style={styles.page}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[
+        styles.page,
+        Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+      ]}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -293,7 +298,10 @@ export function LoginScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={[
+            styles.modalOverlay,
+            Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 },
+          ]}
         >
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>

@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Modal, Pressable, Text, View, type GestureResponderHandlers } from 'react-native';
+import { Modal, Platform, Pressable, Text, View, type GestureResponderHandlers } from 'react-native';
 
 import { colors } from '../../theme/colors';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 import { AutosaveIndicator } from './AutosaveIndicator';
 import { FixtureLabelEditor } from './FixtureLabelEditor';
 import { FixtureToolbar } from './FixtureToolbar';
@@ -34,9 +35,16 @@ type Props = {
 };
 
 export function MapFullscreenModal(props: Props) {
+  const keyboardHeight = useKeyboardBottomInset();
+
   return (
     <Modal visible={props.visible} animationType="slide" onRequestClose={props.onClose}>
-      <View style={styles.modalPage}>
+      <View
+        style={[
+          styles.modalPage,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+        ]}
+      >
         <View style={styles.modalHeader}>
           <View style={styles.modalHeadingCopy}>
             <Text style={styles.modalTitle}>Editor do salão</Text>

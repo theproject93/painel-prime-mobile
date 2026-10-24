@@ -1,11 +1,12 @@
 import { PropsWithChildren } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../theme/colors';
 import { AppHaptics } from '../lib/haptics';
+import { useKeyboardBottomInset } from '../lib/useKeyboardBottomInset';
 
 type ScreenProps = PropsWithChildren<{
   title?: string;
@@ -17,6 +18,7 @@ type ScreenProps = PropsWithChildren<{
 export function Screen({ title, subtitle, showBack, onBack, children }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const keyboardHeight = useKeyboardBottomInset();
 
   function handleBack() {
     void AppHaptics.light();
@@ -28,12 +30,19 @@ export function Screen({ title, subtitle, showBack, onBack, children }: ScreenPr
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+      ]}
+      edges={['top']}
+    >
       <ScrollView
         style={styles.page}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + 140 },
+          { paddingBottom: keyboardHeight > 0 ? 32 : insets.bottom + 140 },
         ]}
       >
         {showBack ? (

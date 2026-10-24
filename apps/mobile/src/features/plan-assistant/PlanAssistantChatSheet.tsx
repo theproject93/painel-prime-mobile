@@ -12,9 +12,12 @@ import {
   View,
 } from 'react-native';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { useAuth } from '../../contexts/AuthContext';
 import { useBiometricAccess } from '../../contexts/BiometricAccessContext';
 import { AppHaptics } from '../../lib/haptics';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 import { supabase } from '../../lib/supabase';
 import { colors } from '../../theme/colors';
 import { PLAN_FACE_IMAGE } from './assets';
@@ -81,10 +84,24 @@ export function PlanAssistantChatSheet(props: Props) {
     // Fallback when rendered outside BiometricAccessProvider
   }
 
+  const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardBottomInset();
+  const isKeyboardOpen = keyboardHeight > 0;
+
   // Auto-scroll on new messages
   useEffect(() => {
     listRef.current?.scrollToEnd({ animated: true });
   }, [props.isReplying, props.messages, props.visible]);
+
+  // Auto-scroll to bottom when keyboard opens
+  useEffect(() => {
+    if (isKeyboardOpen) {
+      const timer = setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [isKeyboardOpen]);
 
   // Load threads when opening thread modal
   const loadThreads = useCallback(async () => {
@@ -186,11 +203,22 @@ export function PlanAssistantChatSheet(props: Props) {
         <View style={styles.modalRoot}>
           <Pressable style={styles.backdrop} onPress={props.onClose} />
           <KeyboardAvoidingView
-            style={styles.modalContent}
+            style={[
+              styles.modalContent,
+              { paddingTop: Math.max(insets.top + 8, 32) },
+              Platform.OS === 'android' && isKeyboardOpen && { paddingBottom: keyboardHeight + 8 },
+            ]}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={0}
           >
-            <View style={[styles.panel, { marginBottom: props.bottom }]}>
+            <View
+              style={[
+                styles.panel,
+                isKeyboardOpen
+                  ? { marginBottom: 0, flex: 1, height: undefined, maxHeight: '100%' }
+                  : { marginBottom: props.bottom, height: '86%', maxHeight: '92%' },
+              ]}
+            >
               {/* Header */}
               <View style={styles.header}>
                 <View style={styles.headerTitleWrap}>
@@ -236,22 +264,24 @@ export function PlanAssistantChatSheet(props: Props) {
               </View>
 
               {/* Hints wrap */}
-              <View style={styles.hintsWrap}>
-                <Text style={styles.hintsTitle}>Alertas proativos</Text>
-                {props.loadingHints ? <Text style={styles.hintsCaption}>Analisando operação...</Text> : null}
-                {!props.loadingHints && props.hints.length === 0 ? (
-                  <Text style={styles.hintsCaption}>Sem pendências urgentes agora.</Text>
-                ) : null}
-                {!props.loadingHints && props.hints.length > 0 ? (
-                  <View style={styles.hintsRow}>
-                    {props.hints.slice(0, 3).map((hint) => (
-                      <Pressable key={hint.id} style={styles.hintChip} onPress={() => props.onOpenHint(hint)}>
-                        <Text style={styles.hintChipText} numberOfLines={1}>{hint.title}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
+              {!isKeyboardOpen ? (
+                <View style={styles.hintsWrap}>
+                  <Text style={styles.hintsTitle}>Alertas proativos</Text>
+                  {props.loadingHints ? <Text style={styles.hintsCaption}>Analisando operação...</Text> : null}
+                  {!props.loadingHints && props.hints.length === 0 ? (
+                    <Text style={styles.hintsCaption}>Sem pendências urgentes agora.</Text>
+                  ) : null}
+                  {!props.loadingHints && props.hints.length > 0 ? (
+                    <View style={styles.hintsRow}>
+                      {props.hints.slice(0, 3).map((hint) => (
+                        <Pressable key={hint.id} style={styles.hintChip} onPress={() => props.onOpenHint(hint)}>
+                          <Text style={styles.hintChipText} numberOfLines={1}>{hint.title}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
 
               {/* Messages */}
               <ScrollView ref={listRef} style={styles.messagesArea} contentContainerStyle={styles.messagesContent}>
@@ -280,6 +310,7 @@ export function PlanAssistantChatSheet(props: Props) {
                 quota={props.quota}
                 onNavigateToPlans={props.onNavigateToPlans}
                 currentEventId={props.currentEventId}
+                isKeyboardOpen={isKeyboardOpen}
               />
             </View>
           </KeyboardAvoidingView>

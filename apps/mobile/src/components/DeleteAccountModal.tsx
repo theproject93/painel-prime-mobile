@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { typography } from '../theme/fonts';
 import { colors } from '../theme/colors';
+import { useKeyboardBottomInset } from '../lib/useKeyboardBottomInset';
 
 const REQUIRED_CONFIRMATION = 'EXCLUIR MINHA CONTA';
 const PUBLIC_DELETION_URL = 'https://painelprime.com.br/privacidade/exclusao-de-dados';
@@ -30,6 +31,7 @@ interface DeleteAccountModalProps {
 
 export function DeleteAccountModal({ visible, onClose }: DeleteAccountModalProps) {
   const router = useRouter();
+  const keyboardHeight = useKeyboardBottomInset();
   const [confirmation, setConfirmation] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -149,7 +151,10 @@ export function DeleteAccountModal({ visible, onClose }: DeleteAccountModalProps
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.overlay}
+        style={[
+          styles.overlay,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 },
+        ]}
       >
         <View style={styles.modalCard}>
           <View style={styles.header}>

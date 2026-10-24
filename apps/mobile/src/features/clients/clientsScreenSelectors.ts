@@ -30,3 +30,60 @@ export function filterClients(clients: ClientRow[], journeys: Map<string, Client
 export function clientFormPayload(form: ClientForm) { const amount = Number(form.budget.replace(/\./g, '').replace(',', '.')); return { name: form.name.trim(), email: form.email.trim() || null, phone: form.phone.trim() || null, event_type: form.eventType.trim() || null, event_date_expected: form.eventDate.trim() || null, budget_expected: Number.isFinite(amount) ? amount : null, notes: form.notes.trim() || null }; }
 export function currency(value: number | null | undefined) { return Number(value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 export function dateLabel(value: string | null | undefined) { if (!value) return 'Data a definir'; const [year, month, day] = value.slice(0, 10).split('-'); return year && month && day ? `${day}/${month}/${year}` : value; }
+
+export function formatClientEventType(eventType?: string | null): string {
+  if (!eventType || !eventType.trim()) return 'Evento a definir';
+  const clean = eventType.trim();
+  const normalized = clean.toLowerCase();
+  switch (normalized) {
+    case 'birthday':
+    case 'aniversario':
+    case 'aniversário':
+      return 'Aniversário';
+    case 'wedding':
+    case 'casamento':
+      return 'Casamento';
+    case 'debutante':
+    case '15_years':
+    case '15_anos':
+    case '15 anos':
+    case 'fifteen':
+      return '15 Anos';
+    case 'corporate':
+    case 'corporativo':
+      return 'Corporativo';
+    case 'baptism':
+    case 'batizado':
+      return 'Batizado';
+    case 'graduation':
+    case 'formatura':
+      return 'Formatura';
+    default:
+      return clean;
+  }
+}
+
+export function formatDocumentStatus(status?: string | null): string {
+  if (!status || !status.trim()) return 'Ainda não criado';
+  const clean = status.trim();
+  const normalized = clean.toLowerCase();
+  switch (normalized) {
+    case 'draft':
+      return 'Rascunho';
+    case 'pending':
+    case 'waiting_approval':
+      return 'Aguardando aprovação';
+    case 'approved':
+    case 'approved_by_client':
+      return 'Aprovado';
+    case 'rejected':
+    case 'adjustments_requested':
+      return 'Ajustes solicitados';
+    case 'signed':
+      return 'Assinado';
+    case 'waiting_preparation':
+      return 'Aguardando preparação';
+    default:
+      return clean;
+  }
+}

@@ -79,7 +79,7 @@ export function TablesTab({
           paddingHorizontal: 14,
           marginBottom: 8,
         }}
-        onPress={() => router.push(`/(app)/eventos/${eventId}/mesas` as any)}
+        onPress={() => router.push(`/eventos/${eventId}/mesas` as any)}
       >
         <Ionicons name="finger-print-outline" size={18} color="#1D4ED8" />
         <Text style={{ fontSize: 13, fontWeight: '700', color: '#1D4ED8' }}>

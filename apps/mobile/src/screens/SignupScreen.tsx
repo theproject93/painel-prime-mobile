@@ -26,6 +26,7 @@ import {
   startWhatsAppZeroTapHandshake,
   subscribeWhatsAppZeroTapOtp,
 } from '../lib/whatsappZeroTap';
+import { useKeyboardBottomInset } from '../lib/useKeyboardBottomInset';
 
 const plans = [
   { id: 'essencial', name: 'Essencial', price: 'R$ 39/mês', desc: 'CRM + Eventos + Convites + Portais' },
@@ -34,6 +35,7 @@ const plans = [
 ] as const;
 
 export function SignupScreen() {
+  const keyboardHeight = useKeyboardBottomInset();
   const { signUp, signInWithProvider, user } = useAuth();
   const { plano } = useLocalSearchParams<{ plano?: string | string[] }>();
   const router = useRouter();
@@ -328,7 +330,10 @@ export function SignupScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.select({ ios: 'padding', android: undefined })}
-      style={styles.page}
+      style={[
+        styles.page,
+        Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+      ]}
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>

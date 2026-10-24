@@ -126,6 +126,22 @@ export function buildRouteContext(
   return { currentPath: '/dashboard', currentEventId: null };
 }
 
+export function adaptWebPathsForMobile(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/`?\/configura[cç][oõ]es\?tab=planos`?/gi, 'aba **Mais** > **Assinatura e planos**')
+    .replace(/`?\/dashboard\/configura[cç][oõ]es`?/gi, 'aba **Mais** > **Configurações**')
+    .replace(/`?\/dashboard\/equipe`?/gi, 'aba **Mais** > **Sua equipe**')
+    .replace(/`?\/dashboard\/perfil`?/gi, 'aba **Mais** > **Perfil**')
+    .replace(/`?\/dashboard\/saude-operacional`?/gi, 'aba **Mais** > **Saúde operacional**')
+    .replace(/`?\/dashboard\/faturamento`?/gi, 'aba **Mais** > **Assinatura e planos**')
+    .replace(/`?\/dashboard\/eventos(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'aba **Eventos**')
+    .replace(/`?\/dashboard\/clientes(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'aba **Clientes**')
+    .replace(/`?\/dashboard\/financeiro(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'aba **Finanças**')
+    .replace(/`?\/dashboard\/fornecedores(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'aba **Fornec.**')
+    .replace(/`?\/dashboard(?:\/[a-zA-Z0-9_-]+)*`?/gi, 'aba **Início**');
+}
+
 export function sanitizeAssistantMessage(text: string): string {
   if (!text || !text.trim()) return '';
   const trimmed = text.trim();
@@ -170,10 +186,12 @@ export function sanitizeAssistantMessage(text: string): string {
     .replace(/\s*(?:→|->|:)\s*`?(?:get|create|update|delete|check|search|notify|export|checkin|calculate|register)_[a-z0-9_]+`?/gi, '')
     .replace(/\(\s*`?(?:get|create|update|delete|check|search|notify|export|checkin|calculate|register)_[a-z0-9_]+`?\s*\)/gi, '')
     .replace(/`?(?:get|create|update|delete|check|search|notify|export|checkin|calculate|register)_[a-z0-9_]{3,35}`?/gi, '')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/[^\S\r\n]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-  return cleaned || 'Não consegui concluir a resposta agora. Tente novamente em alguns instantes.';
+  const adapted = adaptWebPathsForMobile(cleaned);
+  return adapted || 'Não consegui concluir a resposta agora. Tente novamente em alguns instantes.';
 }
 
 export function parsePlanAssistantResponseText(text: string): PlanAssistantApiResponse {
@@ -311,13 +329,13 @@ export function buildHintMessage(hint: PlanHint, userName: string) {
   const normalizedTitle = normalizeText(hint.title);
   const greeting = `Olá ${userName || 'assessora'}, verifique esta pendência:`;
   if (normalizedTitle.includes('buffet')) {
-    return `${greeting}\n\n- ${hint.title}.\n- Não encontrei fornecedor com categoria "Buffet" neste evento.\n\nPassos recomendados:\n1. Abra o evento indicado.\n2. Acesse a aba Fornecedores.\n3. Cadastre ou ajuste um fornecedor Buffet.\n4. Confirme contato e status.`;
+    return `${greeting}\n\n- ${hint.title}.\n- Não encontrei fornecedor com categoria "Buffet" neste evento.\n\nPassos recomendados:\n1. Toque no card do evento na aba **Eventos**.\n2. Use o seletor **Navegar pelo evento** e acesse a aba interna **Fornecedores** (ou toque na aba **Fornec.** no menu inferior).\n3. Toque para cadastrar ou ajustar um fornecedor Buffet.\n4. Confirme contato e status.`;
   }
   if (normalizedTitle.includes('convidado')) {
-    return `${greeting}\n\n- ${hint.title}.\n- Existem confirmações de presença pendentes.\n\nPassos recomendados:\n1. Abra o evento indicado.\n2. Acesse a aba Convidados.\n3. Filtre pendentes e revise contatos.\n4. Reenvie os convites.`;
+    return `${greeting}\n\n- ${hint.title}.\n- Existem confirmações de presença pendentes.\n\nPassos recomendados:\n1. Toque no card do evento na aba **Eventos**.\n2. Use o seletor **Navegar pelo evento** e toque na aba interna **Convidados**.\n3. Filtre pendentes e revise contatos.\n4. Toque para reenviar os convites.`;
   }
   if (normalizedTitle.includes('tarefa') || normalizedTitle.includes('atras')) {
-    return `${greeting}\n\n- ${hint.title}.\n- Existem tarefas vencidas no evento.\n\nPassos recomendados:\n1. Abra o evento indicado.\n2. Acesse Cronograma ou Checklist.\n3. Conclua primeiro as tarefas vencidas.\n4. Reordene prioridades das próximas 24h.`;
+    return `${greeting}\n\n- ${hint.title}.\n- Existem tarefas vencidas no evento.\n\nPassos recomendados:\n1. Toque no card do evento na aba **Eventos**.\n2. Use o seletor **Navegar pelo evento** e toque em **Checklist** ou **Cronograma**.\n3. Conclua primeiro as tarefas vencidas.\n4. Reordene prioridades das próximas 24h.`;
   }
-  return `${greeting}\n\n- ${hint.title}.\n- ${hint.message}\n\nPassos recomendados:\n1. Abra o evento indicado.\n2. Revise a aba relacionada à pendência.\n3. Aplique o ajuste necessário.\n4. Volte aqui para validar.`;
+  return `${greeting}\n\n- ${hint.title}.\n- ${hint.message}\n\nPassos recomendados:\n1. Toque no card do evento na aba **Eventos**.\n2. Use o seletor **Navegar pelo evento** para revisar a aba relacionada à pendência.\n3. Aplique o ajuste necessário.\n4. Volte aqui para validar.`;
 }

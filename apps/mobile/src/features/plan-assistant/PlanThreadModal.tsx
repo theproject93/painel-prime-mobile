@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { AppHaptics } from '../../lib/haptics';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 import {
   filterThreadsByQuery,
   groupThreadsByPeriod,
@@ -41,6 +42,7 @@ export function PlanThreadModal({
   onRenameThread,
   onDeleteThread,
 }: PlanThreadModalProps) {
+  const keyboardHeight = useKeyboardBottomInset();
   const [searchQuery, setSearchQuery] = useState('');
   const [editingThread, setEditingThread] = useState<PlanAiThread | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -110,7 +112,12 @@ export function PlanThreadModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View
+        style={[
+          styles.backdrop,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+        ]}
+      >
         <KeyboardAvoidingView
           style={styles.keyboardContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -263,7 +270,12 @@ export function PlanThreadModal({
         {/* Inline Rename Sub-Modal */}
         {editingThread ? (
           <Modal transparent animationType="fade" visible={Boolean(editingThread)}>
-            <View style={styles.renameBackdrop}>
+            <View
+              style={[
+                styles.renameBackdrop,
+                Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+              ]}
+            >
               <View style={styles.renameCard}>
                 <Text style={styles.renameTitle}>Renomear conversa</Text>
                 <TextInput
