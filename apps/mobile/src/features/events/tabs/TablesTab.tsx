@@ -12,6 +12,7 @@ import {
   EventModuleShell,
 } from '../EventWorkspace';
 import { styles } from '../eventDetailsStyles';
+import { colors } from '../../../theme/colors';
 
 type TablesDraft = { name: string; seats: string };
 
@@ -132,9 +133,9 @@ export function TablesTab({
         onClose={onCloseComposer}
       >
         <Text style={styles.formLabel}>Nome da mesa</Text>
-        <TextInput style={styles.input} value={draft.name} onChangeText={(value) => onDraftChange('name', value)} placeholder="Ex.: Mesa 01" />
+        <TextInput style={styles.input} value={draft.name} onChangeText={(value) => onDraftChange('name', value)} placeholder="Ex.: Mesa 01" placeholderTextColor={colors.mutedText} />
         <Text style={styles.formLabel}>Quantidade de lugares</Text>
-        <TextInput style={styles.input} value={draft.seats} onChangeText={(value) => onDraftChange('seats', value)} placeholder="8" keyboardType="numeric" />
+        <TextInput style={styles.input} value={draft.seats} onChangeText={(value) => onDraftChange('seats', value)} placeholder="8" placeholderTextColor={colors.mutedText} keyboardType="numeric" />
         <Pressable style={styles.btn} onPress={onCreate}><Text style={styles.btnText}>Adicionar mesa</Text></Pressable>
       </EventFormSheet>
     </EventModuleShell>

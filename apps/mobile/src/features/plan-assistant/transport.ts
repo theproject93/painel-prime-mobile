@@ -114,3 +114,42 @@ export async function getPlanAssistantAccessToken(forceRefresh = false) {
   if (current) return current;
   return getPlanAssistantAccessToken(true);
 }
+
+export async function invokePlanAssistantVoice(
+  formData: FormData,
+  providedAccessToken?: string | null,
+) {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) throw new Error('plan_assistant_missing_env');
+
+  const cleanUrl = supabaseUrl.trim().replace(/\/+$/u, '');
+  let accessToken = normalizeAccessToken(providedAccessToken) ?? (await resolveTransportAccessToken());
+  if (!accessToken) throw new Error('plan_assistant_unauthorized');
+
+  const sendWithToken = (token: string) => {
+    return fetch(`${cleanUrl}/functions/v1/plan-assistant-voice`, {
+      method: 'POST',
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+  };
+
+  let response = await sendWithToken(accessToken);
+  if (response.status === 401) {
+    const refreshedToken = await resolveTransportAccessToken(true);
+    if (!refreshedToken) throw new Error('plan_assistant_unauthorized_after_refresh');
+    accessToken = refreshedToken;
+    response = await sendWithToken(accessToken);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`plan_assistant_voice_http_${response.status}:${text}`);
+  }
+
+  return response.json();
+}

@@ -102,32 +102,107 @@ export function presentClientJourney(_snapshot: ClientJourneySnapshot): ClientJo
 
 export function friendlyCrmError(_raw: unknown): string {
   const raw = _raw;
-  const value =
-    typeof raw === 'string'
-      ? raw
-      : raw && typeof raw === 'object'
-        ? String(
-            (raw as Record<string, unknown>).error ??
-              (raw as Record<string, unknown>).message ??
-              '',
-          )
-        : '';
-  const normalized = value.toLowerCase();
+  let code = '';
+  let message = '';
 
-  if (normalized.includes('client_email_required')) {
+  if (typeof raw === 'string') {
+    code = raw.trim();
+    message = raw.trim();
+  } else if (raw && typeof raw === 'object') {
+    const rec = raw as Record<string, unknown>;
+    if (typeof rec.error === 'string') code = rec.error.trim();
+    if (typeof rec.message === 'string') message = rec.message.trim();
+    if (!code && message) code = message;
+    if (!message && code) message = code;
+  }
+
+  const normalizedCode = code.toLowerCase();
+  const normalizedMessage = message.toLowerCase();
+  const combined = `${normalizedCode} ${normalizedMessage}`;
+
+  // 1. Falha de conexão com a internet
+  if (/network request failed/i.test(combined)) {
+    return 'Falha de conexão com a internet. Verifique sua rede e tente novamente.';
+  }
+
+  // 2. Mapeamento específico dos códigos do CRM para PT-BR
+  if (combined.includes('invalid_template_id')) {
+    return 'Modelo de documento inválido ou não selecionado.';
+  }
+  if (combined.includes('document_template_not_found')) {
+    return 'Modelo de documento não encontrado.';
+  }
+  if (combined.includes('onlyoffice_entitlement_required')) {
+    return 'A edição de documentos exige o plano Elite.';
+  }
+  if (combined.includes('elite_plan_required')) {
+    return 'Este recurso exige o plano Elite.';
+  }
+  if (combined.includes('client_email_required')) {
     return 'Adicione o e-mail do cliente antes de enviar.';
   }
-  if (normalized.includes('budget_not_approved')) {
+  if (combined.includes('budget_not_approved')) {
     return 'O orçamento ainda precisa ser aprovado pelo cliente.';
   }
-  if (normalized.includes('advisor_signature_required')) {
+  if (combined.includes('advisor_signature_required')) {
     return 'Confirme a assinatura da assessoria antes de enviar.';
   }
-  if (normalized.includes('contract_pdf_required') || normalized.includes('document_not_found')) {
+  if (combined.includes('contract_pdf_required')) {
     return 'O contrato ainda não está pronto. Gere o documento e tente novamente.';
   }
-  if (normalized.includes('documenso_not_configured') || normalized.includes('papermark_not_configured')) {
-    return 'A integração de documentos está temporariamente indisponível.';
+  if (combined.includes('document_not_found')) {
+    return 'Documento não encontrado. Gere o documento e tente novamente.';
+  }
+  if (combined.includes('documenso_not_configured')) {
+    return 'A integração de assinatura digital não está configurada.';
+  }
+  if (combined.includes('papermark_not_configured')) {
+    return 'A integração de visualização de documentos não está configurada.';
+  }
+  if (combined.includes('unauthorized') || combined.includes('missing_authorization')) {
+    return 'Sessão expirada. Entre novamente.';
+  }
+
+  // 3. Bloqueio rigoroso de vazamento de mensagens técnicas ou de infraestrutura
+  const isBlockedTechnical =
+    combined.includes('edge function') ||
+    combined.includes('non-2xx') ||
+    combined.includes('status code') ||
+    combined.includes('functionshttperror') ||
+    combined.includes('fetch') ||
+    combined.includes('column ') ||
+    combined.includes('relation ') ||
+    combined.includes('syntax error') ||
+    combined.includes('database') ||
+    combined.includes('postgres') ||
+    combined.includes('internal_error') ||
+    /pgrst/i.test(combined) ||
+    /jwt expired/i.test(combined) ||
+    /unique constraint/i.test(combined) ||
+    /foreign key/i.test(combined) ||
+    /syntax (for|error)/i.test(combined) ||
+    /syntax/i.test(combined) ||
+    /violates/i.test(combined) ||
+    /duplicate key/i.test(combined) ||
+    /constraint/i.test(combined) ||
+    /failed to fetch/i.test(combined) ||
+    /connection reset/i.test(combined) ||
+    /connection refused/i.test(combined) ||
+    /bad request/i.test(combined) ||
+    /internal server error/i.test(combined);
+
+  if (isBlockedTechnical) {
+    return 'Não foi possível concluir agora. Tente novamente.';
+  }
+
+  // 3. Se for código cru em snake_case (ex: invalid_client_id, server_misconfigured)
+  if (/^[a-z0-9]+(_[a-z0-9]+)+$/i.test(message) || /^[a-z0-9]+(_[a-z0-9]+)+$/i.test(code)) {
+    return 'Não foi possível concluir agora. Tente novamente.';
+  }
+
+  // 4. Preservar mensagens limpas de validação em PT-BR (ex: "Cadastre o e-mail do cliente antes de enviar.")
+  if (message && message.length > 5 && !message.includes('_') && !/[<>{}\\]/.test(message)) {
+    return message;
   }
 
   return 'Não foi possível concluir agora. Tente novamente.';

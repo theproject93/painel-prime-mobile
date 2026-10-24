@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { AppHaptics } from '../../lib/haptics';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 import { colors, radii, shadows } from '../../theme/colors';
 import {
   ROLE_OPTIONS_DEBUTANTE,
@@ -51,6 +52,7 @@ export function PadrinhoFormModal({
   existingPadrinhos,
   guests,
 }: Props) {
+  const keyboardHeight = useKeyboardBottomInset();
   const [guestId, setGuestId] = useState('');
   const [role, setRole] = useState<PadrinhoRole>(isDebutante ? 'dama' : 'padrinho');
   const [side, setSide] = useState<PadrinhoSide>(isDebutante ? 'debutante' : 'ambos');
@@ -162,7 +164,10 @@ export function PadrinhoFormModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
+        style={[
+          styles.modalOverlay,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight + 16 },
+        ]}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.modalBackdropTouch}>
@@ -312,6 +317,7 @@ export function PadrinhoFormModal({
                 keyboardType="numeric"
                 style={styles.input}
                 placeholder="Ex: 1"
+                placeholderTextColor={colors.mutedText}
               />
             </View>
 

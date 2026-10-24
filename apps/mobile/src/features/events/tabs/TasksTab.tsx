@@ -4,6 +4,7 @@ import { PtBrDateField } from '../../../components/ui/PremiumInputs';
 import { EventEmptyState, EventFilterChips, EventFormSheet, EventListCard, EventModuleShell, EventSectionTitle } from '../EventWorkspace';
 import { styles } from '../eventDetailsStyles';
 import { priorityLabel } from '../eventWorkspaceUtils';
+import { colors } from '../../../theme/colors';
 
 type TasksTabProps = {
   tasks: any[]; filteredCount: number; visibleLimit: number; summary: any;
@@ -47,16 +48,16 @@ export function TasksTab(props: TasksTabProps) {
       {filteredCount > visibleLimit ? <Pressable style={styles.btnGhostWide} onPress={onShowMore}><Text style={styles.smallText}>Mostrar mais ({filteredCount - visibleLimit} restantes)</Text></Pressable> : null}
       {hasMore ? <Pressable style={styles.btnGhostWide} onPress={onLoadMore}><Text style={styles.smallText}>{loadingMore ? 'Carregando...' : 'Carregar mais do servidor'}</Text></Pressable> : null}
       <EventFormSheet visible={composerOpen} title="Nova tarefa" subtitle="Defina apenas o necessário agora." onClose={onCloseComposer}>
-        <Text style={styles.formLabel}>O que precisa ser feito?</Text><TextInput style={styles.input} value={draftText} onChangeText={onDraftTextChange} placeholder="Ex.: Confirmar horário com o buffet" />
+        <Text style={styles.formLabel}>O que precisa ser feito?</Text><TextInput style={styles.input} value={draftText} onChangeText={onDraftTextChange} placeholder="Ex.: Confirmar horário com o buffet" placeholderTextColor={colors.mutedText} />
         <Text style={styles.formLabel}>Prazo</Text><PtBrDateField value={dueDate} onChange={onDueDateChange} />
-        <Text style={styles.formLabel}>Anotações (opcional)</Text><TextInput style={[styles.input, styles.area]} value={notes} onChangeText={onNotesChange} placeholder="Contexto, combinações ou detalhes importantes" multiline />
+        <Text style={styles.formLabel}>Anotações (opcional)</Text><TextInput style={[styles.input, styles.area]} value={notes} onChangeText={onNotesChange} placeholder="Contexto, combinações ou detalhes importantes" placeholderTextColor={colors.mutedText} multiline />
         <Text style={styles.formLabel}>Responsável (opcional)</Text><EventFilterChips selected={assignee} onSelect={onAssigneeChange} options={assigneeOptions} />
-        <TextInput style={styles.input} value={assignee} onChangeText={onAssigneeChange} placeholder="Nome da pessoa" />
+        <TextInput style={styles.input} value={assignee} onChangeText={onAssigneeChange} placeholder="Nome da pessoa" placeholderTextColor={colors.mutedText} />
         <Text style={styles.formLabel}>Prioridade</Text><EventFilterChips selected={priority} onSelect={onPriorityChange} options={[{ value: 'low', label: 'Baixa' }, { value: 'normal', label: 'Normal' }, { value: 'high', label: 'Alta' }, { value: 'urgent', label: 'Urgente' }]} />
         <Pressable style={styles.btn} onPress={onCreate}><Text style={styles.btnText}>Adicionar tarefa</Text></Pressable>
       </EventFormSheet>
       <EventFormSheet visible={Boolean(selectedTask)} title={String(selectedTask?.text ?? 'Detalhes da tarefa')} subtitle="Revise as informações sem perder o contexto." onClose={() => onSelectedTaskChange(null)}>
-        <Text style={styles.formLabel}>Anotações</Text><TextInput style={[styles.input, styles.area]} value={taskNotes} onChangeText={onTaskNotesChange} placeholder="Adicione informações úteis para quem vai executar" multiline />
+        <Text style={styles.formLabel}>Anotações</Text><TextInput style={[styles.input, styles.area]} value={taskNotes} onChangeText={onTaskNotesChange} placeholder="Adicione informações úteis para quem vai executar" placeholderTextColor={colors.mutedText} multiline />
         <Text style={styles.formLabel}>Prazo</Text><PtBrDateField value={String(selectedTask?.due_date ?? '').slice(0, 10)} onChange={(value) => onSelectedTaskChange({ ...selectedTask, due_date: value })} />
         <Pressable style={styles.btn} onPress={onSaveSelected}><Text style={styles.btnText}>Salvar alterações</Text></Pressable>
       </EventFormSheet>

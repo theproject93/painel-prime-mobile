@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { buildMemberPayload, normalizeTeamSummary, type TeamMemberSummary } from '../features/team/teamDirectoryModel';
 import { getPrivateFileDownloadUrl, uploadPrivateAsset } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
+import { useKeyboardBottomInset } from '../lib/useKeyboardBottomInset';
 import { colors, shadows } from '../theme/colors';
 
 type Team = { id: string; name: string; leaderMemberId: string | null };
@@ -60,7 +61,34 @@ export function TeamDirectoryScreen() {
     if (saving) return false;
     setSaving(true); setError('');
     try { await action(); await load(); return true; }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível concluir esta ação.'); return false; }
+    catch (cause) {
+      let msg = 'Não foi possível concluir esta ação.';
+      const context = (cause as { context?: Response } | null)?.context;
+      if (context && typeof context.clone === 'function') {
+        try {
+          const body = await context.clone().json();
+          if (typeof body?.message === 'string') msg = body.message;
+          else if (typeof body?.error === 'string') msg = body.error;
+        } catch {
+          // payload não JSON
+        }
+      } else if (cause instanceof Error) {
+        msg = cause.message;
+      }
+      const lower = msg.toLowerCase();
+      if (
+        lower.includes('edge function') ||
+        lower.includes('non-2xx') ||
+        lower.includes('status code') ||
+        lower.includes('functionshttperror') ||
+        lower.includes('fetch') ||
+        /^[a-z0-9]+(_[a-z0-9]+)+$/i.test(msg)
+      ) {
+        msg = 'Não foi possível concluir esta ação agora. Tente novamente.';
+      }
+      setError(msg);
+      return false;
+    }
     finally { setSaving(false); }
   }
 
@@ -133,9 +161,92 @@ export function TeamDirectoryScreen() {
 
 function Metric({ label, value, danger }: { label: string; value: number; danger?: boolean }) { return <View style={[styles.metric, danger && value > 0 && styles.metricDanger]}><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>; }
 
-function TeamModal(props: { visible: boolean; value: string; saving: boolean; onChange: (value: string) => void; onClose: () => void; onSave: () => void }) { return <Modal visible={props.visible} transparent animationType="slide" onRequestClose={props.onClose}><View style={styles.overlay}><View style={styles.sheet}><Text style={styles.sheetTitle}>Criar equipe</Text><Text style={styles.muted}>Use um nome que sua assessoria reconheça facilmente.</Text><TextInput style={styles.input} value={props.value} onChangeText={props.onChange} placeholder="Ex.: Equipe Pérola" /><ModalActions saving={props.saving} onClose={props.onClose} onSave={props.onSave} /></View></View></Modal>; }
+function TeamModal(props: { visible: boolean; value: string; saving: boolean; onChange: (value: string) => void; onClose: () => void; onSave: () => void }) {
+  const keyboardHeight = useKeyboardBottomInset();
+  return (
+    <Modal visible={props.visible} transparent animationType="slide" onRequestClose={props.onClose}>
+      <View style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
+        <View style={styles.sheet}>
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScroll}>
+            <Text style={styles.sheetTitle}>Criar equipe</Text>
+            <Text style={styles.muted}>Use um nome que sua assessoria reconheça facilmente.</Text>
+            <TextInput
+              style={styles.input}
+              value={props.value}
+              onChangeText={props.onChange}
+              placeholder="Ex.: Equipe Pérola"
+              placeholderTextColor={colors.mutedText}
+            />
+            <ModalActions saving={props.saving} onClose={props.onClose} onSave={props.onSave} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
-function MemberModal(props: { visible: boolean; form: typeof emptyForm; teams: Team[]; saving: boolean; onChange: React.Dispatch<React.SetStateAction<typeof emptyForm>>; onPhoto: () => void; onClose: () => void; onSave: () => void }) { const set = (key: keyof typeof emptyForm, value: string) => props.onChange((current) => ({ ...current, [key]: value })); return <Modal visible={props.visible} transparent animationType="slide" onRequestClose={props.onClose}><View style={styles.overlay}><View style={styles.sheet}><Text style={styles.sheetTitle}>{props.form.id ? 'Editar pessoa' : 'Adicionar pessoa'}</Text><Pressable style={styles.photoPicker} onPress={props.onPhoto}>{props.form.photoUri ? <Image source={{ uri: props.form.photoUri }} style={styles.photoPreview} /> : <Ionicons name="camera-outline" size={25} color={colors.primaryStrong} />}<Text style={styles.link}>{props.form.photoUri ? 'Trocar foto' : 'Escolher foto'}</Text></Pressable><TextInput style={styles.input} value={props.form.name} onChangeText={(value) => set('name', value)} placeholder="Nome completo" /><TextInput style={styles.input} value={props.form.role} onChangeText={(value) => set('role', value)} placeholder="Função" /><TextInput style={styles.input} value={props.form.phone} onChangeText={(value) => set('phone', value)} placeholder="Telefone" keyboardType="phone-pad" /><TextInput style={styles.input} value={props.form.email} onChangeText={(value) => set('email', value)} placeholder="E-mail para liberar acesso" keyboardType="email-address" autoCapitalize="none" /><View style={styles.teamChoices}>{props.teams.map((team) => <Pressable key={team.id} style={[styles.teamChoice, props.form.teamId === team.id && styles.teamChoiceActive]} onPress={() => set('teamId', team.id)}><Text style={styles.chipText}>{team.name}</Text></Pressable>)}</View><ModalActions saving={props.saving} onClose={props.onClose} onSave={props.onSave} /></View></View></Modal>; }
+function MemberModal(props: { visible: boolean; form: typeof emptyForm; teams: Team[]; saving: boolean; onChange: React.Dispatch<React.SetStateAction<typeof emptyForm>>; onPhoto: () => void; onClose: () => void; onSave: () => void }) {
+  const keyboardHeight = useKeyboardBottomInset();
+  const set = (key: keyof typeof emptyForm, value: string) => props.onChange((current) => ({ ...current, [key]: value }));
+  return (
+    <Modal visible={props.visible} transparent animationType="slide" onRequestClose={props.onClose}>
+      <View style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
+        <View style={styles.sheet}>
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScroll}>
+            <Text style={styles.sheetTitle}>{props.form.id ? 'Editar pessoa' : 'Adicionar pessoa'}</Text>
+            <Pressable style={styles.photoPicker} onPress={props.onPhoto}>
+              {props.form.photoUri ? <Image source={{ uri: props.form.photoUri }} style={styles.photoPreview} /> : <Ionicons name="camera-outline" size={25} color={colors.primaryStrong} />}
+              <Text style={styles.link}>{props.form.photoUri ? 'Trocar foto' : 'Escolher foto'}</Text>
+            </Pressable>
+            <TextInput
+              style={styles.input}
+              value={props.form.name}
+              onChangeText={(value) => set('name', value)}
+              placeholder="Nome completo"
+              placeholderTextColor={colors.mutedText}
+            />
+            <TextInput
+              style={styles.input}
+              value={props.form.role}
+              onChangeText={(value) => set('role', value)}
+              placeholder="Função"
+              placeholderTextColor={colors.mutedText}
+            />
+            <TextInput
+              style={styles.input}
+              value={props.form.phone}
+              onChangeText={(value) => set('phone', value)}
+              placeholder="Telefone"
+              placeholderTextColor={colors.mutedText}
+              keyboardType="phone-pad"
+            />
+            <TextInput
+              style={styles.input}
+              value={props.form.email}
+              onChangeText={(value) => set('email', value)}
+              placeholder="E-mail para liberar acesso"
+              placeholderTextColor={colors.mutedText}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <View style={styles.teamChoices}>
+              {props.teams.map((team) => (
+                <Pressable
+                  key={team.id}
+                  style={[styles.teamChoice, props.form.teamId === team.id && styles.teamChoiceActive]}
+                  onPress={() => set('teamId', team.id)}
+                >
+                  <Text style={styles.chipText}>{team.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <ModalActions saving={props.saving} onClose={props.onClose} onSave={props.onSave} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 function ModalActions({ saving, onClose, onSave }: { saving: boolean; onClose: () => void; onSave: () => void }) { return <View style={styles.modalActions}><Pressable style={styles.cancelButton} onPress={onClose}><Text style={styles.cancelText}>Cancelar</Text></Pressable><Pressable style={styles.saveButton} onPress={onSave}><Text style={styles.primaryText}>{saving ? 'Salvando…' : 'Salvar'}</Text></Pressable></View>; }
 
@@ -144,5 +255,5 @@ const styles = StyleSheet.create({
   metrics: { flexDirection: 'row', gap: 8 }, metric: { flex: 1, padding: 12, borderRadius: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }, metricDanger: { borderColor: '#E7A4A4' }, metricValue: { color: colors.text, fontSize: 22, fontWeight: '900' }, metricLabel: { color: colors.mutedText, fontSize: 11 }, infoCard: { flexDirection: 'row', gap: 10, padding: 15, borderRadius: 18, backgroundColor: colors.infoBg }, infoTitle: { color: colors.infoText, fontWeight: '800' }, infoText: { color: colors.infoText, fontSize: 12, lineHeight: 18 },
   actionsRow: { flexDirection: 'row', gap: 9 }, primaryButton: { minHeight: 50, flex: 1, borderRadius: 15, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink950 }, primaryText: { color: '#FFF', fontWeight: '800' }, secondaryIcon: { width: 50, height: 50, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   teamCard: { gap: 12, padding: 15, borderRadius: 20, backgroundColor: colors.surfaceSubtle }, rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, cardTitle: { color: colors.text, fontSize: 17, fontWeight: '800' }, muted: { color: colors.mutedText, fontSize: 12, lineHeight: 17 }, addButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.card }, memberCard: { gap: 9, padding: 13, borderRadius: 17, backgroundColor: colors.card, ...shadows.sm }, memberTop: { flexDirection: 'row', alignItems: 'center', gap: 10 }, avatar: { width: 45, height: 45, borderRadius: 14 }, avatarFallback: { width: 45, height: 45, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft }, initial: { color: colors.primaryStrong, fontSize: 18, fontWeight: '900' }, nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 }, memberName: { color: colors.text, fontWeight: '800' }, leaderBadge: { color: '#72550A', backgroundColor: '#FFF0B5', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 99, fontSize: 10, fontWeight: '800' }, operationalRow: { flexDirection: 'row', justifyContent: 'space-between' }, eventCount: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' }, conflict: { color: colors.dangerText, fontSize: 11, fontWeight: '800' }, nextEvent: { color: colors.mutedText, fontSize: 11 }, memberActions: { flexDirection: 'row', alignItems: 'center', gap: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: 9 }, link: { color: colors.primaryStrong, fontSize: 12, fontWeight: '800' }, accessLink: { color: colors.infoText, fontSize: 12, fontWeight: '800' },
-  empty: { gap: 10, padding: 22, borderRadius: 20, backgroundColor: colors.card }, overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(7,9,14,0.65)' }, sheet: { maxHeight: '92%', gap: 12, padding: 20, paddingBottom: 34, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.card }, sheetTitle: { color: colors.text, fontSize: 22, fontWeight: '800' }, input: { minHeight: 50, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.background }, photoPicker: { alignSelf: 'center', alignItems: 'center', gap: 5 }, photoPreview: { width: 72, height: 72, borderRadius: 22 }, teamChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, teamChoice: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 99, backgroundColor: colors.surfaceSubtle }, teamChoiceActive: { backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primaryStrong }, chipText: { color: colors.text, fontSize: 11, fontWeight: '700' }, modalActions: { flexDirection: 'row', gap: 9 }, cancelButton: { flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: colors.border }, cancelText: { color: colors.text, fontWeight: '700' }, saveButton: { flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.ink950 },
+  empty: { gap: 10, padding: 22, borderRadius: 20, backgroundColor: colors.card }, overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(7,9,14,0.65)' }, sheet: { maxHeight: '92%', padding: 20, paddingBottom: 34, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.card }, sheetScroll: { gap: 12 }, sheetTitle: { color: colors.text, fontSize: 22, fontWeight: '800' }, input: { minHeight: 50, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.background }, photoPicker: { alignSelf: 'center', alignItems: 'center', gap: 5 }, photoPreview: { width: 72, height: 72, borderRadius: 22 }, teamChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, teamChoice: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 99, backgroundColor: colors.surfaceSubtle }, teamChoiceActive: { backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primaryStrong }, chipText: { color: colors.text, fontSize: 11, fontWeight: '700' }, modalActions: { flexDirection: 'row', gap: 9 }, cancelButton: { flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: colors.border }, cancelText: { color: colors.text, fontWeight: '700' }, saveButton: { flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.ink950 },
 });

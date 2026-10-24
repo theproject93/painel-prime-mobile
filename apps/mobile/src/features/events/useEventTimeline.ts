@@ -41,7 +41,7 @@ export function useEventTimeline({ eventId, event, data, act }: UseEventTimeline
         id: 'rules-vendors',
         title: 'Checklist com fornecedores',
         reason: 'Existem fornecedores sem confirmação.',
-        activity: 'Confirmar chegada e responsavel de todos os fornecedores pendentes',
+        activity: 'Confirmar chegada e responsável de todos os fornecedores pendentes',
         time: '09:30',
         assignee: 'Coordenação',
         priority: 'high',
@@ -56,7 +56,7 @@ export function useEventTimeline({ eventId, event, data, act }: UseEventTimeline
         reason: 'Lista de convidados com alto volume pendente.',
         activity: 'Executar disparo final de RSVP e registrar retorno',
         time: '11:00',
-        assignee: 'Recepcao',
+        assignee: 'Recepção',
         priority: 'normal',
         source: 'rules',
       });
@@ -172,7 +172,12 @@ export function useEventTimeline({ eventId, event, data, act }: UseEventTimeline
       setAiTimelineSuggestions(parsed);
       setLastAiTimelineRunAt(new Date().toISOString());
     } catch (aiError: any) {
-      setAiTimelineError(aiError?.message ?? 'Falha ao gerar sugestoes da IA.');
+      const msg =
+        typeof aiError?.message === 'string' &&
+        !/edge function|status code|non-2xx/i.test(aiError.message)
+          ? aiError.message
+          : 'Falha ao gerar sugestões da IA.';
+      setAiTimelineError(msg);
       setAiTimelineSuggestions([]);
     } finally {
       setLoadingAiTimelineSuggestions(false);

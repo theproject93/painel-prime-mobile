@@ -2,6 +2,7 @@ import { Pressable, Text, TextInput } from 'react-native';
 import { EventEmptyState, EventFilterChips, EventFormSheet, EventListCard, EventModuleShell, EventSectionTitle } from '../EventWorkspace';
 import { guestStatusLabel } from '../eventWorkspaceUtils';
 import { styles } from '../eventDetailsStyles';
+import { colors } from '../../../theme/colors';
 
 export type GuestsTabModel = {
   summary: any; guests: any[]; search: string; filter: string; sort: string; composerOpen: boolean; name: string; phone: string;
@@ -15,7 +16,7 @@ export function GuestsTab({ model: m }: { model: GuestsTabModel }) {
     <EventModuleShell title="Convidados" description="Confirmações claras, sem planilha no caminho." icon="people-outline"
       metrics={[{ label: 'Total', value: m.summary.total, tone: 'neutral' }, { label: 'Confirmados', value: m.summary.confirmed, tone: 'success' }, { label: 'Aguardando', value: m.summary.pending, tone: 'warning' }]}
       actionLabel="Adicionar convidado" onAction={m.onOpenComposer}>
-      <TextInput style={styles.input} value={m.search} onChangeText={m.onSearchChange} placeholder="Buscar por nome ou telefone" />
+      <TextInput style={styles.input} value={m.search} onChangeText={m.onSearchChange} placeholder="Buscar por nome ou telefone" placeholderTextColor={colors.mutedText} />
       <EventFilterChips selected={m.filter} onSelect={m.onFilterChange} options={[{ value: 'all', label: 'Todos' }, { value: 'pending', label: 'Aguardando' }, { value: 'confirmed', label: 'Confirmados' }, { value: 'declined', label: 'Não vão' }]} />
       <EventSectionTitle title="Lista de convidados" actionLabel={m.sort === 'name_asc' ? 'A–Z' : 'Z–A'} onAction={m.onToggleSort} />
       {m.guests.length === 0 ? <EventEmptyState icon="people-outline" title="Nenhum convidado aqui" description="Adicione pessoas ou altere o filtro para acompanhar as confirmações." actionLabel="Adicionar convidado" onAction={m.onOpenComposer} /> : null}
@@ -25,8 +26,8 @@ export function GuestsTab({ model: m }: { model: GuestsTabModel }) {
         { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => m.onDelete(String(guest.id)) },
       ]} />)}
       <EventFormSheet visible={m.composerOpen} title="Adicionar convidado" subtitle="Você pode completar os detalhes depois." onClose={m.onCloseComposer}>
-        <Text style={styles.formLabel}>Nome</Text><TextInput style={styles.input} value={m.name} onChangeText={m.onNameChange} placeholder="Nome do convidado" />
-        <Text style={styles.formLabel}>Telefone (opcional)</Text><TextInput style={styles.input} value={m.phone} onChangeText={m.onPhoneChange} placeholder="(11) 99999-9999" keyboardType="phone-pad" />
+        <Text style={styles.formLabel}>Nome</Text><TextInput style={styles.input} value={m.name} onChangeText={m.onNameChange} placeholder="Nome do convidado" placeholderTextColor={colors.mutedText} />
+        <Text style={styles.formLabel}>Telefone (opcional)</Text><TextInput style={styles.input} value={m.phone} onChangeText={m.onPhoneChange} placeholder="(11) 99999-9999" placeholderTextColor={colors.mutedText} keyboardType="phone-pad" />
         <Pressable style={styles.btn} onPress={m.onCreate}><Text style={styles.btnText}>Adicionar convidado</Text></Pressable>
       </EventFormSheet>
     </EventModuleShell>

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { uploadPrivateAsset } from '../../lib/r2FileStorage';
 import { supabase } from '../../lib/supabase';
 import {
   createPlanChatSnapshot,
@@ -32,8 +33,15 @@ import {
   getPlanAssistantAccessToken,
   invokePlanAssistantChat,
   invokePlanAssistantChatViaSupabase,
+  invokePlanAssistantVoice,
 } from './transport';
-import type { ChatMessage, PlanAssistantApiResponse, PlanHint } from './types';
+import type {
+  ChatMessage,
+  PendingContractAttachment,
+  PlanAssistantApiResponse,
+  PlanHint,
+  PlanIaQuotaInfo,
+} from './types';
 import { generateUuidV4 } from './uuid';
 
 type Params = {
@@ -52,6 +60,8 @@ export function usePlanAssistantChat(params: Params) {
   const [threads, setThreads] = useState<PlanAiThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [quota, setQuota] = useState<PlanIaQuotaInfo | null>(null);
+  const [pendingContractAttachment, setPendingContractAttachment] = useState<PendingContractAttachment | null>(null);
 
   const messageId = useRef(1);
   const hydratedUser = useRef<string | null>(null);
@@ -62,21 +72,26 @@ export function usePlanAssistantChat(params: Params) {
   tenantIdRef.current = tenantId;
 
   const nextMessageId = useCallback((prefix: 'bot' | 'user') => {
-    const id = `${prefix}-${messageId.current}`;
+    const id = `${prefix}-${Date.now()}-${messageId.current}`;
     messageId.current += 1;
     return id;
+  }, []);
+
+  const updateMessage = useCallback((messageIdToUpdate: string, updater: (message: ChatMessage) => ChatMessage) => {
+    setMessages((prev) => prev.map((msg) => (msg.id === messageIdToUpdate ? updater(msg) : msg)));
   }, []);
 
   const pushBotMessage = useCallback((message: Omit<ChatMessage, 'id' | 'role'>) => {
     setMessages((previous) => [...previous, { id: nextMessageId('bot'), role: 'bot', ...message }]);
   }, [nextMessageId]);
 
-  // Resolve tenant and load threads
+  // Resolve tenant, load threads, and fetch quota
   useEffect(() => {
     if (!userId) {
       setTenantId(null);
       setThreads([]);
       setActiveThreadId(null);
+      setQuota(null);
       return;
     }
     let isMounted = true;
@@ -87,6 +102,19 @@ export function usePlanAssistantChat(params: Params) {
       const loadedThreads = await listThreadsApi(supabase, resolvedTenant);
       if (isMounted) {
         setThreads(loadedThreads);
+      }
+
+      // Fetch quota
+      try {
+        const { data: usageData, error } = await supabase.rpc('get_plan_ia_usage_status' as any, {
+          p_tenant_id: resolvedTenant,
+          p_user_id: userId,
+        });
+        if (!error && usageData && typeof usageData === 'object' && isMounted) {
+          setQuota(usageData as PlanIaQuotaInfo);
+        }
+      } catch {
+        // Best-effort quota fetch
       }
     });
     return () => {
@@ -110,6 +138,7 @@ export function usePlanAssistantChat(params: Params) {
           id: `msg-${r.id || idx}`,
           role: r.role === 'user' ? 'user' : 'bot',
           text: r.content,
+          audioUrl: r.reply_audio_url || undefined,
         }));
         setMessages(loadedMessages);
       }
@@ -124,6 +153,7 @@ export function usePlanAssistantChat(params: Params) {
     activeThreadIdRef.current = null;
     setMessages(DEFAULT_PLAN_MESSAGES);
     setInput('');
+    setPendingContractAttachment(null);
   }, []);
 
   // Rename thread
@@ -217,10 +247,275 @@ export function usePlanAssistantChat(params: Params) {
     });
   }, [pushBotMessage, userName]);
 
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isReplying) return;
+  // Helper to ensure an active thread exists in DB
+  const ensureActiveThread = useCallback(async (fallbackTitle: string) => {
+    const currentTenant = tenantIdRef.current;
+    let currentThreadId = activeThreadIdRef.current;
+    if (currentThreadId && currentTenant) {
+      return { threadId: currentThreadId, tenant: currentTenant };
+    }
+    if (!currentTenant) return null;
 
+    try {
+      const title = buildThreadTitleFromText(fallbackTitle);
+      const newThread = await createThread(supabase, currentTenant, userId, title);
+      currentThreadId = newThread.id;
+      setActiveThreadId(newThread.id);
+      activeThreadIdRef.current = newThread.id;
+      setThreads((prev) => [newThread, ...prev]);
+      return { threadId: newThread.id, tenant: currentTenant };
+    } catch (err) {
+      console.warn('Auto thread creation failed, continuing chat:', err);
+      return null;
+    }
+  }, [userId]);
+
+  // Pick PDF contract using expo-document-picker
+  const pickContractPdf = useCallback(async () => {
+    try {
+      const DocumentPicker = require('expo-document-picker');
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+      const asset = result.assets[0];
+      setPendingContractAttachment({
+        fileUri: asset.uri,
+        name: asset.name || 'contrato.pdf',
+        mimeType: asset.mimeType || 'application/pdf',
+        size: asset.size,
+        eventId: currentEventId,
+      });
+    } catch (err) {
+      console.warn('Erro ao selecionar contrato PDF:', err);
+    }
+  }, [currentEventId]);
+
+  const clearPendingContractAttachment = useCallback(() => {
+    setPendingContractAttachment(null);
+  }, []);
+
+  // Send voice message (AWS Transcribe + Bedrock + Amazon Polly Camila)
+  const sendVoiceMessage = useCallback(async (recording: { uri: string; name: string; mimeType: string }) => {
+    if (isReplying || !userId) return;
+
+    const userMessageId = nextMessageId('user');
+    const botPlaceholderId = nextMessageId('bot');
+
+    const userMessage: ChatMessage = {
+      id: userMessageId,
+      role: 'user',
+      text: 'Mensagem de voz enviada',
+      audioUrl: recording.uri,
+      inputModality: 'audio',
+    };
+
+    const botMessage: ChatMessage = {
+      id: botPlaceholderId,
+      role: 'bot',
+      text: 'Plan IA está ouvindo o seu áudio...',
+      jobStatus: 'processing',
+    };
+
+    setMessages((prev) => [...prev, userMessage, botMessage]);
+    setIsReplying(true);
+
+    const threadCtx = await ensureActiveThread('Mensagem de voz');
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', {
+        uri: recording.uri,
+        name: recording.name,
+        type: recording.mimeType,
+      } as any);
+      formData.append('current_path', currentPath);
+      formData.append('channel', 'app_mobile');
+      if (currentEventId) formData.append('current_event_id', currentEventId);
+      if (threadCtx?.threadId) formData.append('thread_id', threadCtx.threadId);
+
+      const voiceData = await invokePlanAssistantVoice(formData);
+
+      const transcript = typeof voiceData?.user_transcript === 'string' ? voiceData.user_transcript.trim() : '';
+      const answer = typeof voiceData?.answer === 'string' ? voiceData.answer.trim() : '';
+      const audioUrl = typeof voiceData?.audio_data_url === 'string' ? voiceData.audio_data_url : undefined;
+
+      // Update user message with transcript while preserving audioUrl so user can replay sent audio
+      updateMessage(userMessageId, (msg) => ({
+        ...msg,
+        text: transcript || 'Mensagem de voz enviada',
+        audioUrl: recording.uri,
+      }));
+
+      // Update bot message with synthesized Amazon Polly Camila audio and auto-play
+      updateMessage(botPlaceholderId, (msg) => ({
+        ...msg,
+        text: answer || 'Áudio processado com sucesso.',
+        audioUrl,
+        autoPlayAudio: Boolean(audioUrl),
+        inputModality: 'audio',
+        replyModality: audioUrl ? 'audio' : 'text',
+        jobStatus: 'done',
+      }));
+
+      // Persist exchange to DB thread
+      if (threadCtx) {
+        void saveThreadMessage(supabase, {
+          threadId: threadCtx.threadId,
+          tenantId: threadCtx.tenant,
+          role: 'user',
+          content: transcript || 'Mensagem de voz enviada',
+        });
+        if (answer) {
+          void saveThreadMessage(supabase, {
+            threadId: threadCtx.threadId,
+            tenantId: threadCtx.tenant,
+            role: 'assistant',
+            content: answer,
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('Falha no fluxo de voz da Plan IA:', error);
+      updateMessage(botPlaceholderId, (msg) => ({
+        ...msg,
+        text: 'Não consegui concluir o processamento do seu áudio agora. Tente novamente em alguns instantes.',
+        jobStatus: 'failed',
+      }));
+    } finally {
+      setIsReplying(false);
+    }
+  }, [currentEventId, currentPath, ensureActiveThread, isReplying, nextMessageId, updateMessage, userId]);
+
+  // Send text message or PDF attachment
+  const sendMessage = useCallback(async (rawText?: string) => {
+    const text = (rawText ?? input).trim();
+    const attachment = pendingContractAttachment;
+    if ((!text && !attachment) || isReplying) return;
+
+    // Flow with Contract PDF attachment
+    if (attachment) {
+      const userText = text || `Anexei o contrato "${attachment.name}" para análise.`;
+      const userMsgId = nextMessageId('user');
+      const botMsgId = nextMessageId('bot');
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: userMsgId,
+          role: 'user',
+          text: userText,
+          attachmentName: attachment.name,
+        },
+        {
+          id: botMsgId,
+          role: 'bot',
+          text: 'Enviando contrato para análise...',
+          attachmentName: attachment.name,
+          jobStatus: 'uploading',
+        },
+      ]);
+      setInput('');
+      setPendingContractAttachment(null);
+      setIsReplying(true);
+
+      const threadCtx = await ensureActiveThread(userText);
+
+      try {
+        const upload = await uploadPrivateAsset({
+          uri: attachment.fileUri,
+          fileName: attachment.name,
+          contentType: attachment.mimeType || 'application/pdf',
+          entityType: 'plan_contract_pdf' as any,
+          entityId: currentEventId,
+        });
+
+        updateMessage(botMsgId, (msg) => ({
+          ...msg,
+          text: 'Processando documento e extraindo cláusulas...',
+          jobStatus: 'processing',
+        }));
+
+        const currentReqId = generateUuidV4();
+        const request = {
+          requestId: currentReqId,
+          request_id: currentReqId,
+          message: text || 'Analise este contrato e extraia os dados principais.',
+          current_path: currentPath,
+          current_event_id: currentEventId,
+          context_type: 'event',
+          context_id: currentEventId,
+          attachments: [{ stored_file_id: upload.fileId, kind: 'contract_pdf' as const }],
+          hints: topHintPayload,
+          message_history: buildMessageHistory(messages),
+          user_name: userName,
+        };
+
+        const accessToken = await getPlanAssistantAccessToken();
+        let data: PlanAssistantApiResponse;
+        try {
+          const result = await invokePlanAssistantChat(request, accessToken);
+          data = result.payload;
+        } catch {
+          data = await invokePlanAssistantChatViaSupabase(request, accessToken);
+        }
+
+        const potentialJobId = data.jobId || data.job_id;
+        if (potentialJobId && typeof potentialJobId === 'string' && !data.answer) {
+          try {
+            const pollResult = await pollLocalAiJob(supabase, 'plan-assistant-chat', potentialJobId);
+            if (pollResult.answer) data.answer = pollResult.answer;
+            if (pollResult.suggested_actions) data.suggested_actions = pollResult.suggested_actions;
+          } catch (pollErr) {
+            console.warn('Poll contrato falhou:', pollErr);
+          }
+        }
+
+        const answer = getAssistantAnswer(data);
+        const actions = getSuggestedActions(data);
+
+        updateMessage(botMsgId, (msg) => ({
+          ...msg,
+          text: answer || 'Contrato processado com sucesso.',
+          ctaLabel: actions[0]?.label,
+          ctaPath: actions[0]?.path,
+          ctaAction: actions[0]?.path ? 'route' : undefined,
+          jobStatus: 'done',
+        }));
+
+        if (threadCtx) {
+          void saveThreadMessage(supabase, {
+            threadId: threadCtx.threadId,
+            tenantId: threadCtx.tenant,
+            role: 'user',
+            content: userText,
+          });
+          if (answer) {
+            void saveThreadMessage(supabase, {
+              threadId: threadCtx.threadId,
+              tenantId: threadCtx.tenant,
+              role: 'assistant',
+              content: answer,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Falha no upload/processamento do contrato:', err);
+        updateMessage(botMsgId, (msg) => ({
+          ...msg,
+          text: 'Não consegui concluir a análise do contrato agora. Tente novamente em alguns instantes.',
+          jobStatus: 'failed',
+        }));
+      } finally {
+        setIsReplying(false);
+      }
+      return;
+    }
+
+    // Standard text message flow
     const currentReqId = generateUuidV4();
     const request = {
       requestId: currentReqId,
@@ -237,28 +532,13 @@ export function usePlanAssistantChat(params: Params) {
     setInput('');
     setIsReplying(true);
 
-    const currentTenant = tenantIdRef.current;
-    let currentThreadId = activeThreadIdRef.current;
-
-    // Auto-create thread if not active
-    if (!currentThreadId && currentTenant) {
-      try {
-        const title = buildThreadTitleFromText(text);
-        const newThread = await createThread(supabase, currentTenant, userId, title);
-        currentThreadId = newThread.id;
-        setActiveThreadId(newThread.id);
-        activeThreadIdRef.current = newThread.id;
-        setThreads((prev) => [newThread, ...prev]);
-      } catch (err) {
-        console.warn('Auto thread creation failed, continuing chat:', err);
-      }
-    }
+    const threadCtx = await ensureActiveThread(text);
 
     // Auto-save user message to DB
-    if (currentThreadId && currentTenant) {
+    if (threadCtx) {
       void saveThreadMessage(supabase, {
-        threadId: currentThreadId,
-        tenantId: currentTenant,
+        threadId: threadCtx.threadId,
+        tenantId: threadCtx.tenant,
         role: 'user',
         content: text,
       }).catch((err) => console.warn('Failed to save user message to thread:', err));
@@ -308,13 +588,17 @@ export function usePlanAssistantChat(params: Params) {
         console.warn('plan assistant primary transport failed, fallback transport succeeded', primaryError);
       }
 
+      if (data.quota && typeof data.quota === 'object' && 'allowed' in data.quota) {
+        setQuota(data.quota as PlanIaQuotaInfo);
+      }
+
       pushBotMessage({ text: answer, ctaLabel: actions[0]?.label, ctaPath: actions[0]?.path });
 
       // Auto-save AI reply to DB
-      if (currentThreadId && currentTenant) {
+      if (threadCtx) {
         void saveThreadMessage(supabase, {
-          threadId: currentThreadId,
-          tenantId: currentTenant,
+          threadId: threadCtx.threadId,
+          tenantId: threadCtx.tenant,
           role: 'assistant',
           content: answer,
         }).catch((err) => console.warn('Failed to save assistant message to thread:', err));
@@ -340,7 +624,7 @@ export function usePlanAssistantChat(params: Params) {
     } finally {
       setIsReplying(false);
     }
-  }, [currentEventId, currentPath, input, isReplying, messages, nextMessageId, pushBotMessage, topHintPayload, userId, userName]);
+  }, [currentEventId, currentPath, ensureActiveThread, input, isReplying, messages, nextMessageId, pendingContractAttachment, pushBotMessage, topHintPayload, updateMessage, userName]);
 
   return {
     messages,
@@ -348,6 +632,7 @@ export function usePlanAssistantChat(params: Params) {
     setInput,
     isReplying,
     sendMessage,
+    sendVoiceMessage,
     appendHintMessage,
     threads,
     activeThreadId,
@@ -355,5 +640,9 @@ export function usePlanAssistantChat(params: Params) {
     createNewThread,
     renameThread,
     deleteThread,
+    quota,
+    pendingContractAttachment,
+    pickContractPdf,
+    clearPendingContractAttachment,
   };
 }

@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { colors, radii, shadows } from '../../theme/colors';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 import type { EventPadrinhoItem } from './padrinhosModel';
 import { InsufficientCreditsError } from './padrinhosService';
 
@@ -36,6 +38,7 @@ export function PadrinhosPlanIaModal({
   isDebutante = false,
   onDispatch,
 }: Props) {
+  const keyboardHeight = useKeyboardBottomInset();
   const [actionType, setActionType] = useState<'manual' | 'concentration' | 'attire'>('manual');
   const [targetScope, setTargetScope] = useState<'all' | 'selected' | 'pending_attire'>(
     selectedItem ? 'selected' : 'all'
@@ -97,7 +100,7 @@ export function PadrinhosPlanIaModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
+      <View style={[styles.modalOverlay, Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
         <View style={[styles.modalCard, shadows.elevated]}>
           {/* Header */}
           <View style={styles.header}>

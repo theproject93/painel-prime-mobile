@@ -8,6 +8,7 @@ import { Screen } from '../components/Screen';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { callCrmWebApi } from '../features/clients/crmWebApi';
+import { functionErrorMessage } from '../features/clients/clientsCrmService';
 import { normalizePapermarkInsights, papermarkEngagementScore, safeExternalHttpUrl, type PapermarkInsights } from '../features/clients/clientWorkspace';
 import { presentClientJourney } from '../features/clients/clientJourney';
 import { supabase } from '../lib/supabase';
@@ -79,7 +80,7 @@ export function ClientWorkspaceScreen({ clientId }: { clientId: string }) {
   async function run(key: string, operation: () => Promise<void>) {
     if (busy) return; setBusy(key); setError('');
     try { await operation(); await load(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível concluir esta ação.'); }
+    catch (cause) { setError(await functionErrorMessage(cause)); }
     finally { setBusy(''); }
   }
 

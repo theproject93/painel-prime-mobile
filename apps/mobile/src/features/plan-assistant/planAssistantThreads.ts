@@ -17,6 +17,9 @@ export type PlanAiMessageRow = {
   role: 'user' | 'assistant';
   content: string;
   created_at: string;
+  reply_audio_url?: string | null;
+  input_modality?: 'text' | 'audio' | null;
+  reply_modality?: 'text' | 'audio' | null;
 };
 
 export type PlanThreadGroup = {

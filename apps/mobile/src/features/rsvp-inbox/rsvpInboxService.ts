@@ -49,9 +49,36 @@ export async function invokeRsvpReviewAction(
   });
 
   if (response.error) {
+    let detail = '';
+    const context = (response.error as { context?: Response } | null)?.context;
+    if (context && typeof context.clone === 'function') {
+      try {
+        const body = await context.clone().json();
+        detail =
+          typeof body?.message === 'string'
+            ? body.message
+            : typeof body?.error === 'string'
+              ? body.error
+              : '';
+      } catch {
+        // payload não JSON
+      }
+    }
+    const rawMsg = detail || response.error.message || '';
+    const lower = rawMsg.toLowerCase();
+    const isLeakedTechnical =
+      !rawMsg ||
+      lower.includes('edge function') ||
+      lower.includes('non-2xx') ||
+      lower.includes('status code') ||
+      lower.includes('functionshttperror') ||
+      lower.includes('fetch') ||
+      /^[a-z0-9]+(_[a-z0-9]+)+$/i.test(rawMsg);
+
     throw new Error(
-      response.error.message ||
-        `Falha ao executar ação ${payload.action} na thread de WhatsApp.`
+      isLeakedTechnical
+        ? 'Não foi possível executar esta ação no WhatsApp agora. Tente novamente.'
+        : rawMsg
     );
   }
 

@@ -8,6 +8,7 @@ import {
   EventSectionTitle,
 } from '../EventWorkspace';
 import { styles } from '../eventDetailsStyles';
+import { colors } from '../../../theme/colors';
 
 type NotesTabProps = {
   notes: any[];
@@ -70,6 +71,7 @@ export function NotesTab({
           value={draft}
           onChangeText={onDraftChange}
           placeholder="Escreva o que a equipe precisa lembrar"
+          placeholderTextColor={colors.mutedText}
           multiline
         />
         <Pressable style={styles.btn} onPress={onCreate}>

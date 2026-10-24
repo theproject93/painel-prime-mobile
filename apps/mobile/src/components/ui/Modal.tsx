@@ -3,6 +3,7 @@ import { Alert, Modal as RNModal, Pressable, StyleSheet, Text, View } from 'reac
 
 import { colors } from '../../theme/colors';
 import { useBiometricAccess } from '../../contexts/BiometricAccessContext';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 
 type ModalProps = {
   visible: boolean;
@@ -12,6 +13,7 @@ type ModalProps = {
 };
 
 export function Modal({ visible, onClose, title, children }: ModalProps) {
+  const keyboardHeight = useKeyboardBottomInset();
   let isCurtainActive = false;
   try {
     const biometric = useBiometricAccess();
@@ -22,7 +24,7 @@ export function Modal({ visible, onClose, title, children }: ModalProps) {
 
   return (
     <RNModal visible={visible && !isCurtainActive} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>{title}</Text>

@@ -1,10 +1,11 @@
 import { routeHrefs } from '@painel-prime/app/navigation';
 import { validateStrongPassword, checkPwnedPassword } from '@painel-prime/app';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -19,6 +20,12 @@ import { normalizeSingleParam } from '../lib/router';
 import { typography } from '../theme/fonts';
 import { AppHaptics } from '../lib/haptics';
 import { mapAuthErrorMessage } from '../lib/authError';
+import { functionErrorMessage } from '../features/clients/clientsCrmService';
+import { supabase } from '../lib/supabase';
+import {
+  startWhatsAppZeroTapHandshake,
+  subscribeWhatsAppZeroTapOtp,
+} from '../lib/whatsappZeroTap';
 
 const plans = [
   { id: 'essencial', name: 'Essencial', price: 'R$ 39/mês', desc: 'CRM + Eventos + Convites + Portais' },
@@ -34,6 +41,25 @@ export function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // WhatsApp OTP & Zero-Tap state
+  const [phone, setPhone] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState('');
+  const [phoneSuccess, setPhoneSuccess] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  const phoneRef = useRef(phone);
+  phoneRef.current = phone;
+  const phoneVerifiedRef = useRef(phoneVerified);
+  phoneVerifiedRef.current = phoneVerified;
+  const verifyingRef = useRef(false);
+
   const resolvedPlan = useMemo(() => {
     const candidate = normalizeSingleParam(plano).toLowerCase();
     return plans.some((plan) => plan.id === candidate) ? candidate : 'profissional';
@@ -49,6 +75,17 @@ export function SignupScreen() {
     [selectedPlan],
   );
 
+  function normalizePhoneDigits(val: string): string {
+    return val.replace(/\D/g, '');
+  }
+
+  function formatPhoneDisplay(val: string): string {
+    const digits = normalizePhoneDigits(val).slice(0, 11);
+    if (digits.length <= 2) return digits.length ? `(${digits}` : '';
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+
   useEffect(() => {
     setSelectedPlan(resolvedPlan);
   }, [resolvedPlan]);
@@ -57,6 +94,163 @@ export function SignupScreen() {
     if (!user) return;
     router.replace(routeHrefs.dashboard());
   }, [router, user]);
+
+  // Resend OTP countdown timer
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCountdown]);
+
+  async function handleVerifyOtp(codeToVerify?: string, explicitPhone?: string) {
+    if (verifyingRef.current || phoneVerifiedRef.current) return;
+    const targetCode = (codeToVerify ?? otpCode).replace(/\D/g, '').trim();
+    if (targetCode.length !== 6) {
+      setPhoneError('Digite os 6 dígitos do código recebido.');
+      void AppHaptics.error();
+      return;
+    }
+
+    const targetPhoneDigits = normalizePhoneDigits(explicitPhone ?? phoneRef.current);
+    if (!targetPhoneDigits) {
+      setPhoneError('Informe o celular antes de validar o código.');
+      void AppHaptics.error();
+      return;
+    }
+
+    verifyingRef.current = true;
+    setVerifyingOtp(true);
+    setPhoneError('');
+    setPhoneSuccess('');
+
+    try {
+      const { data, error: invokeErr } = await supabase.functions.invoke('auth-phone-verification', {
+        body: {
+          action: 'verify',
+          phone: targetPhoneDigits,
+          code: targetCode,
+        },
+      });
+
+      if (invokeErr) {
+        let msg = 'Código incorreto ou expirado. Tente novamente.';
+        try {
+          const ctx = (invokeErr as any)?.context;
+          if (ctx) {
+            const body = await ctx.json();
+            if (body?.message) msg = body.message;
+          }
+        } catch {
+          // ignore
+        }
+        setPhoneError(msg);
+        void AppHaptics.error();
+        return;
+      }
+
+      setPhoneVerified(true);
+      setPhoneVerificationToken(data?.verificationToken ?? null);
+      setPhoneSuccess('WhatsApp verificado com sucesso!');
+      void AppHaptics.success();
+    } catch (err: unknown) {
+      const msg = await functionErrorMessage(err);
+      setPhoneError(msg || 'Falha ao validar código do WhatsApp.');
+      void AppHaptics.error();
+    } finally {
+      verifyingRef.current = false;
+      setVerifyingOtp(false);
+    }
+  }
+
+  async function handleSendOtp() {
+    if (sendingOtp || phoneVerified) return;
+    setPhoneError('');
+    setPhoneSuccess('');
+    const rawDigits = normalizePhoneDigits(phone);
+    if (rawDigits.length !== 11 || rawDigits[2] !== '9') {
+      setPhoneError('Informe um celular válido com DDD e 9 dígitos (ex.: 11 99999-9999).');
+      void AppHaptics.error();
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      // Inicia o handshake nativo Zero-Tap com o WhatsApp antes do disparo na Meta
+      await startWhatsAppZeroTapHandshake();
+
+      const { data, error: invokeErr } = await supabase.functions.invoke('auth-phone-verification', {
+        body: {
+          action: 'send',
+          phone: rawDigits,
+          name: name.trim() || undefined,
+        },
+      });
+
+      if (invokeErr) {
+        const msg = await functionErrorMessage(invokeErr);
+        setPhoneError(msg || 'Não foi possível enviar o código via WhatsApp no momento.');
+        void AppHaptics.error();
+        return;
+      }
+
+      setOtpSent(true);
+      setResendCountdown(data?.resendIn ?? 60);
+      setPhoneSuccess('Código de verificação enviado para o seu WhatsApp!');
+      void AppHaptics.success();
+    } catch (err: unknown) {
+      const msg = await functionErrorMessage(err);
+      setPhoneError(msg || 'Falha ao enviar código pelo WhatsApp.');
+      void AppHaptics.error();
+    } finally {
+      setSendingOtp(false);
+    }
+  }
+
+  // Listener nativo Zero-Tap / One-Tap + fallback de deep link
+  useEffect(() => {
+    const unsubscribeZeroTap = subscribeWhatsAppZeroTapOtp((digits) => {
+      setOtpSent(true);
+      setOtpCode(digits);
+      if (phoneRef.current && !phoneVerifiedRef.current) {
+        void handleVerifyOtp(digits, phoneRef.current);
+      }
+    });
+
+    function processIncomingUrl(url: string | null) {
+      if (!url) return;
+      const match = url.match(/[?&]code=(?:otp)?([0-9]{6})/i) || url.match(/[?&]code=([^&#]+)/i);
+      if (!match) return;
+      const extractedDigits = match[1].replace(/\D/g, '');
+      if (extractedDigits.length !== 6) return;
+
+      setOtpSent(true);
+      setOtpCode(extractedDigits);
+
+      const phoneMatch = url.match(/[?&]phone=([^&#]+)/i);
+      const phoneInUrl = phoneMatch ? decodeURIComponent(phoneMatch[1]) : '';
+      if (phoneInUrl && !phoneRef.current) {
+        setPhone(formatPhoneDisplay(phoneInUrl));
+      }
+
+      const activePhone = phoneInUrl || phoneRef.current;
+      if (activePhone && !phoneVerifiedRef.current) {
+        void handleVerifyOtp(extractedDigits, activePhone);
+      }
+    }
+
+    void Linking.getInitialURL().then(processIncomingUrl).catch(() => undefined);
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      processIncomingUrl(url);
+    });
+
+    return () => {
+      unsubscribeZeroTap();
+      subscription.remove();
+    };
+  }, []);
 
   async function handleOAuth(provider: 'google' | 'azure') {
     setError('');
@@ -80,6 +274,18 @@ export function SignupScreen() {
     if (loading) return;
     setError('');
     setSuccess('');
+
+    if (!phone.trim()) {
+      setError('Informe seu número de WhatsApp para verificação.');
+      void AppHaptics.error();
+      return;
+    }
+
+    if (!phoneVerified) {
+      setError('Por favor, confirme seu WhatsApp com o código de 6 dígitos antes de prosseguir.');
+      void AppHaptics.error();
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('As senhas não conferem.');
@@ -191,7 +397,7 @@ export function SignupScreen() {
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>ou cadastre com e-mail</Text>
+            <Text style={styles.dividerText}>ou cadastre com e-mail e WhatsApp</Text>
             <View style={styles.dividerLine} />
           </View>
 
@@ -202,6 +408,99 @@ export function SignupScreen() {
             value={name}
             onChangeText={setName}
           />
+
+          <View style={styles.phoneSection}>
+            <TextInput
+              style={styles.input}
+              placeholder="WhatsApp com DDD (ex.: 11 99999-9999)"
+              placeholderTextColor="#71717A"
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+              value={phone}
+              onChangeText={(text) => {
+                setPhone(formatPhoneDisplay(text));
+                setPhoneError('');
+              }}
+              editable={!phoneVerified}
+            />
+
+            {!phoneVerified ? (
+              <Pressable
+                style={[
+                  styles.whatsappBtn,
+                  (sendingOtp || resendCountdown > 0) && styles.whatsappBtnDisabled,
+                ]}
+                onPress={() => void handleSendOtp()}
+                disabled={sendingOtp || resendCountdown > 0}
+                accessibilityRole="button"
+                accessibilityLabel="Enviar código via WhatsApp"
+              >
+                {sendingOtp ? (
+                  <ActivityIndicator size="small" color="#25D366" />
+                ) : (
+                  <Text style={styles.whatsappBtnText}>
+                    {otpSent
+                      ? resendCountdown > 0
+                        ? `Reenviar código em ${resendCountdown}s`
+                        : 'Reenviar código via WhatsApp'
+                      : 'Enviar código via WhatsApp'}
+                  </Text>
+                )}
+              </Pressable>
+            ) : (
+              <View style={styles.verifiedBadge}>
+                <Text style={styles.verifiedText}>✓ WhatsApp verificado com sucesso</Text>
+              </View>
+            )}
+
+            {otpSent && !phoneVerified ? (
+              <View style={styles.otpRow}>
+                <TextInput
+                  style={[styles.input, styles.otpInput]}
+                  placeholder="Código de 6 dígitos"
+                  placeholderTextColor="#71717A"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  autoComplete="sms-otp"
+                  textContentType="oneTimeCode"
+                  value={otpCode}
+                  onChangeText={(text) => {
+                    const cleaned = text.replace(/\D/g, '').slice(0, 6);
+                    setOtpCode(cleaned);
+                    setPhoneError('');
+                    if (cleaned.length === 6 && !verifyingOtp) {
+                      void handleVerifyOtp(cleaned);
+                    }
+                  }}
+                />
+                <Pressable
+                  style={[styles.verifyBtn, verifyingOtp && styles.whatsappBtnDisabled]}
+                  onPress={() => void handleVerifyOtp()}
+                  disabled={verifyingOtp || otpCode.length !== 6}
+                  accessibilityRole="button"
+                  accessibilityLabel="Verificar código"
+                >
+                  {verifyingOtp ? (
+                    <ActivityIndicator size="small" color="#151922" />
+                  ) : (
+                    <Text style={styles.verifyBtnText}>Verificar</Text>
+                  )}
+                </Pressable>
+              </View>
+            ) : null}
+
+            {phoneError ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{phoneError}</Text>
+              </View>
+            ) : null}
+            {phoneSuccess ? (
+              <View style={styles.successBox}>
+                <Text style={styles.successText}>{phoneSuccess}</Text>
+              </View>
+            ) : null}
+          </View>
           <TextInput
             style={styles.input}
             placeholder="E-mail"
@@ -371,6 +670,68 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     backgroundColor: 'rgba(255,255,255,0.05)',
     fontFamily: typography.fontFamily.sans,
+  },
+  phoneSection: {
+    gap: 8,
+  },
+  otpRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  otpInput: {
+    flex: 1,
+    letterSpacing: 4,
+    textAlign: 'center',
+    fontSize: 18,
+    fontFamily: typography.fontFamily.sansBold,
+  },
+  whatsappBtn: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#25D366',
+    backgroundColor: 'rgba(37,211,102,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  whatsappBtnDisabled: {
+    opacity: 0.5,
+  },
+  whatsappBtnText: {
+    color: '#25D366',
+    fontSize: 13,
+    fontFamily: typography.fontFamily.sansBold,
+  },
+  verifyBtn: {
+    height: 48,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#DEC479',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyBtnText: {
+    color: '#151922',
+    fontSize: 13,
+    fontFamily: typography.fontFamily.sansBold,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.3)',
+  },
+  verifiedText: {
+    color: '#4ADE80',
+    fontSize: 13,
+    fontFamily: typography.fontFamily.sansSemiBold,
   },
   errorBox: {
     backgroundColor: 'rgba(209,67,67,0.15)',

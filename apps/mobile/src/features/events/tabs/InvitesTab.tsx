@@ -106,7 +106,7 @@ export function InvitesTab({
         </View>
       </View>
 
-      <TextInput style={styles.input} value={search} onChangeText={onSearchChange} placeholder="Buscar convidado" />
+      <TextInput style={styles.input} value={search} onChangeText={onSearchChange} placeholder="Buscar convidado" placeholderTextColor={colors.mutedText} />
       <EventFilterChips
         selected={filter}
         onSelect={onFilterChange}
@@ -157,6 +157,7 @@ export function InvitesTab({
           value={draft.template}
           onChangeText={(value) => onDraftChange('template', value)}
           placeholder="Use [Nome do Convidado] e [LinkRSVP]"
+          placeholderTextColor={colors.mutedText}
           multiline
         />
         <Text style={styles.formLabel}>Código de vestimenta (opcional)</Text>
@@ -165,6 +166,7 @@ export function InvitesTab({
           value={draft.dressCode}
           onChangeText={(value) => onDraftChange('dressCode', value)}
           placeholder="Ex.: Esporte fino"
+          placeholderTextColor={colors.mutedText}
         />
         <Pressable style={styles.btn} onPress={onSaveConfig}><Text style={styles.btnText}>Salvar configuração</Text></Pressable>
       </EventFormSheet>

@@ -12,11 +12,11 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '../../theme/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBiometricAccess } from '../../contexts/BiometricAccessContext';
 import { AppHaptics } from '../../lib/haptics';
 import { supabase } from '../../lib/supabase';
+import { colors } from '../../theme/colors';
 import { PLAN_FACE_IMAGE } from './assets';
 import { PlanComposer } from './PlanComposer';
 import { PlanMessageList } from './PlanMessageList';
@@ -30,7 +30,8 @@ import {
   subscribeThreadEvents,
   type PlanAiThread,
 } from './planAssistantThreads';
-import type { ChatMessage, PlanHint } from './types';
+import type { ChatMessage, PendingContractAttachment, PlanHint, PlanIaQuotaInfo } from './types';
+import { useVoiceRecorder } from './useVoiceRecorder';
 
 type Props = {
   visible: boolean;
@@ -44,7 +45,15 @@ type Props = {
   onOpenHint: (hint: PlanHint) => void;
   onOpenCta: (path: string | undefined) => void;
   onChangeInput: (value: string) => void;
-  onSend: () => void;
+  onSend: (rawText?: string) => void;
+  onSendVoice?: (recording: { uri: string; name: string; mimeType: string }) => void;
+  onAttachPdf?: () => void;
+  pendingContractAttachment?: PendingContractAttachment | null;
+  onClearPendingAttachment?: () => void;
+  quickQuestions?: readonly string[];
+  quota?: PlanIaQuotaInfo | null;
+  onNavigateToPlans?: () => void;
+  currentEventId?: string | null;
   threads?: PlanAiThread[];
   activeThreadId?: string | null;
   onSelectThread?: (thread: PlanAiThread) => void;
@@ -61,6 +70,8 @@ export function PlanAssistantChatSheet(props: Props) {
   const [isThreadModalOpen, setIsThreadModalOpen] = useState(false);
   const [internalThreads, setInternalThreads] = useState<PlanAiThread[]>(props.threads ?? []);
   const [internalTenantId, setInternalTenantId] = useState<string | null>(null);
+
+  const voiceRecorder = useVoiceRecorder();
 
   let isCurtainActive = false;
   try {
@@ -157,6 +168,13 @@ export function PlanAssistantChatSheet(props: Props) {
     [internalTenantId, props]
   );
 
+  const handleFinishVoice = useCallback(async () => {
+    const recording = await voiceRecorder.stopRecording();
+    if (recording && props.onSendVoice) {
+      props.onSendVoice(recording);
+    }
+  }, [props, voiceRecorder]);
+
   return (
     <>
       <Modal
@@ -178,7 +196,17 @@ export function PlanAssistantChatSheet(props: Props) {
                 <View style={styles.headerTitleWrap}>
                   <Image source={PLAN_FACE_IMAGE} style={styles.avatar} resizeMode="cover" />
                   <View>
-                    <Text style={styles.title}>Plan</Text>
+                    <View style={styles.titleRow}>
+                      <Text style={styles.title}>Plan</Text>
+                      {props.quota && !props.quota.is_unlimited && (
+                        <View style={styles.quotaHeaderBadge}>
+                          <Ionicons name="flash" size={10} color="#DEC479" />
+                          <Text style={styles.quotaHeaderText}>
+                            {props.quota.used}/{props.quota.limit}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={styles.subtitle}>Assistente da plataforma</Text>
                   </View>
                 </View>
@@ -240,6 +268,18 @@ export function PlanAssistantChatSheet(props: Props) {
                 disabled={props.isReplying}
                 onChange={props.onChangeInput}
                 onSend={props.onSend}
+                isRecording={voiceRecorder.isRecording}
+                recordingDuration={voiceRecorder.duration}
+                onVoiceRecord={() => void voiceRecorder.startRecording()}
+                onCancelVoice={voiceRecorder.cancelRecording}
+                onFinishVoice={() => void handleFinishVoice()}
+                onAttachPdf={props.onAttachPdf}
+                pendingContractAttachment={props.pendingContractAttachment}
+                onClearPendingAttachment={props.onClearPendingAttachment}
+                quickQuestions={props.quickQuestions}
+                quota={props.quota}
+                onNavigateToPlans={props.onNavigateToPlans}
+                currentEventId={props.currentEventId}
               />
             </View>
           </KeyboardAvoidingView>
@@ -268,11 +308,28 @@ const styles = StyleSheet.create({
   panel: { width: '100%', height: '86%', maxHeight: '92%', backgroundColor: colors.card, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
   header: { backgroundColor: colors.primaryStrong, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerIconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
   avatar: { height: 34, width: 34, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)' },
   title: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   subtitle: { color: '#FFFFFF', fontSize: 11, opacity: 0.85, fontWeight: '500' },
+  quotaHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(222, 196, 121, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(222, 196, 121, 0.4)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  quotaHeaderText: {
+    color: '#DEC479',
+    fontSize: 10,
+    fontWeight: '700',
+  },
   hintsWrap: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 6, backgroundColor: '#FCFCFD' },
   hintsTitle: { color: colors.mutedText, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 },
   hintsCaption: { color: colors.mutedText, fontSize: 12, fontWeight: '600' },

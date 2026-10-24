@@ -7,6 +7,7 @@ import { buildRouteContext, extractEventTabFromPath, normalizeText } from '../fe
 import { PlanAssistantChatSheet } from '../features/plan-assistant/PlanAssistantChatSheet';
 import { PlanAssistantFab } from '../features/plan-assistant/PlanAssistantFab';
 import { ProactiveHintBubble } from '../features/plan-assistant/ProactiveHintBubble';
+import { resolveContextualPrompts } from '../features/plan-assistant/resolveContextualPrompts';
 import type { PlanHint } from '../features/plan-assistant/types';
 import { useFloatingAssistantPosition } from '../features/plan-assistant/useFloatingAssistantPosition';
 import { usePlanAssistantChat } from '../features/plan-assistant/usePlanAssistantChat';
@@ -76,11 +77,23 @@ export function PlanAssistantFloating() {
     await hints.consumeHint(hint, 'opened');
     chat.appendHintMessage(hint);
   }, [chat.appendHintMessage, hints.consumeHint]);
+
   const dismissHint = useCallback(() => {
     if (hints.proactiveHint) void hints.consumeHint(hints.proactiveHint, 'dismissed');
   }, [hints.consumeHint, hints.proactiveHint]);
+
   const openCta = useCallback((path: string | undefined) => {
     if (navigateByCtaPath(router, path)) closeChat();
+  }, [closeChat, router]);
+
+  const quickQuestions = useMemo(
+    () => resolveContextualPrompts(route.currentPath, route.currentEventId),
+    [route.currentEventId, route.currentPath]
+  );
+
+  const navigateToPlans = useCallback(() => {
+    closeChat();
+    router.push('/mais/assinaturas');
   }, [closeChat, router]);
 
   return (
@@ -106,7 +119,15 @@ export function PlanAssistantFloating() {
         onOpenHint={(hint) => void openHint(hint)}
         onOpenCta={openCta}
         onChangeInput={chat.setInput}
-        onSend={() => void chat.sendMessage()}
+        onSend={(text?: string) => void chat.sendMessage(text)}
+        onSendVoice={(recording) => void chat.sendVoiceMessage(recording)}
+        onAttachPdf={() => void chat.pickContractPdf()}
+        pendingContractAttachment={chat.pendingContractAttachment}
+        onClearPendingAttachment={chat.clearPendingContractAttachment}
+        quickQuestions={quickQuestions}
+        quota={chat.quota}
+        onNavigateToPlans={navigateToPlans}
+        currentEventId={route.currentEventId}
         threads={chat.threads}
         activeThreadId={chat.activeThreadId}
         onSelectThread={(thread) => void chat.selectThread(thread)}

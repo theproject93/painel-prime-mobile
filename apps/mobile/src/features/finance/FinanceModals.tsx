@@ -3,6 +3,7 @@ import type { DocumentPickerAsset } from 'expo-document-picker';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { colors, spacing } from '../../theme/colors';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 import { AttachmentButton, FinanceDateField, FinanceField, FinanceMoneyField, StatusChoice } from './FinanceFormControls';
 import { financeStyles as styles } from './financeScreenStyles';
 import type { EntryForm, ExpenseForm, FinanceCategory, MovementKind } from './types';
@@ -25,11 +26,12 @@ type Props = {
 };
 
 export function FinanceModals(props: Props) {
+  const keyboardHeight = useKeyboardBottomInset();
   const sheetBottom = Math.max(props.bottomInset, spacing.lg);
   const expenseCategories = props.categories.filter((row) => row.type === 'saida');
   return <>
     <Modal visible={props.movementOpen} transparent animationType="slide" onRequestClose={() => props.setMovementOpen(false)}>
-      <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={[styles.modalBackdrop, Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.modalDismissArea} onPress={() => props.setMovementOpen(false)} accessibilityLabel="Fechar" />
         <View style={[styles.sheet, { paddingBottom: sheetBottom }]}>
           <View style={styles.sheetHandle} />
@@ -62,7 +64,7 @@ export function FinanceModals(props: Props) {
       </KeyboardAvoidingView>
     </Modal>
 
-    <Modal visible={props.categoriesOpen} transparent animationType="slide" onRequestClose={() => props.setCategoriesOpen(false)}><KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><Pressable style={styles.modalDismissArea} onPress={() => props.setCategoriesOpen(false)} /><View style={[styles.sheet, styles.categorySheet, { paddingBottom: sheetBottom }]}><View style={styles.sheetHandle} /><View style={styles.sheetHeader}><View><Text style={styles.sheetTitle}>Categorias</Text><Text style={styles.sheetSubtitle}>Organize seus lançamentos</Text></View><Pressable hitSlop={10} onPress={() => props.setCategoriesOpen(false)}><Ionicons name="close" size={26} color={colors.textSecondary} /></Pressable></View><FinanceField label="Nova categoria" value={props.newCategoryName} onChangeText={props.setNewCategoryName} placeholder="Ex.: Transporte" /><View style={styles.segmented}>{(['entrada', 'saida'] as const).map((type) => <Pressable key={type} style={[styles.segment, props.newCategoryType === type && styles.segmentActive]} onPress={() => props.setNewCategoryType(type)}><Text style={[styles.segmentText, props.newCategoryType === type && styles.segmentTextActive]}>{type === 'entrada' ? 'Entrada' : 'Despesa'}</Text></Pressable>)}</View><Pressable style={styles.saveButton} onPress={props.onCreateCategory}><Text style={styles.saveButtonText}>Adicionar categoria</Text></Pressable><ScrollView style={styles.categoryList}>{props.categories.map((category) => <View key={category.id} style={styles.categoryRow}><View style={[styles.categoryDot, { backgroundColor: category.color || colors.gold600 }]} /><Text style={styles.categoryName}>{category.name}</Text><Text style={styles.categoryType}>{category.type === 'entrada' ? 'Entrada' : 'Despesa'}</Text></View>)}</ScrollView></View></KeyboardAvoidingView></Modal>
+    <Modal visible={props.categoriesOpen} transparent animationType="slide" onRequestClose={() => props.setCategoriesOpen(false)}><KeyboardAvoidingView style={[styles.modalBackdrop, Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><Pressable style={styles.modalDismissArea} onPress={() => props.setCategoriesOpen(false)} /><View style={[styles.sheet, styles.categorySheet, { paddingBottom: sheetBottom }]}><View style={styles.sheetHandle} /><View style={styles.sheetHeader}><View><Text style={styles.sheetTitle}>Categorias</Text><Text style={styles.sheetSubtitle}>Organize seus lançamentos</Text></View><Pressable hitSlop={10} onPress={() => props.setCategoriesOpen(false)}><Ionicons name="close" size={26} color={colors.textSecondary} /></Pressable></View><FinanceField label="Nova categoria" value={props.newCategoryName} onChangeText={props.setNewCategoryName} placeholder="Ex.: Transporte" /><View style={styles.segmented}>{(['entrada', 'saida'] as const).map((type) => <Pressable key={type} style={[styles.segment, props.newCategoryType === type && styles.segmentActive]} onPress={() => props.setNewCategoryType(type)}><Text style={[styles.segmentText, props.newCategoryType === type && styles.segmentTextActive]}>{type === 'entrada' ? 'Entrada' : 'Despesa'}</Text></Pressable>)}</View><Pressable style={styles.saveButton} onPress={props.onCreateCategory}><Text style={styles.saveButtonText}>Adicionar categoria</Text></Pressable><ScrollView style={styles.categoryList}>{props.categories.map((category) => <View key={category.id} style={styles.categoryRow}><View style={[styles.categoryDot, { backgroundColor: category.color || colors.gold600 }]} /><Text style={styles.categoryName}>{category.name}</Text><Text style={styles.categoryType}>{category.type === 'entrada' ? 'Entrada' : 'Despesa'}</Text></View>)}</ScrollView></View></KeyboardAvoidingView></Modal>
 
     <Modal
       visible={props.onboardingOpen}
@@ -70,7 +72,7 @@ export function FinanceModals(props: Props) {
       animationType="fade"
       onRequestClose={() => (props.onDismissOnboarding ? props.onDismissOnboarding() : props.setOnboardingOpen?.(false))}
     >
-      <View style={styles.onboardingBackdrop}>
+      <View style={[styles.onboardingBackdrop, Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
         <View style={styles.onboardingCard}>
           <View style={styles.onboardingIcon}>
             <Ionicons name="wallet-outline" size={30} color={colors.gold700} />

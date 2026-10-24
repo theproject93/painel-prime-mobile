@@ -4,6 +4,7 @@ import { Card, CommandLine, Small } from '../EventDetailsParts';
 import type { EventDetailsTab } from '../eventDetailsData';
 import { brl, labelVendorStatus } from '../eventDetailsUtils';
 import { styles } from '../eventDetailsStyles';
+import { colors } from '../../../theme/colors';
 
 export type CommandTabModel = {
   command: any;
@@ -44,8 +45,8 @@ export function CommandTab({ model: m }: { model: CommandTabModel }) {
       <View style={styles.commandRulesCard}>
         <Text style={styles.commandBlockTitle}>Regras de alerta (SLA)</Text>
         <View style={styles.commandRuleGrid}>
-          <TextInput style={[styles.input, styles.commandRuleInput]} value={m.commandLeadInput} onChangeText={m.onLeadInputChange} placeholder="Pre-alerta (60,30,15)" />
-          <TextInput style={[styles.input, styles.commandRuleInput]} value={m.commandGraceInput} onChangeText={m.onGraceInputChange} placeholder="Tolerância (min)" keyboardType="numeric" />
+          <TextInput style={[styles.input, styles.commandRuleInput]} value={m.commandLeadInput} onChangeText={m.onLeadInputChange} placeholder="Pre-alerta (60,30,15)" placeholderTextColor={colors.mutedText} />
+          <TextInput style={[styles.input, styles.commandRuleInput]} value={m.commandGraceInput} onChangeText={m.onGraceInputChange} placeholder="Tolerância (min)" placeholderTextColor={colors.mutedText} keyboardType="numeric" />
         </View>
         <Pressable style={styles.btnGhost} onPress={m.onSaveRules}><Text style={styles.smallText}>{m.savingCommandConfig ? 'Salvando regras...' : 'Salvar regras'}</Text></Pressable>
       </View>

@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 import { colors } from '../../theme/colors';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 import { AppHaptics } from '../../lib/haptics';
 import {
   MoneyField,
@@ -61,6 +62,7 @@ export function CreateEventWizardModal({
   error,
   onClearError,
 }: CreateEventWizardModalProps) {
+  const keyboardHeight = useKeyboardBottomInset();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Form states
@@ -234,7 +236,10 @@ export function CreateEventWizardModal({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={resetForm}>
       <KeyboardAvoidingView
-        style={styles.modalBackdrop}
+        style={[
+          styles.modalBackdrop,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight + 16 },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.modalCard}>

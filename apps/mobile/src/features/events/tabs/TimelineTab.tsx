@@ -2,6 +2,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { EventEmptyState, EventFilterChips, EventFormSheet, EventListCard, EventModuleShell, EventSectionTitle } from '../EventWorkspace';
 import { styles } from '../eventDetailsStyles';
 import { fmt } from '../eventDetailsUtils';
+import { colors } from '../../../theme/colors';
 
 export type TimelineTabModel = {
   timeline: any[]; total: number; suggestions: any[]; loadingSuggestions: boolean; error: string | null; lastRunAt: string | null;
@@ -28,10 +29,10 @@ export function TimelineTab({ model: m }: { model: TimelineTabModel }) {
       {m.total > m.timeline.length ? <Pressable style={styles.btnGhostWide} onPress={m.onShowMore}><Text style={styles.smallText}>Mostrar mais ({m.total - m.timeline.length} restantes)</Text></Pressable> : null}
       {m.hasMore ? <Pressable style={styles.btnGhostWide} onPress={m.onLoadMore}><Text style={styles.smallText}>{m.loadingMore ? 'Carregando...' : 'Carregar mais do servidor'}</Text></Pressable> : null}
       <EventFormSheet visible={m.composerOpen} title="Adicionar ao cronograma do dia" subtitle="Registre apenas o que acontece no dia deste evento." onClose={m.onCloseComposer}>
-        <Text style={styles.formLabel}>Horário</Text><TextInput style={styles.input} value={m.time} onChangeText={m.onTimeChange} placeholder="HH:MM" />
-        <Text style={styles.formLabel}>Atividade</Text><TextInput style={styles.input} value={m.activity} onChangeText={m.onActivityChange} placeholder={m.placeholder} />
+        <Text style={styles.formLabel}>Horário</Text><TextInput style={styles.input} value={m.time} onChangeText={m.onTimeChange} placeholder="HH:MM" placeholderTextColor={colors.mutedText} />
+        <Text style={styles.formLabel}>Atividade</Text><TextInput style={styles.input} value={m.activity} onChangeText={m.onActivityChange} placeholder={m.placeholder} placeholderTextColor={colors.mutedText} />
         <Text style={styles.formLabel}>Responsável (opcional)</Text><EventFilterChips selected={m.assignee} onSelect={m.onAssigneeChange} options={m.assigneeOptions} />
-        <TextInput style={styles.input} value={m.assignee} onChangeText={m.onAssigneeChange} placeholder="Ou escreva outro nome" />
+        <TextInput style={styles.input} value={m.assignee} onChangeText={m.onAssigneeChange} placeholder="Ou escreva outro nome" placeholderTextColor={colors.mutedText} />
         <Pressable style={styles.btn} onPress={m.onCreate}><Text style={styles.btnText}>Adicionar ao cronograma</Text></Pressable>
       </EventFormSheet>
     </EventModuleShell>

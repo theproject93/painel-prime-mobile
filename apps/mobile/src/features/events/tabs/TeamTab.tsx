@@ -141,11 +141,11 @@ export function TeamTab({
 
       <EventFormSheet visible={composerOpen} title="Adicionar à equipe" onClose={onCloseComposer}>
         <Text style={styles.formLabel}>Nome</Text>
-        <TextInput style={styles.input} value={draft.name} onChangeText={(value) => onDraftChange('name', value)} placeholder="Nome completo" />
+        <TextInput style={styles.input} value={draft.name} onChangeText={(value) => onDraftChange('name', value)} placeholder="Nome completo" placeholderTextColor={colors.mutedText} />
         <Text style={styles.formLabel}>Telefone</Text>
-        <TextInput style={styles.input} value={draft.phone} onChangeText={(value) => onDraftChange('phone', value)} placeholder="(11) 99999-9999" keyboardType="phone-pad" />
+        <TextInput style={styles.input} value={draft.phone} onChangeText={(value) => onDraftChange('phone', value)} placeholder="(11) 99999-9999" placeholderTextColor={colors.mutedText} keyboardType="phone-pad" />
         <Text style={styles.formLabel}>Função</Text>
-        <TextInput style={styles.input} value={draft.role} onChangeText={(value) => onDraftChange('role', value)} placeholder="Ex.: Cerimonialista" />
+        <TextInput style={styles.input} value={draft.role} onChangeText={(value) => onDraftChange('role', value)} placeholder="Ex.: Cerimonialista" placeholderTextColor={colors.mutedText} />
         <Pressable style={styles.btn} onPress={onCreate}><Text style={styles.btnText}>Adicionar à equipe</Text></Pressable>
       </EventFormSheet>
     </EventModuleShell>

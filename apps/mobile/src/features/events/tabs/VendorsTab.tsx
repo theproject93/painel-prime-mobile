@@ -3,6 +3,7 @@ import { PrimeLogoLoader } from '../../../components/PrimeLogoLoader';
 import { EventEmptyState, EventFilterChips, EventFormSheet, EventListCard, EventModuleShell, EventSectionTitle } from '../EventWorkspace';
 import { vendorStatusLabel } from '../eventWorkspaceUtils';
 import { styles } from '../eventDetailsStyles';
+import { colors } from '../../../theme/colors';
 
 export type VendorsTabModel = {
   vendors: any[]; visibleVendors: any[]; filteredCount: number; visibleLimit: number; catalog: any[]; loadingCatalog: boolean;
@@ -25,7 +26,7 @@ export function VendorsTab({ model: m }: { model: VendorsTabModel }) {
         {m.loadingCatalog ? <PrimeLogoLoader label="Carregando fornecedores..." /> : available.map((vendor) => <EventListCard key={vendor.id} title={String(vendor.name)} subtitle={String(vendor.category || 'Sem categoria')} meta={[vendor.whatsapp || vendor.email || 'Contato não informado']} status="Disponível" statusTone="info" actions={[{ label: 'Usar neste evento', icon: 'add-circle-outline', onPress: () => m.onLinkCatalog(String(vendor.id)) }]} />)}
         {!m.loadingCatalog && m.catalog.length === 0 ? <Text style={styles.caption}>Cadastre parceiros na aba Fornecedores para reutilizá-los em todos os eventos.</Text> : null}
       </View>
-      <TextInput style={styles.input} value={m.search} onChangeText={m.onSearchChange} placeholder="Buscar por nome/categoria" />
+      <TextInput style={styles.input} value={m.search} onChangeText={m.onSearchChange} placeholder="Buscar por nome/categoria" placeholderTextColor={colors.mutedText} />
       <EventFilterChips selected={m.sort} onSelect={m.onSortChange} options={[{ value: 'name_asc', label: 'A–Z' }, { value: 'name_desc', label: 'Z–A' }, { value: 'status', label: 'Por status' }]} />
       <EventSectionTitle title="Equipe de fornecedores" />
       {m.visibleVendors.length === 0 ? <EventEmptyState icon="storefront-outline" title="Nenhum fornecedor encontrado" description="Vincule o primeiro parceiro deste evento ou altere sua busca." actionLabel="Vincular fornecedor" onAction={m.onOpenComposer} /> : null}
@@ -38,11 +39,11 @@ export function VendorsTab({ model: m }: { model: VendorsTabModel }) {
       {m.filteredCount > m.visibleLimit ? <Pressable style={styles.btnGhostWide} onPress={m.onShowMore}><Text style={styles.smallText}>Mostrar mais ({m.filteredCount - m.visibleLimit} restantes)</Text></Pressable> : null}
       {m.hasMore ? <Pressable style={styles.btnGhostWide} onPress={m.onLoadMore}><Text style={styles.smallText}>{m.loadingMore ? 'Carregando...' : 'Carregar mais do servidor'}</Text></Pressable> : null}
       <EventFormSheet visible={m.composerOpen} title="Outro fornecedor" subtitle="Não encontrou na sua lista? Cadastre manualmente para este evento." onClose={m.onCloseComposer}>
-        <Text style={styles.formLabel}>Nome</Text><TextInput style={styles.input} value={m.name} onChangeText={m.onNameChange} placeholder="Nome do fornecedor" />
-        <Text style={styles.formLabel}>Categoria</Text><TextInput style={styles.input} value={m.category} onChangeText={m.onCategoryChange} placeholder="Ex.: Buffet" />
-        <Text style={styles.formLabel}>Contato</Text><TextInput style={styles.input} value={m.phone} onChangeText={m.onPhoneChange} placeholder="Telefone (opcional)" keyboardType="phone-pad" />
-        <TextInput style={styles.input} value={m.email} onChangeText={m.onEmailChange} placeholder="E-mail (opcional)" keyboardType="email-address" autoCapitalize="none" />
-        <Text style={styles.formLabel}>Operação no dia</Text><View style={styles.formRow}><TextInput style={[styles.input, styles.formGrow]} value={m.arrival} onChangeText={m.onArrivalChange} placeholder="Chegada HH:MM" /><TextInput style={[styles.input, styles.formGrow]} value={m.done} onChangeText={m.onDoneChange} placeholder="Fim HH:MM" /></View>
+        <Text style={styles.formLabel}>Nome</Text><TextInput style={styles.input} value={m.name} onChangeText={m.onNameChange} placeholder="Nome do fornecedor" placeholderTextColor={colors.mutedText} />
+        <Text style={styles.formLabel}>Categoria</Text><TextInput style={styles.input} value={m.category} onChangeText={m.onCategoryChange} placeholder="Ex.: Buffet" placeholderTextColor={colors.mutedText} />
+        <Text style={styles.formLabel}>Contato</Text><TextInput style={styles.input} value={m.phone} onChangeText={m.onPhoneChange} placeholder="Telefone (opcional)" placeholderTextColor={colors.mutedText} keyboardType="phone-pad" />
+        <TextInput style={styles.input} value={m.email} onChangeText={m.onEmailChange} placeholder="E-mail (opcional)" placeholderTextColor={colors.mutedText} keyboardType="email-address" autoCapitalize="none" />
+        <Text style={styles.formLabel}>Operação no dia</Text><View style={styles.formRow}><TextInput style={[styles.input, styles.formGrow]} value={m.arrival} onChangeText={m.onArrivalChange} placeholder="Chegada HH:MM" placeholderTextColor={colors.mutedText} /><TextInput style={[styles.input, styles.formGrow]} value={m.done} onChangeText={m.onDoneChange} placeholder="Fim HH:MM" placeholderTextColor={colors.mutedText} /></View>
         <Pressable style={styles.btn} onPress={m.onCreate}><Text style={styles.btnText}>Vincular fornecedor</Text></Pressable>
       </EventFormSheet>
     </EventModuleShell>

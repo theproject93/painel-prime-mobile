@@ -148,12 +148,18 @@ export function PublicAtendimentoIAScreen() {
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Pressable onPress={() => goBackOrReplace(router, routeHrefs.landing())}>
+      <Pressable
+        onPress={() => goBackOrReplace(router, routeHrefs.landing())}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={styles.backWrap}
+        accessibilityRole="button"
+        accessibilityLabel="Voltar ao início"
+      >
         <Text style={styles.back}>Voltar</Text>
       </Pressable>
       <View style={styles.card}>
         <Text style={styles.title}>Atendimento IA</Text>
-        <Text style={styles.sub}>Fluxo conectado ao `sales-ai` da aplicação WEB.</Text>
+        <Text style={styles.sub}>Atendimento comercial inteligente integrado à nuvem AWS do Painel Prime.</Text>
         {leadCaptured ? <Text style={styles.badge}>Lead capturado com sucesso</Text> : null}
       </View>
 
@@ -196,6 +202,7 @@ export function PublicAtendimentoIAScreen() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F8FAFC' },
   content: { padding: 16, gap: 10, paddingBottom: 28 },
+  backWrap: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   back: { color: colors.mutedText, fontSize: 13, fontWeight: '600' },
   card: { backgroundColor: '#111827', borderRadius: 14, padding: 14, gap: 6 },
   title: { color: '#FFFFFF', fontSize: 24, fontWeight: '700' },
@@ -212,8 +219,8 @@ const styles = StyleSheet.create({
   err: { color: colors.dangerText, backgroundColor: colors.dangerBg, borderRadius: 8, padding: 8 },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, color: colors.text },
   row: { flexDirection: 'row', gap: 8 },
-  sendButton: { flex: 1, minHeight: 42, borderRadius: 10, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center' },
+  sendButton: { flex: 1, minHeight: 44, borderRadius: 10, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center' },
   sendButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
-  waButton: { flex: 1, minHeight: 42, borderRadius: 10, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
+  waButton: { flex: 1, minHeight: 44, borderRadius: 10, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
   waButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
 });

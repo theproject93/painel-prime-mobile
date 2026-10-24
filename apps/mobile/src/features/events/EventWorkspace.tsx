@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, shadows } from '../../theme/colors';
+import { useKeyboardBottomInset } from '../../lib/useKeyboardBottomInset';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 type Tone = 'neutral' | 'gold' | 'success' | 'warning' | 'danger' | 'info';
@@ -67,7 +68,14 @@ export function EventModuleShell({
             const tone = TONES[metric.tone ?? 'neutral'];
             return (
               <View key={metric.label} style={[styles.metric, { backgroundColor: tone.background }]}>
-                <Text style={[styles.metricValue, { color: tone.foreground }]}>{metric.value}</Text>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.65}
+                  style={[styles.metricValue, { color: tone.foreground }]}
+                >
+                  {metric.value}
+                </Text>
                 <Text style={styles.metricLabel}>{metric.label}</Text>
               </View>
             );
@@ -236,9 +244,16 @@ export function EventFormSheet({ visible, title, subtitle, onClose, children }: 
   onClose: () => void;
   children: ReactNode;
 }) {
+  const keyboardHeight = useKeyboardBottomInset();
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.sheetOverlay}>
+      <View
+        style={[
+          styles.sheetOverlay,
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+        ]}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Fechar formulário" />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -47,14 +47,14 @@ export function BudgetTab({ model }: { model: BudgetTabModel }) {
         { label: 'Excluir', icon: 'trash-outline', tone: 'danger', onPress: () => m.onDeletePayment(String(payment.id)) },
       ]} />)}
       <EventFormSheet visible={m.composerOpen} title="Nova despesa" subtitle="Vincule ao fornecedor quando fizer sentido." onClose={m.onCloseComposer}>
-        <Text style={styles.formLabel}>Descrição</Text><TextInput style={styles.input} value={m.draftName} onChangeText={m.onDraftNameChange} placeholder="Ex.: Buffet" />
+        <Text style={styles.formLabel}>Descrição</Text><TextInput style={styles.input} value={m.draftName} onChangeText={m.onDraftNameChange} placeholder="Ex.: Buffet" placeholderTextColor={colors.mutedText} />
         <Text style={styles.formLabel}>Valor</Text><MoneyField value={m.draftValue} onChangeValue={m.onDraftValueChange} />
         {m.vendors.length ? <><Text style={styles.formLabel}>Fornecedor (opcional)</Text><EventFilterChips selected={m.vendorInput} onSelect={m.onVendorInputChange} options={[{ value: '', label: 'Sem vínculo' }, ...m.vendors.map((vendor) => ({ value: String(vendor.id), label: String(vendor.name) }))]} /></> : null}
         <Pressable style={styles.btn} onPress={m.onCreateExpense}><Text style={styles.btnText}>Adicionar despesa</Text></Pressable>
       </EventFormSheet>
       <EventFormSheet visible={Boolean(m.paymentExpenseId)} title="Registrar pagamento" subtitle={m.expenses.find((expense) => String(expense.id) === m.paymentExpenseId)?.name} onClose={m.onClosePayment}>
         <Text style={styles.formLabel}>Forma de pagamento</Text><EventFilterChips selected={m.paymentMethod} onSelect={m.onPaymentMethodChange} options={[{ value: 'pix', label: 'Pix' }, { value: 'dinheiro', label: 'Dinheiro' }, { value: 'credito', label: 'Crédito' }, { value: 'debito', label: 'Débito' }, { value: 'transferencia', label: 'Transferência' }]} />
-        <Text style={styles.formLabel}>Observação (opcional)</Text><TextInput style={styles.input} value={m.paymentNote} onChangeText={m.onPaymentNoteChange} placeholder="Detalhes do pagamento" />
+        <Text style={styles.formLabel}>Observação (opcional)</Text><TextInput style={styles.input} value={m.paymentNote} onChangeText={m.onPaymentNoteChange} placeholder="Detalhes do pagamento" placeholderTextColor={colors.mutedText} />
         <Pressable style={styles.btn} onPress={m.onCreatePayment}><Text style={styles.btnText}>Confirmar pagamento</Text></Pressable>
       </EventFormSheet>
     </EventModuleShell>

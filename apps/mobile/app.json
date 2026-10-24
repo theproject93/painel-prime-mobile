@@ -2,7 +2,7 @@
   "expo": {
     "name": "Painel Prime",
     "slug": "lucas-ferreira",
-    "version": "1.5.1",
+    "version": "1.5.2",
     "scheme": "painelprime",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -28,7 +28,10 @@
     },
     "android": {
       "package": "br.com.painelprime.app",
-      "versionCode": 11,
+      "versionCode": 12,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -73,6 +76,12 @@
     },
     "plugins": [
       "expo-video",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Permita que o Painel Prime use o microfone para conversar por voz com a Plan IA."
+        }
+      ],
       "expo-font",
       "expo-asset",
       "expo-router",
@@ -98,7 +107,8 @@
           "color": "#023c69"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "./plugins/withWhatsAppZeroTapOtp"
     ]
   }
 }

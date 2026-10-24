@@ -11,8 +11,17 @@ export type ChatMessage = {
   id: string;
   role: 'bot' | 'user';
   text: string;
+  audioUrl?: string;
+  autoPlayAudio?: boolean;
+  inputModality?: 'text' | 'audio';
+  replyModality?: 'text' | 'audio';
+  attachmentName?: string;
   ctaLabel?: string;
   ctaPath?: string;
+  ctaAction?: 'route' | 'open-draft';
+  draftId?: string;
+  jobId?: string;
+  jobStatus?: 'uploading' | 'queued' | 'processing' | 'done' | 'failed';
 };
 
 export type MessageHistoryItem = {
@@ -25,6 +34,27 @@ export type SuggestedAction = {
   path: string;
 };
 
+export type PlanIaQuotaInfo = {
+  allowed: boolean;
+  is_unlimited?: boolean;
+  used: number;
+  limit: number;
+  remaining: number;
+  plan_id: string;
+  cycle_start?: string | null;
+  cycle_end?: string | null;
+  upgrade_recommended?: string | null;
+};
+
+export type PendingContractAttachment = {
+  fileUri: string;
+  name: string;
+  mimeType?: string;
+  size?: number;
+  eventId?: string | null;
+  eventName?: string | null;
+};
+
 export type PlanAssistantApiResponse = {
   answer?: string;
   reply?: string;
@@ -34,7 +64,7 @@ export type PlanAssistantApiResponse = {
   text?: string;
   jobId?: string;
   job_id?: string;
-  quota?: Record<string, unknown>;
+  quota?: PlanIaQuotaInfo | Record<string, unknown>;
   suggested_actions?: Array<{ label?: string; path?: string }>;
   meta?: {
     ai_used?: boolean;
@@ -52,6 +82,9 @@ export type PlanAssistantRequest = {
   hints: Array<{ id: string; title: string; ctaLabel: string; ctaPath: string }>;
   message_history?: MessageHistoryItem[];
   user_name: string;
+  attachments?: Array<{ stored_file_id: string; kind: 'contract_pdf' }>;
+  context_type?: string;
+  context_id?: string | null;
 };
 
 export type {
