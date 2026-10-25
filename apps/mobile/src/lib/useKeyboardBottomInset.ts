@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Dimensions, Keyboard, KeyboardEvent, Platform } from 'react-native';
+import { Dimensions, Keyboard, KeyboardEvent, Platform, StatusBar } from 'react-native';
 
 import { extractKeyboardHeight, resolveKeyboardEventNames } from './keyboardInsetHelpers';
 
@@ -7,9 +7,8 @@ export { extractKeyboardHeight, resolveKeyboardEventNames };
 
 /**
  * Custom hook that tracks active keyboard height across Android and iOS.
- * On Android edge-to-edge screens with transparent Modal dialogs, native window
- * resizing (adjustResize) does not shift transparent Modal contents. This hook provides
- * the active keyboard height in pixels so views can apply dynamic bottom padding.
+ * Strips Android edge-to-edge phantom decor insets so bottom sheets and
+ * forms position flush against the top edge of Gboard/software keyboard.
  */
 export function useKeyboardBottomInset(): number {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -19,7 +18,10 @@ export function useKeyboardBottomInset(): number {
 
     const handleKeyboardShow = (event: KeyboardEvent) => {
       const screenHeight = Dimensions.get('screen').height;
-      setKeyboardHeight(extractKeyboardHeight(event, { platform: Platform.OS, screenHeight }));
+      const statusBarHeight = StatusBar.currentHeight ?? 46;
+      setKeyboardHeight(
+        extractKeyboardHeight(event, { platform: Platform.OS, screenHeight, statusBarHeight })
+      );
     };
 
     const handleKeyboardHide = () => {

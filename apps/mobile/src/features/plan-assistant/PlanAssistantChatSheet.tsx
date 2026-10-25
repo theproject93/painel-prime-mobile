@@ -206,6 +206,7 @@ export function PlanAssistantChatSheet(props: Props) {
               {
                 paddingTop: Math.max(insets.top + 8, 38),
                 paddingBottom: isKeyboardOpen ? keyboardHeight + 6 : props.bottom,
+                justifyContent: isKeyboardOpen ? 'flex-start' : 'flex-end',
               },
             ]}
             pointerEvents="box-none"
@@ -342,7 +343,7 @@ const styles = StyleSheet.create({
   panel: { width: '100%', backgroundColor: colors.card, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
   panelNormal: { height: '86%', maxHeight: '92%' },
   panelKeyboardOpen: { flex: 1, height: undefined, maxHeight: '100%' },
-  header: { backgroundColor: colors.primaryStrong, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { backgroundColor: colors.primaryStrong, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
   headerTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
