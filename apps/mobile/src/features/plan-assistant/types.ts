@@ -1,3 +1,12 @@
+import type {
+  PlanAssistantActionConfirmation,
+  PlanAssistantActionProposal,
+  PlanAssistantActionResult,
+  PlanAssistantCitation,
+  PlanAssistantRequest,
+  PlanAssistantResponse as PlanAssistantApiResponse,
+} from '@painel-prime/app';
+
 export type PlanHint = {
   id: string;
   severity: 'high' | 'medium' | 'low';
@@ -23,6 +32,10 @@ export type ChatMessage = {
   jobId?: string;
   jobStatus?: 'uploading' | 'queued' | 'processing' | 'done' | 'failed';
   citations?: PlanAssistantCitation[];
+  actionProposal?: PlanAssistantActionProposal;
+  isActionExecuted?: boolean;
+  isActionCancelled?: boolean;
+  actionExecutionMessage?: string;
 };
 
 export type MessageHistoryItem = {
@@ -57,6 +70,9 @@ export type PendingContractAttachment = {
 };
 
 export type {
+  PlanAssistantActionConfirmation,
+  PlanAssistantActionProposal,
+  PlanAssistantActionResult,
   PlanAssistantCitation,
   PlanAssistantRequest,
   PlanAssistantResponse as PlanAssistantApiResponse,

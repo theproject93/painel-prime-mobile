@@ -34,6 +34,7 @@ import {
 import { pollLocalAiJob } from './pollLocalAiJob';
 import {
   getPlanAssistantAccessToken,
+  invokePlanAssistantActionConfirmation,
   invokePlanAssistantChat,
   invokePlanAssistantChatViaSupabase,
   invokePlanAssistantVoice,
@@ -475,7 +476,14 @@ export function usePlanAssistantChat(params: Params) {
           try {
             const pollResult = await pollLocalAiJob(supabase, 'plan-assistant-chat', potentialJobId);
             if (pollResult.answer) data.answer = pollResult.answer;
-            if (pollResult.suggested_actions) data.suggested_actions = pollResult.suggested_actions;
+            if (pollResult.suggested_actions) {
+              data.suggested_actions = pollResult.suggested_actions
+                .map((item: any) => ({
+                  label: typeof item?.label === 'string' ? item.label : '',
+                  path: typeof item?.path === 'string' ? item.path : '',
+                }))
+                .filter((item) => Boolean(item.label && item.path));
+            }
           } catch (pollErr) {
             console.warn('Poll contrato falhou:', pollErr);
           }
@@ -581,7 +589,12 @@ export function usePlanAssistantChat(params: Params) {
             data.answer = pollResult.answer;
           }
           if (Array.isArray(pollResult.suggested_actions)) {
-            data.suggested_actions = pollResult.suggested_actions;
+            data.suggested_actions = pollResult.suggested_actions
+              .map((item: any) => ({
+                label: typeof item?.label === 'string' ? item.label : '',
+                path: typeof item?.path === 'string' ? item.path : '',
+              }))
+              .filter((item) => Boolean(item.label && item.path));
           }
         } catch (pollErr) {
           console.warn('Plan assistant poll failed:', pollErr);
@@ -602,7 +615,13 @@ export function usePlanAssistantChat(params: Params) {
         setQuota(data.quota as PlanIaQuotaInfo);
       }
 
-      pushBotMessage({ text: answer, ctaLabel: actions[0]?.label, ctaPath: actions[0]?.path, citations: data.citations });
+      pushBotMessage({
+        text: answer,
+        ctaLabel: actions[0]?.label,
+        ctaPath: actions[0]?.path,
+        citations: data.citations,
+        actionProposal: data.action_proposal,
+      });
 
       // Auto-save AI reply to DB
       if (threadCtx) {
@@ -636,6 +655,44 @@ export function usePlanAssistantChat(params: Params) {
     }
   }, [currentEventId, currentPath, ensureActiveThread, input, isReplying, messages, nextMessageId, pendingContractAttachment, pushBotMessage, topHintPayload, updateMessage, userName]);
 
+  const confirmAction = useCallback(
+    async (proposalId: string, confirmationToken: string, msgId: string) => {
+      try {
+        const response = await invokePlanAssistantActionConfirmation({
+          proposal_id: proposalId,
+          confirmation_token: confirmationToken,
+        });
+
+        if (!response?.success && response?.error) {
+          throw new Error(response.message || response.error);
+        }
+
+        updateMessage(msgId, (msg) => ({
+          ...msg,
+          isActionExecuted: true,
+          actionExecutionMessage:
+            typeof response?.result?.summary === 'string'
+              ? response.result.summary
+              : 'Ação confirmada e executada com sucesso.',
+        }));
+      } catch (err) {
+        console.warn('Erro ao confirmar ação no mobile:', err);
+        throw err;
+      }
+    },
+    [updateMessage],
+  );
+
+  const cancelAction = useCallback(
+    (_proposalId: string, msgId: string) => {
+      updateMessage(msgId, (msg) => ({
+        ...msg,
+        isActionCancelled: true,
+      }));
+    },
+    [updateMessage],
+  );
+
   return {
     messages,
     input,
@@ -644,6 +701,8 @@ export function usePlanAssistantChat(params: Params) {
     sendMessage,
     sendVoiceMessage,
     appendHintMessage,
+    confirmAction,
+    cancelAction,
     threads,
     activeThreadId,
     selectThread,

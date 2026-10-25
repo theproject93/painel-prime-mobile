@@ -226,7 +226,7 @@ export function parsePlanAssistantResponseText(text: string): PlanAssistantApiRe
   const blocks = trimmed.split(/\r?\n\r?\n/u);
   let accumulatedAnswer = '';
   let donePayload: PlanAssistantApiResponse | null = null;
-  let actions: Array<{ label?: string; path?: string }> = [];
+  let actions: Array<{ label: string; path: string }> = [];
 
   for (const block of blocks) {
     const lines = block.split(/\r?\n/u);
@@ -261,7 +261,12 @@ export function parsePlanAssistantResponseText(text: string): PlanAssistantApiRe
       } else if (eventName === 'done' || (eventName === 'message' && typeof parsedData.answer === 'string')) {
         donePayload = parsedData as PlanAssistantApiResponse;
         if (Array.isArray(parsedData.suggested_actions)) {
-          actions = parsedData.suggested_actions as Array<{ label?: string; path?: string }>;
+          actions = parsedData.suggested_actions
+            .map((item: any) => ({
+              label: typeof item?.label === 'string' ? item.label : '',
+              path: typeof item?.path === 'string' ? item.path : '',
+            }))
+            .filter((item) => Boolean(item.label && item.path));
         }
       } else if (eventName === 'error' || (eventName === 'message' && parsedData.error)) {
         const errorMsg =

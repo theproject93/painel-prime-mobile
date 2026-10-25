@@ -1,6 +1,10 @@
 import { supabase } from '../../lib/supabase';
 import { normalizeAccessToken, parsePlanAssistantResponseText } from './core';
-import type { PlanAssistantApiResponse, PlanAssistantRequest } from './types';
+import type {
+  PlanAssistantActionConfirmation,
+  PlanAssistantApiResponse,
+  PlanAssistantRequest,
+} from './types';
 import { generateUuidV4 } from './uuid';
 
 const TRANSPORT_TIMEOUT_MS = 25_000;
@@ -152,4 +156,47 @@ export async function invokePlanAssistantVoice(
   }
 
   return response.json();
+}
+
+export async function invokePlanAssistantActionConfirmation(
+  confirmation: PlanAssistantActionConfirmation,
+  providedAccessToken?: string | null,
+) {
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) throw new Error('plan_assistant_missing_env');
+
+  const cleanUrl = supabaseUrl.trim().replace(/\/+$/u, '');
+  let accessToken =
+    normalizeAccessToken(providedAccessToken) ?? (await resolveTransportAccessToken());
+  if (!accessToken) throw new Error('plan_assistant_unauthorized');
+
+  const sendWithToken = (token: string) => {
+    return fetch(`${cleanUrl}/functions/v1/plan-assistant-chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ action_confirmation: confirmation }),
+    });
+  };
+
+  let response = await sendWithToken(accessToken);
+  if (response.status === 401) {
+    const refreshedToken = await resolveTransportAccessToken(true);
+    if (!refreshedToken) throw new Error('plan_assistant_unauthorized_after_refresh');
+    accessToken = refreshedToken;
+    response = await sendWithToken(accessToken);
+  }
+
+  const json = await response.json();
+  if (!response.ok) {
+    throw new Error(
+      `plan_assistant_http_${response.status}:${json?.message || json?.error || `http_${response.status}`}`,
+    );
+  }
+
+  return json;
 }

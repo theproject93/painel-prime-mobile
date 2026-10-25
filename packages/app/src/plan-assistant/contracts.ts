@@ -20,6 +20,11 @@ export type PlanAssistantHint = {
   ctaPath: string;
 };
 
+export type PlanAssistantActionConfirmation = {
+  proposal_id: string;
+  confirmation_token: string;
+};
+
 export type PlanAssistantRequest = {
   contract_version?: PlanAssistantContractVersion;
   /** @deprecated compatibility alias; clients should send request_id. */
@@ -36,6 +41,7 @@ export type PlanAssistantRequest = {
   attachments?: Array<{ stored_file_id: string; kind: 'contract_pdf' }>;
   client_platform?: 'web' | 'android' | 'ios' | string;
   channel?: string;
+  action_confirmation?: PlanAssistantActionConfirmation;
 };
 
 export type PlanAssistantCitation = {
@@ -57,13 +63,19 @@ export type PlanAssistantSecurityTrace = {
 export type PlanAssistantActionProposal = {
   proposal_id: string;
   tool_name: string;
+  title?: string;
+  description?: string;
+  details?: Record<string, unknown>;
+  confirmation_token?: string;
   expires_at: string;
   requires_confirmation: true;
 };
 
-export type PlanAssistantActionConfirmation = {
-  proposal_id: string;
-  confirmation_token: string;
+export type PlanAssistantActionResult = {
+  success: boolean;
+  tool_name: string;
+  message: string;
+  data?: Record<string, unknown>;
 };
 
 export type PlanAssistantErrorCode =
@@ -73,6 +85,7 @@ export type PlanAssistantErrorCode =
   | 'scope_unavailable'
   | 'tool_not_authorized'
   | 'action_confirmation_required'
+  | 'action_proposal_expired'
   | 'internal_error';
 
 export type PlanAssistantResponseMeta = {
@@ -96,6 +109,7 @@ export type PlanAssistantResponse = {
   suggested_actions?: Array<{ label: string; path: string }>;
   citations?: PlanAssistantCitation[];
   action_proposal?: PlanAssistantActionProposal;
+  action_result?: PlanAssistantActionResult;
   error?: PlanAssistantErrorCode;
   meta?: PlanAssistantResponseMeta;
 };

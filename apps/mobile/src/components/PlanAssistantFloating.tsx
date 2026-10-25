@@ -134,6 +134,8 @@ export function PlanAssistantFloating() {
         onCreateNewThread={chat.createNewThread}
         onRenameThread={chat.renameThread}
         onDeleteThread={chat.deleteThread}
+        onConfirmAction={chat.confirmAction}
+        onCancelAction={chat.cancelAction}
       />
     </View>
   );

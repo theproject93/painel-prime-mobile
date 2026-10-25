@@ -61,6 +61,8 @@ type Props = {
   onCreateNewThread?: () => void;
   onRenameThread?: (threadId: string, newTitle: string) => Promise<void>;
   onDeleteThread?: (threadId: string) => Promise<void>;
+  onConfirmAction?: (proposalId: string, confirmationToken: string, messageId: string) => Promise<void> | void;
+  onCancelAction?: (proposalId: string, messageId: string) => void;
 };
 
 export function PlanAssistantChatSheet(props: Props) {
@@ -293,6 +295,8 @@ export function PlanAssistantChatSheet(props: Props) {
                   messages={props.messages}
                   isReplying={props.isReplying}
                   onOpenCta={props.onOpenCta}
+                  onConfirmAction={props.onConfirmAction}
+                  onCancelAction={props.onCancelAction}
                 />
               </ScrollView>
 

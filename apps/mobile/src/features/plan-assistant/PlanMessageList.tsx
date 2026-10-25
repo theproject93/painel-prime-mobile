@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { colors } from '../../theme/colors';
 import { AudioMessagePlayer } from './AudioMessagePlayer';
 import { PlanActionCard } from './PlanActionCard';
+import { PlanActionProposalCard } from './PlanActionProposalCard';
 import { PlanMarkdownMessage } from './PlanMarkdownMessage';
 import type { ChatMessage } from './types';
 
@@ -11,6 +12,8 @@ export function PlanMessageList(props: {
   messages: ChatMessage[];
   isReplying: boolean;
   onOpenCta: (path: string | undefined) => void;
+  onConfirmAction?: (proposalId: string, confirmationToken: string, messageId: string) => Promise<void> | void;
+  onCancelAction?: (proposalId: string, messageId: string) => void;
 }) {
   return (
     <>
@@ -75,6 +78,22 @@ export function PlanMessageList(props: {
                     ))}
                   </View>
                 </View>
+              ) : null}
+
+              {/* Action Proposal Card from Plan IA */}
+              {!isUser && message.actionProposal ? (
+                <PlanActionProposalCard
+                  proposal={message.actionProposal}
+                  isExecuted={message.isActionExecuted}
+                  isCancelled={message.isActionCancelled}
+                  executionMessage={message.actionExecutionMessage}
+                  onConfirm={(proposalId, confirmationToken) =>
+                    props.onConfirmAction?.(proposalId, confirmationToken, message.id)
+                  }
+                  onCancel={(proposalId) =>
+                    props.onCancelAction?.(proposalId, message.id)
+                  }
+                />
               ) : null}
 
               {/* Action Card for bot messages (WhatsApp & Buffet) */}
