@@ -27,28 +27,29 @@ Deno.test('extractKeyboardHeight safely extracts height or defaults to zero', ()
   assertEquals(extractKeyboardHeight({ endCoordinates: { height: 290 } }), 290);
 });
 
-Deno.test('extractKeyboardHeight correctly clamps Android phantom decor insets when screenY is plausible', () => {
-  // Scenario: Android returns raw height 435, but screenHeight 960 and screenY 624
-  // True visible keyboard height is 960 - 624 = 336
-  const event = { endCoordinates: { height: 435, screenY: 624 } };
-  const height = extractKeyboardHeight(event, { platform: 'android', screenHeight: 960 });
+Deno.test('extractKeyboardHeight correctly calculates Android physical keyboard height from screenY geometry', () => {
+  // Scenario: On modern Android edge-to-edge screens, screenHeight = 960 and screenY = 624
+  // True visible keyboard height is 960 - 624 = 336dp (Gboard physical height)
+  // Even if rawHeight is 312 (ReactRootView subtracted navBar), it must NOT truncate to 312
+  const event = { endCoordinates: { height: 312, screenY: 624 } };
+  const height = extractKeyboardHeight(event, { platform: 'android', screenHeight: 960, statusBarHeight: 46 });
   assertEquals(height, 336);
 });
 
 Deno.test('extractKeyboardHeight strips double-counted notch/status decor on physical Android devices', () => {
-  // Real Moto G62 scenario: React Native reports height 435.2 and screenY 524.8 (both inflated)
-  // Status bar = 46dp, decor inflation = 46 * 2 + 7 = 99dp
-  // True physical Gboard height = 435.2 - 99 = 336.2 -> 336dp
-  const event = { endCoordinates: { height: 435.2, screenY: 524.8 } };
+  // Legacy Android scenario: React Native reports height 406 with legacy inflation (> 350dp)
+  // Status bar = 46dp, decor inflation = 46 + 24 = 70dp
+  // True physical Gboard height = 406 - 70 = 336dp
+  const event = { endCoordinates: { height: 406 } };
   const height = extractKeyboardHeight(event, { platform: 'android', screenHeight: 960, statusBarHeight: 46 });
   assertEquals(height, 336);
 });
 
-Deno.test('extractKeyboardHeight preserves uninflated Android keyboard heights', () => {
-  // Normal Android keyboard that is already reasonable (e.g. 280dp)
-  const event = { endCoordinates: { height: 280, screenY: 680 } };
+Deno.test('extractKeyboardHeight compensates modern Android rawHeight without screenY', () => {
+  // Modern Android where rawHeight = 312 (navBar excluded) and screenY is undefined
+  const event = { endCoordinates: { height: 312 } };
   const height = extractKeyboardHeight(event, { platform: 'android', screenHeight: 960, statusBarHeight: 46 });
-  assertEquals(height, 280);
+  assertEquals(height, 336);
 });
 
 Deno.test('extractKeyboardHeight leaves iOS heights untouched', () => {

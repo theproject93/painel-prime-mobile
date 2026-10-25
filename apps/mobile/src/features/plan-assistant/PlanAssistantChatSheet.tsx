@@ -205,7 +205,7 @@ export function PlanAssistantChatSheet(props: Props) {
               styles.modalContent,
               {
                 paddingTop: Math.max(insets.top + 8, 38),
-                paddingBottom: isKeyboardOpen ? keyboardHeight + 6 : props.bottom,
+                paddingBottom: isKeyboardOpen ? keyboardHeight + 8 : props.bottom,
                 justifyContent: isKeyboardOpen ? 'flex-start' : 'flex-end',
               },
             ]}
