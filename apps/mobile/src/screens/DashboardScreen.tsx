@@ -8,6 +8,7 @@ import { getEventPersonaCopy, getHumanGreeting, pickMotivationalQuote } from '@p
 import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { Screen } from '../components/Screen';
 import { useAuth } from '../contexts/AuthContext';
+import { syncPushDeviceToken } from '../services/notificationService';
 import { eventStatusLabel } from '../features/events/eventPresentation';
 import { getPrivateFileDownloadUrl, uploadPrivateAsset } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
@@ -107,7 +108,7 @@ export function DashboardScreen() {
     setLoading(false);
   }, [user]);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => { void load(); void syncPushDeviceToken(); }, [load]));
 
   const activeEvents = useMemo(() => events.filter((item) => !['completed', 'cancelled', 'deleted'].includes(String(item.status ?? 'active').toLowerCase())), [events]);
   const eventPickerEvents = useMemo(() => {

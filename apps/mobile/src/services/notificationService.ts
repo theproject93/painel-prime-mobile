@@ -276,8 +276,12 @@ export function setupNotificationResponseListener(
 export async function syncPushDeviceToken(tenantId?: string | null): Promise<string | null> {
   if (Platform.OS !== 'android') return null;
 
-  const hasPermission = await requestNotificationPermissions();
-  if (!hasPermission) return null;
+  // Solicita permissão visual de notificações no Android 13+ sem bloquear a obtenção do token FCM
+  try {
+    await requestNotificationPermissions();
+  } catch (permErr) {
+    console.warn('[Push] Erro ao checar permissão visual:', permErr);
+  }
 
   try {
     const tokenData = await Notifications.getDevicePushTokenAsync();
@@ -289,7 +293,7 @@ export async function syncPushDeviceToken(tenantId?: string | null): Promise<str
       .filter(Boolean)
       .join(' ') || 'Dispositivo Android';
 
-    const appVersion = Constants.expoConfig?.version || '1.5.6';
+    const appVersion = Constants.expoConfig?.version || '1.6.0';
 
     const { data, error } = await supabase.functions.invoke('push-device-sync', {
       body: {

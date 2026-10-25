@@ -19,7 +19,10 @@ type PrimeLogoLoaderProps = {
 };
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
-const logo = require('../../assets/splash-icon.png');
+const logo = require('../../assets/prime-logo-transparent.png');
+
+// Proporção real do monograma Painel Prime (558px largura x 736px altura)
+const LOGO_ASPECT = 558 / 736;
 
 export function PrimeLogoLoader({ label = 'Carregando', variant = 'screen' }: PrimeLogoLoaderProps) {
   const { height: windowHeight } = useWindowDimensions();
@@ -27,7 +30,9 @@ export function PrimeLogoLoader({ label = 'Carregando', variant = 'screen' }: Pr
   const [reduceMotion, setReduceMotion] = useState(false);
   const rawId = useId();
   const safeId = useMemo(() => rawId.replace(/[^a-zA-Z0-9_-]/g, ''), [rawId]);
-  const size = variant === 'inline' ? 72 : 112;
+  // Altura e largura calculadas para preservar a proporção nobre do logo (sem achatamento)
+  const logoHeight = variant === 'inline' ? 76 : 116;
+  const logoWidth = Math.round(logoHeight * LOGO_ASPECT);
 
   useEffect(() => {
     let active = true;
@@ -54,7 +59,7 @@ export function PrimeLogoLoader({ label = 'Carregando', variant = 'screen' }: Pr
     };
   }, [progress]);
 
-  const shineX = progress.interpolate({ inputRange: [0, 1], outputRange: [-size * 1.5, size * 1.5] });
+  const shineX = progress.interpolate({ inputRange: [0, 1], outputRange: [-logoWidth * 2, logoWidth * 2] });
 
   return (
     <View
@@ -68,13 +73,13 @@ export function PrimeLogoLoader({ label = 'Carregando', variant = 'screen' }: Pr
       accessibilityRole="progressbar"
       accessibilityLabel={label}
     >
-      <View style={{ width: size, height: size }}>
-        <RNImage source={logo} style={[styles.logo, { width: size, height: size }]} resizeMode="contain" />
+      <View style={{ width: logoWidth, height: logoHeight }}>
+        <RNImage source={logo} style={[styles.logo, { width: logoWidth, height: logoHeight }]} resizeMode="contain" />
         {!reduceMotion ? (
-          <Svg width={size} height={size} style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width={logoWidth} height={logoHeight} style={StyleSheet.absoluteFill} pointerEvents="none">
             <Defs>
               <Mask id={`logo-mask-${safeId}`}>
-                <SvgImage href={logo} width={size} height={size} preserveAspectRatio="xMidYMid meet" />
+                <SvgImage href={logo} width={logoWidth} height={logoHeight} preserveAspectRatio="xMidYMid meet" />
               </Mask>
               <LinearGradient id={`shine-${safeId}`} x1="0" y1="0" x2="1" y2="1">
                 <Stop offset="0" stopColor="rgba(255,255,255,0)" />
@@ -84,11 +89,11 @@ export function PrimeLogoLoader({ label = 'Carregando', variant = 'screen' }: Pr
             </Defs>
             <AnimatedRect
               x={shineX}
-              y={-size / 2}
-              width={size / 2}
-              height={size * 2}
+              y={-logoHeight / 2}
+              width={logoWidth * 0.75}
+              height={logoHeight * 2}
               rotation="24"
-              origin={`${size / 2}, ${size / 2}`}
+              origin={`${logoWidth / 2}, ${logoHeight / 2}`}
               fill={`url(#shine-${safeId})`}
               opacity={0.8}
               mask={`url(#logo-mask-${safeId})`}
