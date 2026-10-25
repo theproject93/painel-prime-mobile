@@ -206,16 +206,15 @@ export function PlanAssistantChatSheet(props: Props) {
             style={[
               styles.modalContent,
               { paddingTop: Math.max(insets.top, 8) },
-              isKeyboardOpen && { paddingBottom: keyboardHeight },
             ]}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={0}
           >
             <View
               style={[
                 styles.panel,
                 isKeyboardOpen
-                  ? { marginBottom: 0, flex: 1, height: undefined, maxHeight: '100%' }
+                  ? { marginBottom: 4, flex: 1, height: undefined, maxHeight: '100%' }
                   : { marginBottom: props.bottom, height: '86%', maxHeight: '92%' },
               ]}
             >
