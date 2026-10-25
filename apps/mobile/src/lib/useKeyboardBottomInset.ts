@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Keyboard, KeyboardEvent, Platform } from 'react-native';
+import { Dimensions, Keyboard, KeyboardEvent, Platform } from 'react-native';
 
 import { extractKeyboardHeight, resolveKeyboardEventNames } from './keyboardInsetHelpers';
 
@@ -18,7 +18,8 @@ export function useKeyboardBottomInset(): number {
     const { showEvent, hideEvent } = resolveKeyboardEventNames(Platform.OS);
 
     const handleKeyboardShow = (event: KeyboardEvent) => {
-      setKeyboardHeight(extractKeyboardHeight(event));
+      const screenHeight = Dimensions.get('screen').height;
+      setKeyboardHeight(extractKeyboardHeight(event, { platform: Platform.OS, screenHeight }));
     };
 
     const handleKeyboardHide = () => {

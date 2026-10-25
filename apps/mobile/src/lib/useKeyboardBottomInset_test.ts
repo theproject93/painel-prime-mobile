@@ -26,3 +26,11 @@ Deno.test('extractKeyboardHeight safely extracts height or defaults to zero', ()
   assertEquals(extractKeyboardHeight({ endCoordinates: {} }), 0);
   assertEquals(extractKeyboardHeight({ endCoordinates: { height: 290 } }), 290);
 });
+
+Deno.test('extractKeyboardHeight correctly clamps Android phantom decor insets', () => {
+  // Scenario: Android returns raw height 435, but screenHeight 960 and screenY 624
+  // True visible keyboard height is 960 - 624 = 336
+  const event = { endCoordinates: { height: 435, screenY: 624 } };
+  const height = extractKeyboardHeight(event, { platform: 'android', screenHeight: 960 });
+  assertEquals(height, 336);
+});

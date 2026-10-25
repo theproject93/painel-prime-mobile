@@ -372,6 +372,6 @@ const styles = StyleSheet.create({
   hintsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   hintChip: { borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, maxWidth: '100%' },
   hintChipText: { color: colors.primaryStrong, fontSize: 11, fontWeight: '700' },
-  messagesArea: { flex: 1, backgroundColor: colors.card },
+  messagesArea: { flex: 1, minHeight: 80, flexShrink: 1, backgroundColor: colors.card },
   messagesContent: { paddingHorizontal: 10, paddingVertical: 10, gap: 8 },
 });
