@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { consumeAuthCallback, isAuthCallbackUrl } from '../lib/oauthCallback';
 import { supabase } from '../lib/supabase';
+import { syncPushDeviceToken } from '../services/notificationService';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -105,6 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [user]);
+
+  // Sincroniza o token de push do dispositivo Android com o Amazon SNS ao autenticar
+  useEffect(() => {
+    if (user?.id) {
+      void syncPushDeviceToken();
+    }
+  }, [user?.id]);
 
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });

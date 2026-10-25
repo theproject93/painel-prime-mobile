@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+import { supabase } from '../lib/supabase';
 
 export const NOTIFICATION_CHANNELS = {
   REUNIOES: 'reunioes_alertas',
@@ -266,3 +268,48 @@ export function setupNotificationResponseListener(
     subscription.remove();
   };
 }
+
+/**
+ * Obtém o token nativo FCM do dispositivo Android e o sincroniza com o Amazon SNS via Supabase Edge Function.
+ * Chamado automaticamente após o login para associar o dispositivo atual ao usuário.
+ */
+export async function syncPushDeviceToken(tenantId?: string | null): Promise<string | null> {
+  if (Platform.OS !== 'android') return null;
+
+  const hasPermission = await requestNotificationPermissions();
+  if (!hasPermission) return null;
+
+  try {
+    const tokenData = await Notifications.getDevicePushTokenAsync();
+    const deviceToken = typeof tokenData?.data === 'string' ? tokenData.data : null;
+    if (!deviceToken) return null;
+
+    const androidConstants = Platform.constants as { Model?: string; Manufacturer?: string; Brand?: string };
+    const deviceModel = [androidConstants.Manufacturer || androidConstants.Brand, androidConstants.Model]
+      .filter(Boolean)
+      .join(' ') || 'Dispositivo Android';
+
+    const appVersion = Constants.expoConfig?.version || '1.5.6';
+
+    const { data, error } = await supabase.functions.invoke('push-device-sync', {
+      body: {
+        deviceToken,
+        platform: 'android',
+        deviceModel,
+        appVersion,
+        tenantId: tenantId ?? null,
+      },
+    });
+
+    if (error) {
+      console.warn('Erro ao sincronizar push token com Amazon SNS:', error);
+      return null;
+    }
+
+    return (data as { endpointArn?: string } | null)?.endpointArn ?? null;
+  } catch (err) {
+    console.warn('Falha inesperada no registro do push token com Amazon SNS:', err);
+    return null;
+  }
+}
+
