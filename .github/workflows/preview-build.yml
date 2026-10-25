@@ -22,6 +22,8 @@ jobs:
     env:
       HAS_GCP_KEY: ${{ secrets.GCP_SA_KEY != '' }}
       TMPDIR: /home/runner/tmp
+      GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4608m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
+      _JAVA_OPTIONS: "-Xmx4608m"
       TEMP: /home/runner/tmp
       TMP: /home/runner/tmp
     steps:
@@ -46,6 +48,10 @@ jobs:
           mkdir -p /home/runner/tmp/runner
           mkdir -p /tmp/runner
           sudo mount --bind /home/runner/tmp/runner /tmp/runner
+          mkdir -p ~/.gradle
+          echo "org.gradle.jvmargs=-Xmx4608m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" >> ~/.gradle/gradle.properties
+          echo "org.gradle.parallel=true" >> ~/.gradle/gradle.properties
+          echo "org.gradle.vfs.watch=false" >> ~/.gradle/gradle.properties
           echo "NDKs disponíveis:"
           ls -la /usr/local/lib/android/sdk/ndk/ || true
           echo "Espaço em disco após a limpeza e bind mount:"
@@ -128,6 +134,8 @@ jobs:
         run: eas build --platform android --profile release-apk --local --non-interactive --output=../../${{ steps.vars.outputs.APK_NAME }}
         env:
           TMPDIR: /home/runner/tmp
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4608m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
+          _JAVA_OPTIONS: "-Xmx4608m"
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           SENTRY_URL: https://errors.painelprime.com.br
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
