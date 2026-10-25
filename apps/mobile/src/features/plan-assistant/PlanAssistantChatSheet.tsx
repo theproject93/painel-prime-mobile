@@ -2,9 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -202,20 +200,20 @@ export function PlanAssistantChatSheet(props: Props) {
       >
         <View style={styles.modalRoot}>
           <Pressable style={styles.backdrop} onPress={props.onClose} />
-          <KeyboardAvoidingView
+          <View
             style={[
               styles.modalContent,
-              { paddingTop: Math.max(insets.top, 8) },
+              {
+                paddingTop: Math.max(insets.top + 8, 38),
+                paddingBottom: isKeyboardOpen ? keyboardHeight + 6 : props.bottom,
+              },
             ]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={0}
+            pointerEvents="box-none"
           >
             <View
               style={[
                 styles.panel,
-                isKeyboardOpen
-                  ? { marginBottom: 4, flex: 1, height: undefined, maxHeight: '100%' }
-                  : { marginBottom: props.bottom, height: '86%', maxHeight: '92%' },
+                isKeyboardOpen ? styles.panelKeyboardOpen : styles.panelNormal,
               ]}
             >
               {/* Header */}
@@ -283,7 +281,13 @@ export function PlanAssistantChatSheet(props: Props) {
               ) : null}
 
               {/* Messages */}
-              <ScrollView ref={listRef} style={styles.messagesArea} contentContainerStyle={styles.messagesContent}>
+              <ScrollView
+                ref={listRef}
+                style={styles.messagesArea}
+                contentContainerStyle={styles.messagesContent}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+              >
                 <PlanMessageList
                   messages={props.messages}
                   isReplying={props.isReplying}
@@ -312,7 +316,7 @@ export function PlanAssistantChatSheet(props: Props) {
                 isKeyboardOpen={isKeyboardOpen}
               />
             </View>
-          </KeyboardAvoidingView>
+          </View>
         </View>
       </Modal>
 
@@ -335,7 +339,9 @@ const styles = StyleSheet.create({
   modalRoot: { flex: 1 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 17, 21, 0.75)' },
   modalContent: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 12 },
-  panel: { width: '100%', height: '86%', maxHeight: '92%', backgroundColor: colors.card, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+  panel: { width: '100%', backgroundColor: colors.card, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+  panelNormal: { height: '86%', maxHeight: '92%' },
+  panelKeyboardOpen: { flex: 1, height: undefined, maxHeight: '100%' },
   header: { backgroundColor: colors.primaryStrong, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
