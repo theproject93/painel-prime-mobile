@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
+import { PLAN_ASSISTANT_CONTRACT_VERSION } from '@painel-prime/app';
 
 import { uploadPrivateAsset } from '../../lib/r2FileStorage';
 import { supabase } from '../../lib/supabase';
@@ -444,6 +445,7 @@ export function usePlanAssistantChat(params: Params) {
 
         const currentReqId = generateUuidV4();
         const request = {
+          contract_version: PLAN_ASSISTANT_CONTRACT_VERSION,
           requestId: currentReqId,
           request_id: currentReqId,
           message: text || 'Analise este contrato e extraia os dados principais.',
@@ -523,6 +525,7 @@ export function usePlanAssistantChat(params: Params) {
     // Standard text message flow
     const currentReqId = generateUuidV4();
     const request = {
+      contract_version: PLAN_ASSISTANT_CONTRACT_VERSION,
       requestId: currentReqId,
       request_id: currentReqId,
       message: text,

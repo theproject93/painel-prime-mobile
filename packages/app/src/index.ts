@@ -4,6 +4,7 @@ export * from './eventAssignees.ts';
 export * from './eventImport.ts';
 export * from './eventPersona.ts';
 export * from './navigation.ts';
+export * from './plan-assistant/contracts.ts';
 export * from './premiumWorkspace.ts';
 export * from './routes/index.ts';
 export * from './supabase/index.ts';

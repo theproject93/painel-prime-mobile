@@ -55,39 +55,10 @@ export type PendingContractAttachment = {
   eventName?: string | null;
 };
 
-export type PlanAssistantApiResponse = {
-  answer?: string;
-  reply?: string;
-  message?: string;
-  assistant?: string;
-  output_text?: string;
-  text?: string;
-  jobId?: string;
-  job_id?: string;
-  quota?: PlanIaQuotaInfo | Record<string, unknown>;
-  suggested_actions?: Array<{ label?: string; path?: string }>;
-  meta?: {
-    ai_used?: boolean;
-    ai_error?: string | null;
-    response_mode?: 'ai' | 'deterministic' | 'fallback';
-  };
-};
-
-export type PlanAssistantRequest = {
-  requestId?: string;
-  request_id?: string;
-  message: string;
-  current_path: string;
-  current_event_id: string | null;
-  hints: Array<{ id: string; title: string; ctaLabel: string; ctaPath: string }>;
-  message_history?: MessageHistoryItem[];
-  user_name: string;
-  attachments?: Array<{ stored_file_id: string; kind: 'contract_pdf' }>;
-  context_type?: string;
-  context_id?: string | null;
-  client_platform?: 'android' | 'ios' | string;
-  channel?: string;
-};
+export type {
+  PlanAssistantRequest,
+  PlanAssistantResponse as PlanAssistantApiResponse,
+} from '@painel-prime/app';
 
 export type {
   PlanAiThread,
