@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "78206101227",
+    "project_id": "painel-prime-br",
+    "storage_bucket": "painel-prime-br.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:78206101227:android:3d0104479ca6cb324b80ae",
+        "android_client_info": {
+          "package_name": "br.com.painelprime.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC3Nnlc8sRDOkOOXmu96IMq6wELPspt4jQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

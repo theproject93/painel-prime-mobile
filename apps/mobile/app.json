@@ -28,7 +28,8 @@
     },
     "android": {
       "package": "br.com.painelprime.app",
-      "versionCode": 20,
+      "versionCode": 21,
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
