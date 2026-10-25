@@ -22,6 +22,7 @@ export type ChatMessage = {
   draftId?: string;
   jobId?: string;
   jobStatus?: 'uploading' | 'queued' | 'processing' | 'done' | 'failed';
+  citations?: PlanAssistantCitation[];
 };
 
 export type MessageHistoryItem = {
@@ -56,6 +57,7 @@ export type PendingContractAttachment = {
 };
 
 export type {
+  PlanAssistantCitation,
   PlanAssistantRequest,
   PlanAssistantResponse as PlanAssistantApiResponse,
 } from '@painel-prime/app';

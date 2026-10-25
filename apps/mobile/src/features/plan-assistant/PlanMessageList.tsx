@@ -58,6 +58,25 @@ export function PlanMessageList(props: {
                 />
               ) : null}
 
+              {/* Document citations badge list */}
+              {!isUser && message.citations && message.citations.length > 0 ? (
+                <View style={styles.citationsContainer}>
+                  <View style={styles.citationsHeader}>
+                    <Ionicons name="document-text-outline" size={12} color={colors.primaryStrong} />
+                    <Text style={styles.citationsHeaderText}>Fontes consultadas</Text>
+                  </View>
+                  <View style={styles.citationsBadgeList}>
+                    {message.citations.map((cit) => (
+                      <View key={cit.id} style={styles.citationBadge}>
+                        <Text style={styles.citationBadgeText}>
+                          {cit.title} {cit.version ? `(v${cit.version})` : ''}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
               {/* Action Card for bot messages (WhatsApp & Buffet) */}
               {!isUser && message.text ? (
                 <PlanActionCard text={message.text} />
@@ -158,6 +177,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.mutedText,
+  },
+  citationsContainer: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 4,
+  },
+  citationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  citationsHeaderText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.mutedText,
+    textTransform: 'uppercase',
+  },
+  citationsBadgeList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  citationBadge: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.2)',
+  },
+  citationBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primaryStrong,
   },
   cta: {
     flexDirection: 'row',

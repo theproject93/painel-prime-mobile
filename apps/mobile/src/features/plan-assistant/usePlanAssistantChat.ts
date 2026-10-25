@@ -602,7 +602,7 @@ export function usePlanAssistantChat(params: Params) {
         setQuota(data.quota as PlanIaQuotaInfo);
       }
 
-      pushBotMessage({ text: answer, ctaLabel: actions[0]?.label, ctaPath: actions[0]?.path });
+      pushBotMessage({ text: answer, ctaLabel: actions[0]?.label, ctaPath: actions[0]?.path, citations: data.citations });
 
       // Auto-save AI reply to DB
       if (threadCtx) {
