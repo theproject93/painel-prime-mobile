@@ -434,6 +434,65 @@ export async function getFamilyGroupMembers(
 }
 
 /**
+ * Retorna todos os convidados de um evento do banco SQLite local.
+ */
+export async function getAllGuestsForEvent(
+  eventId: string,
+  dbOverride?: SQLiteDatabase,
+): Promise<ReceptionGuest[]> {
+  return withDatabase(async (db) => {
+    const rows = await db.getAllAsync<{
+      id: string;
+      event_id: string;
+      name: string;
+      phone: string | null;
+      qr_token: string | null;
+      family_group_id: string | null;
+      is_group_leader: number;
+      group_leader_id: string | null;
+      group_sort_order: number | null;
+      checked_in_at: string | null;
+      checked_in_by: string | null;
+      table_id: string | null;
+      table_name: string | null;
+    }>(
+      `SELECT * FROM reception_guests
+       WHERE event_id = ?
+       ORDER BY (checked_in_at IS NOT NULL) ASC, name ASC;`,
+      eventId,
+    );
+
+    return rows.map((r) => ({
+      ...r,
+      is_group_leader: Boolean(r.is_group_leader),
+    }));
+  }, dbOverride);
+}
+
+/**
+ * Retorna estatísticas de presença do evento a partir do SQLite local.
+ */
+export async function getReceptionStats(
+  eventId: string,
+  dbOverride?: SQLiteDatabase,
+): Promise<{ total: number; checkedIn: number }> {
+  return withDatabase(async (db) => {
+    const row = await db.getFirstAsync<{ total: number; checkedIn: number }>(
+      `SELECT 
+         COUNT(*) as total,
+         COUNT(checked_in_at) as checkedIn
+       FROM reception_guests
+       WHERE event_id = ?;`,
+      eventId,
+    );
+    return {
+      total: row?.total || 0,
+      checkedIn: row?.checkedIn || 0,
+    };
+  }, dbOverride);
+}
+
+/**
  * Busca convidados por nome ou telefone no evento (escapando curingas LIKE).
  */
 export async function searchGuests(
@@ -441,8 +500,13 @@ export async function searchGuests(
   query: string,
   dbOverride?: SQLiteDatabase,
 ): Promise<ReceptionGuest[]> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return getAllGuestsForEvent(eventId, dbOverride);
+  }
+
   return withDatabase(async (db) => {
-    const escaped = query.trim().replace(/[\\_%]/g, '\\$&');
+    const escaped = trimmed.replace(/[\\_%]/g, '\\$&');
     const term = `%${escaped}%`;
     const rows = await db.getAllAsync<{
       id: string;
@@ -460,9 +524,10 @@ export async function searchGuests(
       table_name: string | null;
     }>(
       `SELECT * FROM reception_guests
-       WHERE event_id = ? AND (name LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\')
-       ORDER BY name ASC LIMIT 50;`,
+       WHERE event_id = ? AND (name LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' OR table_name LIKE ? ESCAPE '\\')
+       ORDER BY (checked_in_at IS NOT NULL) ASC, name ASC LIMIT 60;`,
       eventId,
+      term,
       term,
       term,
     );

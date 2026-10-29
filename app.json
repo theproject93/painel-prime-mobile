@@ -1,0 +1,136 @@
+{
+  "expo": {
+    "name": "Painel Prime",
+    "slug": "lucas-ferreira",
+    "version": "1.6.1",
+    "scheme": "painelprime",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "extra": {
+      "eas": {
+        "projectId": "b9ebc23c-7804-4567-a260-ddab1e43132c"
+      }
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#023c69"
+    },
+    "ios": {
+      "bundleIdentifier": "br.com.painelprime.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "br.com.painelprime.app",
+      "versionCode": 30,
+      "allowBackup": false,
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "painelprime.com.br"
+            },
+            {
+              "scheme": "https",
+              "host": "www.painelprime.com.br"
+            },
+            {
+              "scheme": "https",
+              "host": "app.painelprime.com.br"
+            },
+            {
+              "scheme": "https",
+              "host": "www.app.painelprime.com.br"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "painelprime",
+              "host": "aceitar-convite"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-video",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Permita que o Painel Prime use o microfone para conversar por voz com a Plan IA."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Painel Prime precisa de acesso à câmera para escanear QR Codes de convidados na Portaria."
+        }
+      ],
+      "expo-font",
+      "expo-asset",
+      "expo-router",
+      "expo-web-browser",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permita que o Painel Prime use o Face ID para proteger seu acesso."
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "painel-prime-mobile",
+          "organization": "painel-prime"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#023c69"
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "./plugins/withWhatsAppZeroTapOtp"
+    ]
+  }
+}

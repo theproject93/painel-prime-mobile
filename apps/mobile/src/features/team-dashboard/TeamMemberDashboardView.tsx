@@ -14,6 +14,7 @@ import { Screen } from '../../components/Screen';
 import { type AssignedEvent } from '../../contexts/UserRoleContext';
 import { colors, shadows } from '../../theme/colors';
 import { AppHaptics } from '../../lib/haptics';
+import { EventAccordionCard } from './EventAccordionCard';
 
 interface TeamMemberDashboardViewProps {
   displayName: string;
@@ -88,6 +89,19 @@ export function TeamMemberDashboardView({
     return futureOrToday ?? upcoming[0];
   }, [assignedEvents]);
 
+  // Lista todos os eventos ordenados (hoje/futuros primeiro, passados depois)
+  const sortedEvents = useMemo(() => {
+    if (assignedEvents.length === 0) return [];
+    const margin = Date.now() - 12 * 60 * 60 * 1000;
+    const upcoming = assignedEvents
+      .filter((ev) => new Date(ev.event_date).getTime() >= margin)
+      .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+    const past = assignedEvents
+      .filter((ev) => new Date(ev.event_date).getTime() < margin)
+      .sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
+    return [...upcoming, ...past];
+  }, [assignedEvents]);
+
   const dateInfo = useMemo(() => {
     if (!nextEvent) return null;
     return formatRelativeDate(nextEvent.event_date);
@@ -137,7 +151,9 @@ export function TeamMemberDashboardView({
           <View style={styles.roleBadgeContainer}>
             <View style={styles.roleBadge}>
               <Ionicons name="shield-checkmark" size={12} color="#D6AF42" />
-              <Text style={styles.roleBadgeText}>Equipe Operacional</Text>
+              <Text style={styles.roleBadgeText}>
+                {nextEvent?.team_name || assignedEvents[0]?.team_name || 'Equipe Operacional'}
+              </Text>
             </View>
           </View>
           <Text style={styles.greeting} numberOfLines={1}>
@@ -150,107 +166,37 @@ export function TeamMemberDashboardView({
         </View>
       </View>
 
-      {/* 2. Card de Destaque da Próxima Escala Operacional */}
-      {nextEvent ? (
-        <View style={styles.highlightCard}>
-          <View style={styles.highlightHeader}>
-            <View style={styles.highlightBadgeRow}>
-              <View
-                style={[
-                  styles.statusBadge,
-                  dateInfo?.isToday && styles.statusBadgeToday,
-                  dateInfo?.isTomorrow && styles.statusBadgeTomorrow,
-                ]}
-              >
-                <Ionicons
-                  name={dateInfo?.isToday ? 'flash' : 'calendar-outline'}
-                  size={12}
-                  color={dateInfo?.isToday ? '#111318' : '#D4AF37'}
-                />
-                <Text
-                  style={[
-                    styles.statusBadgeText,
-                    dateInfo?.isToday && styles.statusBadgeTextToday,
-                  ]}
-                >
-                  {dateInfo?.badge || 'PRÓXIMO EVENTO'}
-                </Text>
-              </View>
-              {nextEvent.team_name ? (
-                <Text style={styles.teamTag} numberOfLines={1}>
-                  {nextEvent.team_name}
-                </Text>
-              ) : null}
-            </View>
-
-            <Pressable
-              onPress={() => handleOpenEventDetails(nextEvent.id)}
-              hitSlop={12}
-              style={styles.detailsIconBtn}
-              accessibilityLabel="Ver detalhes do evento"
-            >
-              <Ionicons name="ellipsis-horizontal" size={20} color="#94A3B8" />
-            </Pressable>
-          </View>
-
-          <Text style={styles.eventName}>{nextEvent.name}</Text>
-
-          <View style={styles.eventInfoList}>
-            <View style={styles.eventInfoRow}>
-              <Ionicons name="time-outline" size={15} color="#D4AF37" />
-              <Text style={styles.eventInfoText}>{dateInfo?.formattedDate}</Text>
-            </View>
-
-            <View style={styles.eventInfoRow}>
-              <Ionicons name="location-outline" size={15} color="#D4AF37" />
-              <Text style={styles.eventInfoText} numberOfLines={1}>
-                {nextEvent.location || nextEvent.location_city || 'Local a confirmar'}
+      {/* 2. Escalas Operacionais da Equipe (Cards Compactos com Acordeão) */}
+      {sortedEvents.length > 0 ? (
+        <View style={styles.accordionSection}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeaderLeft}>
+              <Text style={styles.sectionTitle}>Suas Escalas de Eventos</Text>
+              <Text style={styles.sectionSubtitle}>
+                {sortedEvents.length === 1
+                  ? '1 evento escalado para sua equipe'
+                  : `${sortedEvents.length} eventos escalados para sua equipe`}
               </Text>
             </View>
-
-            <View style={styles.eventInfoRow}>
-              <Ionicons name="person-outline" size={15} color="#D4AF37" />
-              <Text style={styles.eventInfoText}>
-                Sua função:{' '}
-                <Text style={styles.eventInfoRole}>
-                  {nextEvent.role || 'Portaria e Recepção'}
-                </Text>
+            <View style={styles.eventCountBadge}>
+              <Text style={styles.eventCountBadgeText}>
+                {sortedEvents.length} {sortedEvents.length === 1 ? 'ESCALA' : 'ESCALAS'}
               </Text>
             </View>
           </View>
 
-          {/* BOTÃO PRINCIPAL DE AÇÃO: Portaria Prime */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.portariaMainButton,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={() => handleOpenPortaria(nextEvent.id)}
-            accessibilityRole="button"
-            accessibilityLabel={`Abrir Portaria Prime de ${nextEvent.name}`}
-          >
-            <View style={styles.portariaIconWrap}>
-              <Ionicons name="qr-code-outline" size={24} color="#111318" />
-            </View>
-            <View style={styles.portariaButtonCopy}>
-              <Text style={styles.portariaButtonTitle}>Abrir Portaria Prime</Text>
-              <Text style={styles.portariaButtonSubtitle}>
-                Escanear convites e buscar convidados offline
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#111318" />
-          </Pressable>
-
-          {/* Botão Secundário: Ver Cronograma */}
-          <Pressable
-            style={styles.secondaryEventButton}
-            onPress={() => handleOpenTimeline(nextEvent.id)}
-            accessibilityRole="button"
-            accessibilityLabel="Ver cronograma do evento"
-          >
-            <Ionicons name="calendar-outline" size={16} color="#CBD5E1" />
-            <Text style={styles.secondaryEventButtonText}>Ver Cronograma do Dia</Text>
-          </Pressable>
+          <View style={styles.accordionContainer}>
+            {sortedEvents.map((event, idx) => (
+              <EventAccordionCard
+                key={event.id}
+                event={event}
+                isFirst={idx === 0}
+                onOpenPortaria={handleOpenPortaria}
+                onOpenBriefing={handleOpenEventDetails}
+                onOpenTimeline={handleOpenTimeline}
+              />
+            ))}
+          </View>
         </View>
       ) : (
         <View style={styles.emptyCard}>
@@ -901,5 +847,34 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  accordionSection: {
+    marginBottom: 20,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  sectionHeaderLeft: {
+    flex: 1,
+  },
+  eventCountBadge: {
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
+  },
+  eventCountBadgeText: {
+    color: '#D4AF37',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  accordionContainer: {
+    marginTop: 12,
   },
 });

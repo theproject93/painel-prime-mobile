@@ -29,6 +29,7 @@ import {
   CreateEventWizardModal,
   type CreateEventFormData,
 } from '../features/events/CreateEventWizardModal';
+import { EventAccordionCard } from '../features/team-dashboard/EventAccordionCard';
 
 function formatPortariaDateLabel(dateString: string): string {
   try {
@@ -330,48 +331,23 @@ export function EventsScreen() {
           keyExtractor={(item) => item.id}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }: { item: AssignedEvent }) => (
-            <Pressable
-              style={screenLocalStyles.assignedCard}
-              onPress={() => router.push(`/eventos/${item.id}`)}
-              accessibilityRole="button"
-              accessibilityLabel={`Abrir evento ${item.name}`}
-            >
-              <View style={screenLocalStyles.assignedHeader}>
-                <Text style={styles.eventName}>{item.name}</Text>
-                <View style={screenLocalStyles.assignedRoleBadge}>
-                  <Text style={screenLocalStyles.assignedRoleText}>
-                    {item.role || 'Equipe'}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.eventMeta}>
-                {new Date(item.event_date).toLocaleDateString('pt-BR')} | {item.location || item.location_city || 'Local a confirmar'}
-              </Text>
-
-              {item.team_name ? (
-                <Text style={screenLocalStyles.assignedTeamText}>
-                  Equipe: {item.team_name}
-                </Text>
-              ) : null}
-
-              <View style={screenLocalStyles.assignedActionRow}>
-                <Text style={styles.eventStatus}>{eventStatusLabel(item.status)}</Text>
-                <Pressable
-                  style={screenLocalStyles.portariaPrimaryCTA}
-                  onPress={() => {
-                    void AppHaptics.medium();
-                    router.push(`/eventos/${item.id}/portaria`);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Abrir Portaria do evento ${item.name}`}
-                >
-                  <Ionicons name="qr-code-outline" size={16} color={colors.primaryTextOn} />
-                  <Text style={screenLocalStyles.portariaPrimaryCTAText}>Portaria Prime</Text>
-                </Pressable>
-              </View>
-            </Pressable>
+          renderItem={({ item, index }: { item: AssignedEvent; index: number }) => (
+            <EventAccordionCard
+              event={item}
+              isFirst={index === 0}
+              onOpenPortaria={(eventId) => {
+                void AppHaptics.medium();
+                router.push(`/eventos/${eventId}/portaria`);
+              }}
+              onOpenBriefing={(eventId) => {
+                void AppHaptics.light();
+                router.push(`/eventos/${eventId}`);
+              }}
+              onOpenTimeline={(eventId) => {
+                void AppHaptics.light();
+                router.push(`/eventos/${eventId}?initialTab=timeline`);
+              }}
+            />
           )}
           ListEmptyComponent={
             <EmptyState

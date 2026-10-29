@@ -10,4 +10,6 @@ export * from './components/ReceptionBadgeCard';
 export * from './components/FamilyGroupModal';
 export * from './components/OfflineQueueBanner';
 export * from './components/ManualSearchModal';
+export * from './components/CarBasketBar';
+export * from './components/CarConfirmationModal';
 export * from './sync/receptionSyncService';
