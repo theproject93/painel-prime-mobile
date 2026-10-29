@@ -74,6 +74,7 @@ export function TeamMemberDashboardView({
 }: TeamMemberDashboardViewProps) {
   const router = useRouter();
   const [guideModalOpen, setGuideModalOpen] = useState(false);
+  const [eventPickerTarget, setEventPickerTarget] = useState<'timeline' | 'team' | 'portaria' | null>(null);
 
   // Localiza o próximo evento ativo na escala
   const nextEvent = useMemo(() => {
@@ -125,6 +126,31 @@ export function TeamMemberDashboardView({
   const handleOpenEventDetails = (eventId: string) => {
     void AppHaptics.light();
     router.push(`/eventos/${eventId}`);
+  };
+
+  const handleActionClick = (target: 'timeline' | 'team' | 'portaria') => {
+    void AppHaptics.light();
+    if (assignedEvents.length === 0) {
+      router.push('/eventos');
+      return;
+    }
+    if (assignedEvents.length === 1) {
+      const singleId = assignedEvents[0].id;
+      if (target === 'portaria') handleOpenPortaria(singleId);
+      else if (target === 'timeline') handleOpenTimeline(singleId);
+      else handleOpenEventDetails(singleId);
+      return;
+    }
+    // Se houver mais de 1 evento, abre seletor amigável para o colaborador escolher
+    setEventPickerTarget(target);
+  };
+
+  const handleSelectEventFromPicker = (eventId: string) => {
+    const target = eventPickerTarget;
+    setEventPickerTarget(null);
+    if (target === 'portaria') handleOpenPortaria(eventId);
+    else if (target === 'timeline') handleOpenTimeline(eventId);
+    else handleOpenEventDetails(eventId);
   };
 
   return (
@@ -252,10 +278,7 @@ export function TeamMemberDashboardView({
         {/* Ação 1: Portaria Prime */}
         <Pressable
           style={({ pressed }) => [styles.actionCard, pressed && styles.cardPressed]}
-          onPress={() => {
-            if (nextEvent) handleOpenPortaria(nextEvent.id);
-            else router.push('/eventos');
-          }}
+          onPress={() => handleActionClick('portaria')}
           accessibilityRole="button"
           accessibilityLabel="Portaria Prime"
         >
@@ -271,10 +294,7 @@ export function TeamMemberDashboardView({
         {/* Ação 2: Cronograma do Dia */}
         <Pressable
           style={({ pressed }) => [styles.actionCard, pressed && styles.cardPressed]}
-          onPress={() => {
-            if (nextEvent) handleOpenTimeline(nextEvent.id);
-            else router.push('/eventos');
-          }}
+          onPress={() => handleActionClick('timeline')}
           accessibilityRole="button"
           accessibilityLabel="Cronograma do dia"
         >
@@ -290,10 +310,7 @@ export function TeamMemberDashboardView({
         {/* Ação 3: Equipe Escalada */}
         <Pressable
           style={({ pressed }) => [styles.actionCard, pressed && styles.cardPressed]}
-          onPress={() => {
-            if (nextEvent) handleOpenTeam(nextEvent.id);
-            else router.push('/eventos');
-          }}
+          onPress={() => handleActionClick('team')}
           accessibilityRole="button"
           accessibilityLabel="Equipe escalada"
         >
@@ -404,6 +421,83 @@ export function TeamMemberDashboardView({
               >
                 <Text style={styles.modalConfirmBtnText}>Entendido</Text>
               </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal: Seletor de Evento para Múltiplas Escalas */}
+      <Modal
+        visible={eventPickerTarget !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEventPickerTarget(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Ionicons
+                  name={
+                    eventPickerTarget === 'portaria'
+                      ? 'qr-code-outline'
+                      : eventPickerTarget === 'timeline'
+                        ? 'time-outline'
+                        : 'people-outline'
+                  }
+                  size={20}
+                  color="#D4AF37"
+                />
+                <Text style={styles.modalTitle}>
+                  {eventPickerTarget === 'portaria'
+                    ? 'Abrir Portaria Prime'
+                    : eventPickerTarget === 'timeline'
+                      ? 'Roteiro do Dia'
+                      : 'Informações da Equipe'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setEventPickerTarget(null)}
+                hitSlop={12}
+                style={styles.modalCloseBtn}
+                accessibilityLabel="Fechar seleção de evento"
+              >
+                <Ionicons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              Selecione o evento desejado:
+            </Text>
+
+            <ScrollView style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
+              {sortedEvents.map((ev) => (
+                <Pressable
+                  key={ev.id}
+                  style={({ pressed }) => [styles.pickerItem, pressed && styles.pickerItemPressed]}
+                  onPress={() => handleSelectEventFromPicker(ev.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Selecionar evento ${ev.name}`}
+                >
+                  <View style={styles.pickerItemIconWrap}>
+                    <Ionicons name="calendar" size={18} color="#D4AF37" />
+                  </View>
+                  <View style={styles.pickerItemContent}>
+                    <Text style={styles.pickerItemTitle} numberOfLines={1}>
+                      {ev.name}
+                    </Text>
+                    <Text style={styles.pickerItemMeta} numberOfLines={1}>
+                      {new Date(ev.event_date).toLocaleDateString('pt-BR')} • {ev.location || 'Local a confirmar'}
+                    </Text>
+                    {Boolean(ev.team_name) && (
+                      <Text style={styles.pickerItemTeam} numberOfLines={1}>
+                        Equipe: {ev.team_name}
+                      </Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                </Pressable>
+              ))}
             </ScrollView>
           </View>
         </View>
@@ -798,6 +892,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
   },
+  modalSubtitle: {
+    color: '#64748B',
+    fontSize: 13,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   modalCloseBtn: {
     padding: 4,
   },
@@ -876,5 +977,50 @@ const styles = StyleSheet.create({
   },
   accordionContainer: {
     marginTop: 12,
+  },
+  pickerScroll: {
+    maxHeight: 320,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  pickerItemPressed: {
+    backgroundColor: '#EDF2F7',
+  },
+  pickerItemIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerItemContent: {
+    flex: 1,
+    gap: 2,
+  },
+  pickerItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  pickerItemMeta: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  pickerItemTeam: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#D4AF37',
   },
 });
