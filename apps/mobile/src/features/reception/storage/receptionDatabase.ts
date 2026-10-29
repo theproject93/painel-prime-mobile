@@ -140,74 +140,72 @@ export async function saveSnapshot(
   const now = new Date().toISOString();
   const event = snapshot.event;
 
-  await db.withTransactionAsync(async () => {
-    // 1. Salva metadados do snapshot
+  // 1. Salva metadados do snapshot
+  await db.runAsync(
+    `INSERT INTO reception_snapshots (
+      event_id, name, event_date, status, location,
+      reception_offline_expires_at, snapshot_at, raw_json, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(event_id) DO UPDATE SET
+      name = excluded.name,
+      event_date = excluded.event_date,
+      status = excluded.status,
+      location = excluded.location,
+      reception_offline_expires_at = excluded.reception_offline_expires_at,
+      snapshot_at = excluded.snapshot_at,
+      raw_json = excluded.raw_json,
+      updated_at = excluded.updated_at;`,
+    event.id,
+    event.name,
+    event.event_date,
+    event.status,
+    event.location,
+    event.reception_offline_expires_at,
+    snapshot.snapshot_at || now,
+    JSON.stringify(snapshot),
+    now,
+    now,
+  );
+
+  // 2. Salva convidados do snapshot
+  for (const guest of snapshot.guests) {
     await db.runAsync(
-      `INSERT INTO reception_snapshots (
-        event_id, name, event_date, status, location,
-        reception_offline_expires_at, snapshot_at, raw_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(event_id) DO UPDATE SET
+      `INSERT INTO reception_guests (
+        id, event_id, name, phone, qr_token, family_group_id,
+        is_group_leader, group_leader_id, group_sort_order,
+        checked_in_at, checked_in_by, table_id, table_name,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
-        event_date = excluded.event_date,
-        status = excluded.status,
-        location = excluded.location,
-        reception_offline_expires_at = excluded.reception_offline_expires_at,
-        snapshot_at = excluded.snapshot_at,
-        raw_json = excluded.raw_json,
+        phone = excluded.phone,
+        qr_token = excluded.qr_token,
+        family_group_id = excluded.family_group_id,
+        is_group_leader = excluded.is_group_leader,
+        group_leader_id = excluded.group_leader_id,
+        group_sort_order = excluded.group_sort_order,
+        checked_in_at = COALESCE(excluded.checked_in_at, reception_guests.checked_in_at),
+        checked_in_by = COALESCE(excluded.checked_in_by, reception_guests.checked_in_by),
+        table_id = excluded.table_id,
+        table_name = excluded.table_name,
         updated_at = excluded.updated_at;`,
-      event.id,
-      event.name,
-      event.event_date,
-      event.status,
-      event.location,
-      event.reception_offline_expires_at,
-      snapshot.snapshot_at || now,
-      JSON.stringify(snapshot),
+      guest.id,
+      guest.event_id || event.id,
+      guest.name,
+      guest.phone ?? null,
+      guest.qr_token ? guest.qr_token.toLowerCase().trim() : null,
+      guest.family_group_id ?? null,
+      guest.is_group_leader ? 1 : 0,
+      guest.group_leader_id ?? null,
+      guest.group_sort_order ?? null,
+      guest.checked_in_at ?? null,
+      guest.checked_in_by ?? null,
+      guest.table_id ?? null,
+      guest.table_name ?? null,
       now,
       now,
     );
-
-    // 2. Salva convidados do snapshot
-    for (const guest of snapshot.guests) {
-      await db.runAsync(
-        `INSERT INTO reception_guests (
-          id, event_id, name, phone, qr_token, family_group_id,
-          is_group_leader, group_leader_id, group_sort_order,
-          checked_in_at, checked_in_by, table_id, table_name,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          name = excluded.name,
-          phone = excluded.phone,
-          qr_token = excluded.qr_token,
-          family_group_id = excluded.family_group_id,
-          is_group_leader = excluded.is_group_leader,
-          group_leader_id = excluded.group_leader_id,
-          group_sort_order = excluded.group_sort_order,
-          checked_in_at = COALESCE(excluded.checked_in_at, reception_guests.checked_in_at),
-          checked_in_by = COALESCE(excluded.checked_in_by, reception_guests.checked_in_by),
-          table_id = excluded.table_id,
-          table_name = excluded.table_name,
-          updated_at = excluded.updated_at;`,
-        guest.id,
-        guest.event_id || event.id,
-        guest.name,
-        guest.phone ?? null,
-        guest.qr_token ? guest.qr_token.toLowerCase().trim() : null,
-        guest.family_group_id ?? null,
-        guest.is_group_leader ? 1 : 0,
-        guest.group_leader_id ?? null,
-        guest.group_sort_order ?? null,
-        guest.checked_in_at ?? null,
-        guest.checked_in_by ?? null,
-        guest.table_id ?? null,
-        guest.table_name ?? null,
-        now,
-        now,
-      );
-    }
-  });
+  }
 }
 
 /**
@@ -391,37 +389,35 @@ export async function enqueueCheckIn(
 
   const serializedConfirmed = JSON.stringify(input.confirmed_guest_ids);
 
-  await db.withTransactionAsync(async () => {
-    // 1. Grava na fila de operações duráveis
-    await db.runAsync(
-      `INSERT INTO reception_queue (
-        client_scan_id, event_id, scanned_qr_token, scanned_guest_id,
-        confirmed_guest_ids, canonical_payload_hash, state,
-        retry_count, created_at, scanned_at, synced_at,
-        error_code, error_message, server_response
-      ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, NULL, NULL, NULL, NULL);`,
-      scanId,
-      input.event_id,
-      input.scanned_qr_token ?? null,
-      input.scanned_guest_id ?? null,
-      serializedConfirmed,
-      canonicalHash,
-      now,
-      scannedAt,
-    );
+  // 1. Grava na fila de operações duráveis
+  await db.runAsync(
+    `INSERT INTO reception_queue (
+      client_scan_id, event_id, scanned_qr_token, scanned_guest_id,
+      confirmed_guest_ids, canonical_payload_hash, state,
+      retry_count, created_at, scanned_at, synced_at,
+      error_code, error_message, server_response
+    ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, NULL, NULL, NULL, NULL);`,
+    scanId,
+    input.event_id,
+    input.scanned_qr_token ?? null,
+    input.scanned_guest_id ?? null,
+    serializedConfirmed,
+    canonicalHash,
+    now,
+    scannedAt,
+  );
 
-    // 2. Atualiza status local nos convidados para resposta visual imediata (otimista)
-    for (const guestId of input.confirmed_guest_ids) {
-      await db.runAsync(
-        `UPDATE reception_guests
-         SET checked_in_at = COALESCE(checked_in_at, ?),
-             checked_in_by = COALESCE(checked_in_by, 'Portaria Nativa')
-         WHERE id = ?;`,
-        scannedAt,
-        guestId,
-      );
-    }
-  });
+  // 2. Atualiza status local nos convidados para resposta visual imediata (otimista)
+  for (const guestId of input.confirmed_guest_ids) {
+    await db.runAsync(
+      `UPDATE reception_guests
+       SET checked_in_at = COALESCE(checked_in_at, ?),
+           checked_in_by = COALESCE(checked_in_by, 'Portaria Nativa')
+       WHERE id = ?;`,
+      scannedAt,
+      guestId,
+    );
+  }
 
   return {
     client_scan_id: scanId,
