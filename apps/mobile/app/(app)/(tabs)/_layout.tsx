@@ -7,9 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ModuleWalkthroughBanner } from '../../../src/components/ModuleWalkthroughOverlay';
 import { PlanAssistantFloating } from '../../../src/components/PlanAssistantFloating';
+import { useUserRole } from '../../../src/contexts/UserRoleContext';
 import { colors, gradients } from '../../../src/theme/colors';
 
 export default function AppTabsLayout() {
+  const { isTeamMemberOnly } = useUserRole();
   const tabGradId = useId();
   const insets = useSafeAreaInsets();
   return (
@@ -70,11 +72,39 @@ export default function AppTabsLayout() {
           ),
         })}
       >
-        <Tabs.Screen name="dashboard" options={{ title: 'Início', tabBarAccessibilityLabel: 'Início' }} />
+        <Tabs.Screen
+          name="dashboard"
+          options={{
+            title: 'Início',
+            tabBarAccessibilityLabel: 'Início',
+            href: isTeamMemberOnly ? null : undefined,
+          }}
+        />
         <Tabs.Screen name="eventos" options={{ title: 'Eventos', tabBarAccessibilityLabel: 'Eventos' }} />
-        <Tabs.Screen name="clientes" options={{ title: 'Clientes', tabBarAccessibilityLabel: 'Clientes' }} />
-        <Tabs.Screen name="financeiro" options={{ title: 'Finanças', tabBarAccessibilityLabel: 'Meu caixa' }} />
-        <Tabs.Screen name="fornecedores" options={{ title: 'Fornec.', tabBarAccessibilityLabel: 'Fornecedores' }} />
+        <Tabs.Screen
+          name="clientes"
+          options={{
+            title: 'Clientes',
+            tabBarAccessibilityLabel: 'Clientes',
+            href: isTeamMemberOnly ? null : undefined,
+          }}
+        />
+        <Tabs.Screen
+          name="financeiro"
+          options={{
+            title: 'Finanças',
+            tabBarAccessibilityLabel: 'Meu caixa',
+            href: isTeamMemberOnly ? null : undefined,
+          }}
+        />
+        <Tabs.Screen
+          name="fornecedores"
+          options={{
+            title: 'Fornec.',
+            tabBarAccessibilityLabel: 'Fornecedores',
+            href: isTeamMemberOnly ? null : undefined,
+          }}
+        />
         <Tabs.Screen name="mais" options={{ title: 'Mais', tabBarAccessibilityLabel: 'Mais opções' }} />
       </Tabs>
       <ModuleWalkthroughBanner />

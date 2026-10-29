@@ -1,5 +1,7 @@
 import { Redirect } from 'expo-router';
+import { useUserRole } from '../../src/contexts/UserRoleContext';
 
 export default function AuthenticatedIndex() {
-  return <Redirect href="/dashboard" />;
+  const { isTeamMemberOnly } = useUserRole();
+  return <Redirect href={isTeamMemberOnly ? '/eventos' : '/dashboard'} />;
 }
