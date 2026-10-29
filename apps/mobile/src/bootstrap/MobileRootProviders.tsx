@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications';
 import { WalkthroughAnchorsProvider } from '../components/WalkthroughAnchors';
 import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { AuthProvider } from '../contexts/AuthContext';
+import { UserRoleProvider } from '../contexts/UserRoleContext';
 import { BiometricAccessProvider } from '../contexts/BiometricAccessContext';
 import { setupNotificationChannels, setupNotificationResponseListener } from '../services/notificationService';
 import { useAppFonts } from '../theme/fonts';
@@ -52,12 +53,14 @@ export function MobileRootProviders({ children }: PropsWithChildren) {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <BiometricAccessProvider>
-          <WalkthroughAnchorsProvider>
-            <StatusBar style="dark" backgroundColor={colors.background} translucent={false} />
-            {children}
-          </WalkthroughAnchorsProvider>
-        </BiometricAccessProvider>
+        <UserRoleProvider>
+          <BiometricAccessProvider>
+            <WalkthroughAnchorsProvider>
+              <StatusBar style="dark" backgroundColor={colors.background} translucent={false} />
+              {children}
+            </WalkthroughAnchorsProvider>
+          </BiometricAccessProvider>
+        </UserRoleProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

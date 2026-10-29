@@ -15,6 +15,44 @@ type ReceptionTabProps = {
   onSendAccess: (memberId: string) => void;
 };
 
+function getMemberAccessStatusInfo(status?: string | null, phone?: string | null): {
+  label: string;
+  tone: 'success' | 'warning' | 'danger' | 'neutral';
+} {
+  if (!phone) {
+    return {
+      label: 'Sem telefone',
+      tone: 'warning',
+    };
+  }
+
+  const normalized = status ? String(status).toLowerCase().trim() : '';
+
+  switch (normalized) {
+    case 'active':
+      return {
+        label: 'Acesso ativo',
+        tone: 'success',
+      };
+    case 'invited':
+      return {
+        label: 'Convite enviado, aguardando',
+        tone: 'warning',
+      };
+    case 'revoked':
+      return {
+        label: 'Acesso revogado',
+        tone: 'danger',
+      };
+    case 'not_granted':
+    default:
+      return {
+        label: 'Acesso não enviado',
+        tone: 'neutral',
+      };
+  }
+}
+
 export function ReceptionTab({
   eventId,
   guests,
@@ -62,21 +100,29 @@ export function ReceptionTab({
           actionLabel="Abrir equipe"
           onAction={onOpenTeam}
         />
-      ) : team.map((member) => (
-        <EventListCard
-          key={member.id}
-          title={String(member.name)}
-          subtitle={member.role || 'Equipe'}
-          meta={[member.phone || 'WhatsApp não informado']}
-          status={member.phone ? 'Pronto' : 'Sem telefone'}
-          statusTone={member.phone ? 'success' : 'warning'}
-          actions={member.phone ? [{
-            label: 'Enviar acesso',
-            icon: 'logo-whatsapp',
-            onPress: () => onSendAccess(String(member.id)),
-          }] : []}
-        />
-      ))}
+      ) : team.map((member) => {
+        const rawStatus =
+          member.access_status ||
+          member.advisor_team_members?.access_status ||
+          (Array.isArray(member.advisor_team_members) && member.advisor_team_members[0]?.access_status);
+        const accessInfo = getMemberAccessStatusInfo(rawStatus, member.phone);
+
+        return (
+          <EventListCard
+            key={member.id}
+            title={String(member.name)}
+            subtitle={member.role || 'Equipe'}
+            meta={[member.phone || 'WhatsApp não informado']}
+            status={accessInfo.label}
+            statusTone={accessInfo.tone}
+            actions={member.phone ? [{
+              label: rawStatus === 'active' ? 'Reenviar acesso' : 'Enviar acesso',
+              icon: 'logo-whatsapp',
+              onPress: () => onSendAccess(String(member.id)),
+            }] : []}
+          />
+        );
+      })}
     </EventModuleShell>
   );
 }

@@ -20,6 +20,13 @@ export const EVENT_MODULES = [
   { key: 'analytics', label: 'Relatório final', group: 'more', icon: 'bar-chart-outline' },
 ] as const;
 
+export const TEAM_MEMBER_ALLOWED_TABS = new Set<string>([
+  'overview',
+  'reception',
+  'timeline',
+  'team',
+]);
+
 export type EventDetailsInitialTab = typeof EVENT_MODULES[number]['key'];
 
 export function isEventDetailsInitialTab(value: string): value is EventDetailsInitialTab {

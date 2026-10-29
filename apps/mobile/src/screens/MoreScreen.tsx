@@ -1,11 +1,11 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '../components/Screen';
 import { useAuth } from '../contexts/AuthContext';
-import { useOperatingMode } from '../contexts/OperatingModeContext';
-import { AppHaptics } from '../lib/haptics';
+import { useUserRole } from '../contexts/UserRoleContext';
 import { colors } from '../theme/colors';
 import { fontSize, fontWeight, radii, shadows, spacing } from '../theme/tokens';
 
@@ -21,7 +21,7 @@ type MenuSection = {
   items: MenuItem[];
 };
 
-const ACCOUNT_ITEMS: MenuItem[] = [
+const ALL_ACCOUNT_ITEMS: MenuItem[] = [
   {
     label: 'Equipe',
     description: 'Pessoas, líderes e funções da sua assessoria',
@@ -60,12 +60,27 @@ const ADMIN_ITEMS: MenuItem[] = [
 export function MoreScreen() {
   const router = useRouter();
   const { user, signOut, isSuperAdmin } = useAuth();
-  const { mode, setMode, assignedEvents } = useOperatingMode();
+  const { isTeamMemberOnly, appRole } = useUserRole();
 
-  const sections: MenuSection[] = [
-    { title: 'Sua conta', items: ACCOUNT_ITEMS },
-    ...(isSuperAdmin ? [{ title: 'Administração', items: ADMIN_ITEMS }] : []),
-  ];
+  const sections: MenuSection[] = useMemo(() => {
+    const accountItems = isTeamMemberOnly
+      ? ALL_ACCOUNT_ITEMS.filter((item) => item.label !== 'Equipe')
+      : ALL_ACCOUNT_ITEMS;
+
+    const list: MenuSection[] = [{ title: 'Sua conta', items: accountItems }];
+
+    if (!isTeamMemberOnly && isSuperAdmin) {
+      list.push({ title: 'Administração', items: ADMIN_ITEMS });
+    }
+
+    return list;
+  }, [isTeamMemberOnly, isSuperAdmin]);
+
+  const roleBadgeLabel = useMemo(() => {
+    if (appRole === 'team_member') return 'Membro da Equipe';
+    if (appRole === 'owner_and_team') return 'Assessora & Equipe';
+    return 'Assessora';
+  }, [appRole]);
 
   return (
     <Screen title="Mais" subtitle="Sua conta e preferências em um só lugar">
@@ -74,98 +89,13 @@ export function MoreScreen() {
           <Ionicons name="sparkles" size={22} color={colors.primaryStrong} />
         </View>
         <View style={styles.identityCopy}>
-          <Text style={styles.identityTitle}>Painel Prime</Text>
+          <View style={styles.identityHeader}>
+            <Text style={styles.identityTitle}>Painel Prime</Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>{roleBadgeLabel}</Text>
+            </View>
+          </View>
           <Text style={styles.identityEmail} numberOfLines={1}>{user?.email ?? 'Conta conectada'}</Text>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Modo de Operação</Text>
-        <View style={styles.modeCard}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.modeRow,
-              mode === 'assessoria' && styles.modeRowActive,
-              pressed && styles.menuRowPressed,
-            ]}
-            onPress={() => {
-              void AppHaptics.selection();
-              setMode('assessoria');
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Ativar Modo Assessoria. Visão completa da assessoria e eventos."
-          >
-            <View style={[styles.modeIcon, mode === 'assessoria' && styles.modeIconActive]}>
-              <Ionicons
-                name="briefcase-outline"
-                size={20}
-                color={mode === 'assessoria' ? colors.primaryStrong : colors.mutedText}
-              />
-            </View>
-            <View style={styles.modeCopy}>
-              <View style={styles.modeHeader}>
-                <Text style={[styles.modeLabel, mode === 'assessoria' && styles.modeLabelActive]}>
-                  Modo Assessoria
-                </Text>
-                {mode === 'assessoria' ? (
-                  <View style={styles.activeBadge}>
-                    <Text style={styles.activeBadgeText}>Ativo</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.modeDescription}>
-                Visão administrativa com gestão completa de eventos, clientes e orçamentos.
-              </Text>
-            </View>
-          </Pressable>
-
-          <View style={styles.separator} />
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.modeRow,
-              mode === 'equipe' && styles.modeRowActive,
-              pressed && styles.menuRowPressed,
-            ]}
-            onPress={() => {
-              void AppHaptics.selection();
-              setMode('equipe');
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Ativar Modo Equipe. Visão operacional focada na execução e portaria."
-          >
-            <View style={[styles.modeIcon, mode === 'equipe' && styles.modeIconActive]}>
-              <Ionicons
-                name="people-outline"
-                size={20}
-                color={mode === 'equipe' ? colors.primaryStrong : colors.mutedText}
-              />
-            </View>
-            <View style={styles.modeCopy}>
-              <View style={styles.modeHeader}>
-                <Text style={[styles.modeLabel, mode === 'equipe' && styles.modeLabelActive]}>
-                  Modo Equipe
-                </Text>
-                {mode === 'equipe' ? (
-                  <View style={styles.activeBadge}>
-                    <Text style={styles.activeBadgeText}>Ativo</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.modeDescription}>
-                Visão operacional direta para escalas de trabalho, cronograma e Portaria Prime.
-              </Text>
-              {assignedEvents.length > 0 ? (
-                <View style={styles.assignedBadge}>
-                  <Text style={styles.assignedBadgeText}>
-                    {assignedEvents.length === 1
-                      ? '1 evento escalado'
-                      : `${assignedEvents.length} eventos escalados`}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          </Pressable>
         </View>
       </View>
 
@@ -229,7 +159,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   identityCopy: { flex: 1, gap: 3 },
+  identityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   identityTitle: { color: colors.card, fontSize: fontSize.lg, fontWeight: fontWeight.bold },
+  roleBadge: {
+    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+  },
+  roleBadgeText: {
+    color: colors.gold600,
+    fontSize: 11,
+    fontWeight: fontWeight.bold,
+  },
   identityEmail: { color: '#C9CED8', fontSize: fontSize.sm },
   section: { marginTop: spacing.lg },
   sectionTitle: {
@@ -249,60 +198,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...shadows.sm,
   },
-  modeCard: {
-    backgroundColor: colors.card,
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    ...shadows.sm,
-  },
-  modeRow: {
-    minHeight: 88,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-  },
-  modeRowActive: {
-    backgroundColor: colors.primarySoft + '40',
-  },
-  modeIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-    marginTop: 2,
-  },
-  modeIconActive: {
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.primaryStrong,
-  },
-  modeCopy: { flex: 1, gap: 4 },
-  modeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modeLabel: { color: colors.text, fontSize: fontSize.md, fontWeight: fontWeight.bold },
-  modeLabelActive: { color: colors.primaryStrong },
-  modeDescription: { color: colors.mutedText, fontSize: fontSize.xs, lineHeight: 18 },
-  activeBadge: {
-    backgroundColor: colors.primaryStrong,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radii.sm,
-  },
-  activeBadgeText: { color: colors.card, fontSize: 11, fontWeight: fontWeight.bold },
-  assignedBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surfaceSubtle,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radii.sm,
-    marginTop: 4,
-  },
-  assignedBadgeText: { color: colors.text, fontSize: 11, fontWeight: fontWeight.semibold },
   menuRow: {
     minHeight: 78,
     flexDirection: 'row',

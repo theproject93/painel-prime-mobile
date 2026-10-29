@@ -42,7 +42,7 @@ export const EVENT_DATA_COLUMNS: Record<EventDataKey, string> = {
   vendors: 'id,event_id,catalog_vendor_id,name,category,phone,email,notes,status,expected_arrival_time,expected_done_time,is_self_vendor,contract_document_id,control_token,import_draft_id,import_review_reason,import_review_status,created_at',
   documents: 'id,event_id,name,category,file_id,file_type,file_url,vendor_id,created_at',
   notes: 'id,event_id,content,color,created_at,updated_at',
-  team: 'id,event_id,name,phone,role,address,team_name,is_leader,advisor_team_id,advisor_team_member_id,photo_file_id,photo_url,created_at',
+  team: 'id,event_id,name,phone,role,address,team_name,is_leader,advisor_team_id,advisor_team_member_id,advisor_team_members(access_status),photo_file_id,photo_url,created_at',
   tables: 'id,event_id,name,note,seats,shape,pos_x,pos_y,posx,posy,created_at',
 };
 

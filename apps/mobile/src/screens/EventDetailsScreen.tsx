@@ -8,9 +8,10 @@ import { useKeyboardBottomInset } from '../lib/useKeyboardBottomInset';
 import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { MeetingCenter } from '../features/meetings/MeetingCenter';
 import { useAuth } from '../contexts/AuthContext';
+import { useUserRole } from '../contexts/UserRoleContext';
 import { getPrivateFileDownloadUrl } from '../lib/r2FileStorage';
 import { supabase } from '../lib/supabase';
-import { isEventDetailsInitialTab, EVENT_MODULES } from '../navigation/eventRouteTypes';
+import { isEventDetailsInitialTab, EVENT_MODULES, TEAM_MEMBER_ALLOWED_TABS } from '../navigation/eventRouteTypes';
 import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
 import { formatBrlInput, parseBrlInput } from '../components/ui/PremiumInputs';
 import { summarizeTasks } from '../features/events/eventWorkspaceUtils';
@@ -69,17 +70,30 @@ export function EventDetailsScreen() {
       setActiveTab(initialTabParam);
     }
   }, [initialTabParam]);
+  const { isTeamMemberOnly } = useUserRole();
+  const visibleTabs = useMemo(() => {
+    return isTeamMemberOnly
+      ? TABS.filter((t) => TEAM_MEMBER_ALLOWED_TABS.has(t.key))
+      : TABS;
+  }, [isTeamMemberOnly]);
+
+  useEffect(() => {
+    if (isTeamMemberOnly && !TEAM_MEMBER_ALLOWED_TABS.has(activeTab)) {
+      setActiveTab('overview');
+    }
+  }, [isTeamMemberOnly, activeTab]);
+
   const [isModulePickerOpen, setIsModulePickerOpen] = useState(false);
-  const activeTabLabel = useMemo(() => TABS.find((x) => x.key === activeTab)?.label || 'Visão Geral', [activeTab]);
-  const activeTabIcon = useMemo(() => TABS.find((x) => x.key === activeTab)?.icon || 'grid-outline', [activeTab]);
+  const activeTabLabel = useMemo(() => visibleTabs.find((x) => x.key === activeTab)?.label || 'Visão Geral', [visibleTabs, activeTab]);
+  const activeTabIcon = useMemo(() => visibleTabs.find((x) => x.key === activeTab)?.icon || 'grid-outline', [visibleTabs, activeTab]);
   const pickerOptions = useMemo(() => {
-    return TABS.map((t) => ({
+    return visibleTabs.map((t) => ({
       value: t.key,
       label: t.label,
       group: t.group,
       icon: t.icon,
     }));
-  }, []);
+  }, [visibleTabs]);
 
   useEffect(() => {
     requestAnimationFrame(() => pageRef.current?.scrollTo({ y: 0, animated: false }));

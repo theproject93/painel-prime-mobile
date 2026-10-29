@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "br.com.painelprime.app",
-      "versionCode": 22,
+      "versionCode": 23,
       "allowBackup": false,
       "googleServicesFile": "./google-services.json",
       "permissions": [
@@ -64,6 +64,19 @@
             {
               "scheme": "https",
               "host": "www.app.painelprime.com.br"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "painelprime",
+              "host": "aceitar-convite"
             }
           ],
           "category": [

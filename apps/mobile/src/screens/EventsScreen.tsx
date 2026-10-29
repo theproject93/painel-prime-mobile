@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../contexts/AuthContext';
-import { useOperatingMode, type AssignedEvent } from '../contexts/OperatingModeContext';
+import { useUserRole, type AssignedEvent } from '../contexts/UserRoleContext';
 import { PrimeLogoLoader } from '../components/PrimeLogoLoader';
 import { linkStoredFile } from '../lib/r2FileStorage';
 import { colors } from '../theme/colors';
@@ -30,10 +30,41 @@ import {
   type CreateEventFormData,
 } from '../features/events/CreateEventWizardModal';
 
+function formatPortariaDateLabel(dateString: string): string {
+  try {
+    const target = new Date(dateString);
+    const now = new Date();
+    const isToday =
+      target.getDate() === now.getDate() &&
+      target.getMonth() === now.getMonth() &&
+      target.getFullYear() === now.getFullYear();
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow =
+      target.getDate() === tomorrow.getDate() &&
+      target.getMonth() === tomorrow.getMonth() &&
+      target.getFullYear() === tomorrow.getFullYear();
+
+    const timeStr = target.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const hasTime = timeStr !== '00:00' && !dateString.includes('T00:00:00');
+
+    if (isToday) {
+      return hasTime ? `Hoje às ${timeStr}` : 'Hoje';
+    }
+    if (isTomorrow) {
+      return hasTime ? `Amanhã às ${timeStr}` : 'Amanhã';
+    }
+    return target.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + (hasTime ? ` às ${timeStr}` : '');
+  } catch {
+    return 'Em breve';
+  }
+}
+
 export function EventsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { mode, setMode, assignedEvents, refreshAssignedEvents } = useOperatingMode();
+  const { isOwner, isTeamMemberOnly, assignedEvents, refreshAssignedEvents } = useUserRole();
   const insets = useSafeAreaInsets();
   const userId = user?.id;
   const data = useEventsData(userId);
@@ -45,9 +76,9 @@ export function EventsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (data.shouldRefresh()) void data.reset();
+      if (isOwner && data.shouldRefresh()) void data.reset();
       void refreshAssignedEvents();
-    }, [data.reset, refreshAssignedEvents]),
+    }, [isOwner, data.reset, refreshAssignedEvents]),
   );
 
   const filteredEvents = useMemo(() => {
@@ -65,6 +96,32 @@ export function EventsScreen() {
         (ev.role && ev.role.toLowerCase().includes(q)),
     );
   }, [assignedEvents, search]);
+
+  // Busca o próximo evento ativo nas próximas 48h para o atalho rápido da Portaria Prime
+  const upcomingPortariaEvent = useMemo(() => {
+    if (!isOwner || events.length === 0) return null;
+    const now = Date.now();
+    const limit48h = now + 48 * 60 * 60 * 1000;
+    const marginPast = now - 12 * 60 * 60 * 1000; // Margem para evento de hoje
+
+    const candidates = events.filter((ev) => {
+      const status = (ev.status || '').toLowerCase();
+      if (
+        status === 'cancelado' ||
+        status === 'cancelled' ||
+        status === 'concluido' ||
+        status === 'completed'
+      ) {
+        return false;
+      }
+      const evTime = new Date(ev.event_date).getTime();
+      return evTime >= marginPast && evTime <= limit48h;
+    });
+
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+    return candidates[0];
+  }, [isOwner, events]);
 
   async function handleCreateEvent(form: CreateEventFormData) {
     if (!userId || creating) return;
@@ -97,7 +154,7 @@ export function EventsScreen() {
     setIsCreateModalOpen(false);
   }
 
-  if (loading) {
+  if (loading && isOwner) {
     return <PrimeLogoLoader label="Organizando seus eventos" />;
   }
 
@@ -105,14 +162,16 @@ export function EventsScreen() {
     <View style={[styles.page, { paddingTop: insets.top + 10 }]}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Eventos</Text>
+          <Text style={styles.title}>
+            {isTeamMemberOnly ? 'Seus Eventos' : 'Eventos'}
+          </Text>
           <Text style={styles.subtitle}>
-            {mode === 'assessoria'
-              ? 'Acesse e gerencie seus eventos'
-              : 'Eventos escalados para sua equipe'}
+            {isTeamMemberOnly
+              ? 'Eventos escalados para você'
+              : 'Acesse e gerencie seus eventos'}
           </Text>
         </View>
-        {mode === 'assessoria' ? (
+        {!isTeamMemberOnly ? (
           <Pressable
             style={styles.newButton}
             onPress={() => {
@@ -127,80 +186,35 @@ export function EventsScreen() {
         ) : null}
       </View>
 
-      <View style={screenLocalStyles.modeSwitcherWrap}>
-        <Pressable
-          style={[
-            screenLocalStyles.modeTab,
-            mode === 'assessoria' && screenLocalStyles.modeTabActive,
-          ]}
-          onPress={() => {
-            void AppHaptics.selection();
-            setMode('assessoria');
-          }}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: mode === 'assessoria' }}
-          accessibilityLabel="Modo Assessoria"
-        >
-          <Ionicons
-            name="briefcase-outline"
-            size={16}
-            color={mode === 'assessoria' ? colors.primaryTextOn : colors.mutedText}
-          />
-          <Text
-            style={[
-              screenLocalStyles.modeTabText,
-              mode === 'assessoria' && screenLocalStyles.modeTabTextActive,
-            ]}
-          >
-            Modo Assessoria
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[
-            screenLocalStyles.modeTab,
-            mode === 'equipe' && screenLocalStyles.modeTabActive,
-          ]}
-          onPress={() => {
-            void AppHaptics.selection();
-            setMode('equipe');
-          }}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: mode === 'equipe' }}
-          accessibilityLabel="Modo Equipe"
-        >
-          <Ionicons
-            name="people-outline"
-            size={16}
-            color={mode === 'equipe' ? colors.primaryTextOn : colors.mutedText}
-          />
-          <Text
-            style={[
-              screenLocalStyles.modeTabText,
-              mode === 'equipe' && screenLocalStyles.modeTabTextActive,
-            ]}
-          >
-            Modo Equipe
-          </Text>
-          {assignedEvents.length > 0 ? (
-            <View
-              style={[
-                screenLocalStyles.badgeCount,
-                mode === 'equipe' && screenLocalStyles.badgeCountActive,
-              ]}
-            >
-              <Text
-                style={[
-                  screenLocalStyles.badgeCountText,
-                  mode === 'equipe' && screenLocalStyles.badgeCountTextActive,
-                ]}
-              >
-                {assignedEvents.length}
-              </Text>
+      {/* Atalho Portaria Prime para a assessora caso haja evento nas próximas 48h */}
+      {!isTeamMemberOnly && upcomingPortariaEvent ? (
+        <View style={screenLocalStyles.portariaShortcutCard}>
+          <View style={screenLocalStyles.portariaShortcutHeader}>
+            <View style={screenLocalStyles.portariaShortcutBadge}>
+              <Ionicons name="qr-code-outline" size={16} color={colors.gold700} />
+              <Text style={screenLocalStyles.portariaShortcutBadgeText}>Portaria Prime</Text>
             </View>
-          ) : null}
-        </Pressable>
-      </View>
+            <Text style={screenLocalStyles.portariaShortcutTiming}>
+              {formatPortariaDateLabel(upcomingPortariaEvent.event_date)}
+            </Text>
+          </View>
+          <Text style={screenLocalStyles.portariaShortcutEventName} numberOfLines={1}>
+            {upcomingPortariaEvent.name}
+          </Text>
+          <Pressable
+            style={screenLocalStyles.portariaShortcutButton}
+            onPress={() => {
+              void AppHaptics.medium();
+              router.push(`/eventos/${upcomingPortariaEvent.id}/portaria`);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir Scanner da Portaria Prime para o evento ${upcomingPortariaEvent.name}`}
+          >
+            <Text style={screenLocalStyles.portariaShortcutButtonText}>Abrir Scanner</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.primaryTextOn} />
+          </Pressable>
+        </View>
+      ) : null}
 
       {refreshing ? (
         <View style={styles.refreshRow}>
@@ -224,7 +238,7 @@ export function EventsScreen() {
           onChangeText={setSearch}
           accessibilityLabel="Buscar eventos por nome ou local"
         />
-        {mode === 'assessoria' ? (
+        {!isTeamMemberOnly ? (
           <View style={styles.typeRow}>
             <Pill
               label="Todos"
@@ -254,7 +268,7 @@ export function EventsScreen() {
         ) : null}
       </View>
 
-      {mode === 'assessoria' ? (
+      {!isTeamMemberOnly ? (
         <FlatList
           data={filteredEvents}
           keyExtractor={(item) => item.id}
@@ -345,13 +359,16 @@ export function EventsScreen() {
               <View style={screenLocalStyles.assignedActionRow}>
                 <Text style={styles.eventStatus}>{eventStatusLabel(item.status)}</Text>
                 <Pressable
-                  style={screenLocalStyles.portariaButton}
-                  onPress={() => router.push(`/eventos/${item.id}`)}
+                  style={screenLocalStyles.portariaPrimaryCTA}
+                  onPress={() => {
+                    void AppHaptics.medium();
+                    router.push(`/eventos/${item.id}/portaria`);
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel={`Abrir Portaria do evento ${item.name}`}
                 >
-                  <Ionicons name="qr-code-outline" size={16} color={colors.primaryStrong} />
-                  <Text style={screenLocalStyles.portariaButtonText}>Portaria Prime</Text>
+                  <Ionicons name="qr-code-outline" size={16} color={colors.primaryTextOn} />
+                  <Text style={screenLocalStyles.portariaPrimaryCTAText}>Portaria Prime</Text>
                 </Pressable>
               </View>
             </Pressable>
@@ -402,51 +419,61 @@ function Pill({ label, selected, onPress }: { label: string; selected: boolean; 
 }
 
 const screenLocalStyles = StyleSheet.create({
-  modeSwitcherWrap: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: 12,
+  portariaShortcutCard: {
+    backgroundColor: '#0A1E32',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 3,
+    borderColor: 'rgba(212, 175, 55, 0.35)',
+    padding: 16,
     marginBottom: 12,
+    gap: 8,
   },
-  modeTab: {
-    flex: 1,
+  portariaShortcutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  portariaShortcutBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  portariaShortcutBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.gold600,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  portariaShortcutTiming: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E0E7FF',
+  },
+  portariaShortcutEventName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  portariaShortcutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
-    borderRadius: 9,
+    gap: 8,
+    backgroundColor: colors.primaryStrong,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 6,
   },
-  modeTabActive: {
-    backgroundColor: colors.primary,
-  },
-  modeTabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.mutedText,
-  },
-  modeTabTextActive: {
-    color: colors.primaryTextOn,
+  portariaShortcutButtonText: {
+    fontSize: 14,
     fontWeight: '700',
-  },
-  badgeCount: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 10,
-  },
-  badgeCountActive: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  badgeCountText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primaryStrong,
-  },
-  badgeCountTextActive: {
     color: colors.primaryTextOn,
   },
   assignedCard: {
@@ -487,18 +514,23 @@ const screenLocalStyles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  portariaButton: {
+  portariaPrimaryCTA: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: colors.primaryStrong,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: 8,
+    shadowColor: colors.primaryStrong,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  portariaButtonText: {
+  portariaPrimaryCTAText: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.primaryStrong,
+    color: colors.primaryTextOn,
   },
 });
