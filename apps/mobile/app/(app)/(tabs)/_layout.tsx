@@ -77,7 +77,7 @@ export default function AppTabsLayout() {
           options={{
             title: 'Início',
             tabBarAccessibilityLabel: 'Início',
-            href: isTeamMemberOnly ? null : undefined,
+            
           }}
         />
         <Tabs.Screen name="eventos" options={{ title: 'Eventos', tabBarAccessibilityLabel: 'Eventos' }} />
@@ -108,7 +108,7 @@ export default function AppTabsLayout() {
         <Tabs.Screen name="mais" options={{ title: 'Mais', tabBarAccessibilityLabel: 'Mais opções' }} />
       </Tabs>
       <ModuleWalkthroughBanner />
-      <PlanAssistantFloating />
+      {!isTeamMemberOnly && <PlanAssistantFloating />}
     </View>
   );
 }

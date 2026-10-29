@@ -14,6 +14,8 @@ import { getPrivateFileDownloadUrl, uploadPrivateAsset } from '../lib/r2FileStor
 import { supabase } from '../lib/supabase';
 import type { EventDetailsInitialTab } from '../navigation/eventRouteTypes';
 import { colors } from '../theme/colors';
+import { useUserRole } from '../contexts/UserRoleContext';
+import { TeamMemberDashboardView } from '../features/team-dashboard/TeamMemberDashboardView';
 
 type EventRow = {
   id: string;
@@ -58,6 +60,7 @@ function isoToday() {
 export function DashboardScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isOwner, isTeamMemberOnly, assignedEvents, refreshAssignedEvents } = useUserRole();
   const [loading, setLoading] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState('');
@@ -74,6 +77,26 @@ export function DashboardScreen() {
     if (!user?.id) { setLoading(false); return; }
     setLoading(true);
     setError('');
+    if (isTeamMemberOnly) {
+      const profileRes = await supabase
+        .from('user_onboarding_state')
+        .select('display_name,avatar_url,avatar_file_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const nextProfile = (profileRes.data as ProfileRow | null) ?? null;
+      setProfile(nextProfile);
+      if (nextProfile?.avatar_file_id) {
+        try { setAvatarUrl(await getPrivateFileDownloadUrl(nextProfile.avatar_file_id)); }
+        catch { setAvatarUrl(nextProfile.avatar_url); }
+      } else {
+        setAvatarUrl(nextProfile?.avatar_url ?? (String(user.user_metadata?.avatar_url ?? '') || null));
+      }
+      await refreshAssignedEvents();
+      setLoading(false);
+      return;
+    }
+
     const [eventsRes, clientsRes, profileRes] = await Promise.all([
       supabase.from('events').select('id,name,event_date,location,status,event_type,couple_photo_url,couple_photo_file_id').or('status.is.null,status.neq.deleted').order('event_date', { ascending: true }),
       supabase.from('crm_clients').select('id', { count: 'exact', head: true }).neq('stage', 'closed_lost'),
@@ -111,6 +134,22 @@ export function DashboardScreen() {
   useFocusEffect(useCallback(() => { void load(); void syncPushDeviceToken(); }, [load]));
 
   const activeEvents = useMemo(() => events.filter((item) => !['completed', 'cancelled', 'deleted'].includes(String(item.status ?? 'active').toLowerCase())), [events]);
+
+  const upcomingPortariaEvent = useMemo(() => {
+    if (!isOwner || events.length === 0) return null;
+    const now = Date.now();
+    const limit48h = now + 48 * 60 * 60 * 1000;
+    const marginPast = now - 12 * 60 * 60 * 1000;
+
+    return events.find((ev) => {
+      const status = (ev.status || '').toLowerCase();
+      if (['cancelado', 'cancelled', 'concluido', 'completed', 'deleted'].includes(status)) {
+        return false;
+      }
+      const evTime = new Date(ev.event_date).getTime();
+      return evTime >= marginPast && evTime <= limit48h;
+    }) ?? null;
+  }, [events, isOwner]);
   const eventPickerEvents = useMemo(() => {
     const term = eventPickerSearch.trim().toLocaleLowerCase('pt-BR');
     if (!term) return activeEvents;
@@ -163,6 +202,19 @@ export function DashboardScreen() {
 
   if (loading) return <PrimeLogoLoader label="Preparando seu dia" />;
 
+  if (isTeamMemberOnly) {
+    return (
+      <TeamMemberDashboardView
+        displayName={displayName}
+        avatarUrl={avatarUrl}
+        onPickAvatar={() => void pickAvatar()}
+        uploadingAvatar={uploadingAvatar}
+        assignedEvents={assignedEvents}
+        onRefreshEvents={refreshAssignedEvents}
+      />
+    );
+  }
+
   return (
     <Screen>
       <View style={styles.hero}>
@@ -209,6 +261,30 @@ export function DashboardScreen() {
           </Pressable>
         )}
       </View>
+
+      {upcomingPortariaEvent ? (
+        <View style={styles.portariaOwnerCard}>
+          <View style={styles.portariaOwnerBadge}>
+            <Ionicons name="qr-code-outline" size={12} color="#D4AF37" />
+            <Text style={styles.portariaOwnerBadgeText}>PORTARIA PRIME</Text>
+          </View>
+          <Text style={styles.portariaOwnerTitle} numberOfLines={1}>
+            {upcomingPortariaEvent.name}
+          </Text>
+          <Text style={styles.portariaOwnerSubtitle}>
+            Recepção e check-in offline de convidados pronto para operar.
+          </Text>
+          <Pressable
+            style={styles.portariaOwnerBtn}
+            onPress={() => router.push(`/eventos/${upcomingPortariaEvent.id}/portaria`)}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir Portaria de ${upcomingPortariaEvent.name}`}
+          >
+            <Ionicons name="scan-outline" size={18} color="#111318" />
+            <Text style={styles.portariaOwnerBtnText}>Abrir Portaria do Evento</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <View style={styles.statRow}>
         <View style={[styles.statCard, styles.statLavender]}><Ionicons name="people-outline" size={21} color="#6D54D8" /><Text style={styles.statValue}>{clientsCount}</Text><Text style={styles.statLabel}>Clientes em atendimento</Text></View>
@@ -318,6 +394,55 @@ const styles = StyleSheet.create({
   nextCopy: { flex: 1, gap: 3 },
   eyebrow: { color: '#72550A', fontSize: 10, fontWeight: '800', letterSpacing: 1.1 },
   nextTitle: { color: '#111318', fontSize: 16, fontWeight: '800' },
+  portariaOwnerCard: {
+    backgroundColor: '#0A1E32',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    padding: 16,
+    gap: 6,
+    marginBottom: 4,
+  },
+  portariaOwnerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  portariaOwnerBadgeText: {
+    color: '#D4AF37',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  portariaOwnerTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  portariaOwnerSubtitle: {
+    color: '#94A3B8',
+    fontSize: 12,
+  },
+  portariaOwnerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F2D875',
+    borderRadius: 12,
+    paddingVertical: 10,
+    marginTop: 6,
+  },
+  portariaOwnerBtnText: {
+    color: '#111318',
+    fontSize: 14,
+    fontWeight: '800',
+  },
   nextDetail: { color: '#5C4A18', fontSize: 12, lineHeight: 17 },
   nextButton: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#111318', alignItems: 'center', justifyContent: 'center' },
   statRow: { flexDirection: 'row', gap: 10 },

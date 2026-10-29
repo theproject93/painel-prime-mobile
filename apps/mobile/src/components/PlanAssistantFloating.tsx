@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
+import { useUserRole } from '../contexts/UserRoleContext';
 import { buildRouteContext, extractEventTabFromPath, normalizeText } from '../features/plan-assistant/core';
 import { PlanAssistantChatSheet } from '../features/plan-assistant/PlanAssistantChatSheet';
 import { PlanAssistantFab } from '../features/plan-assistant/PlanAssistantFab';
@@ -38,6 +39,7 @@ function navigateByCtaPath(router: ReturnType<typeof useRouter>, rawPath: string
 }
 
 export function PlanAssistantFloating() {
+  const { isTeamMemberOnly } = useUserRole();
   const { user } = useAuth();
   const { requestMeasure } = useWalkthroughAnchors();
   const router = useRouter();
@@ -66,6 +68,8 @@ export function PlanAssistantFloating() {
     setIsOpen(true);
     hints.hideProactiveBubble();
   }, [hints.hideProactiveBubble]);
+  if (isTeamMemberOnly) return null;
+
   const floating = useFloatingAssistantPosition(userId, isOpen, openChat, closeChat);
 
   useEffect(() => {
