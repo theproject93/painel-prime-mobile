@@ -13,6 +13,7 @@ import { computeCanonicalPayloadHashSync } from '../engine/receptionHash';
 import { autoHealInFlightOperations } from '../engine/receptionAutoHeal';
 
 export const RECEPTION_DB_NAME = 'reception_prime.db';
+const GLOBAL_RECEPTION_DB_KEY = '__painel_prime_reception_db__';
 
 let dbInstance: SQLiteDatabase | null = null;
 
@@ -95,10 +96,21 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
 }
 
 /**
+ * Reseta ou invalida a conexão com o banco SQLite.
+ */
+export function invalidateDatabaseInstance(): void {
+  const g = globalThis as unknown as { [GLOBAL_RECEPTION_DB_KEY]?: SQLiteDatabase };
+  g[GLOBAL_RECEPTION_DB_KEY] = undefined;
+  dbInstance = null;
+}
+
+/**
  * Define ou reseta a instância do banco SQLite (utilizado em testes unitários).
  */
 export function setDatabaseInstanceForTesting(db: SQLiteDatabase | null): void {
   dbInstance = db;
+  const g = globalThis as unknown as { [GLOBAL_RECEPTION_DB_KEY]?: SQLiteDatabase };
+  g[GLOBAL_RECEPTION_DB_KEY] = db || undefined;
 }
 
 /**
@@ -106,12 +118,49 @@ export function setDatabaseInstanceForTesting(db: SQLiteDatabase | null): void {
  */
 export async function getDatabase(dbOverride?: SQLiteDatabase): Promise<SQLiteDatabase> {
   if (dbOverride) return dbOverride;
-  if (dbInstance) return dbInstance;
+  const g = globalThis as unknown as { [GLOBAL_RECEPTION_DB_KEY]?: SQLiteDatabase };
+  if (g[GLOBAL_RECEPTION_DB_KEY]) {
+    return g[GLOBAL_RECEPTION_DB_KEY]!;
+  }
+  if (dbInstance) {
+    g[GLOBAL_RECEPTION_DB_KEY] = dbInstance;
+    return dbInstance;
+  }
   const SQLite = await import('expo-sqlite');
   const db = await SQLite.openDatabaseAsync(RECEPTION_DB_NAME);
   await runMigrations(db);
   dbInstance = db;
+  g[GLOBAL_RECEPTION_DB_KEY] = db;
   return db;
+}
+
+/**
+ * Executa uma operação contra o SQLite local com proteção e reconexão automática
+ * em caso de perda de referência nativa (Hermes GC / NullPointerException no JNI).
+ */
+export async function withDatabase<T>(
+  operation: (db: SQLiteDatabase) => Promise<T>,
+  dbOverride?: SQLiteDatabase,
+): Promise<T> {
+  let db = await getDatabase(dbOverride);
+  try {
+    return await operation(db);
+  } catch (error: any) {
+    const errorStr = String(error?.message || error || '');
+    const isNativeNpe =
+      errorStr.includes('NullPointerException') ||
+      errorStr.includes('NativeDatabase') ||
+      errorStr.includes('prepareAsync') ||
+      errorStr.includes('closed');
+
+    if (isNativeNpe && !dbOverride) {
+      console.warn('[ReceptionDb] Reconectando SQLite após erro nativo:', errorStr);
+      invalidateDatabaseInstance();
+      const freshDb = await getDatabase();
+      return await operation(freshDb);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -136,76 +185,77 @@ export async function saveSnapshot(
   snapshot: ReceptionEventSnapshot,
   dbOverride?: SQLiteDatabase,
 ): Promise<void> {
-  const db = await getDatabase(dbOverride);
-  const now = new Date().toISOString();
-  const event = snapshot.event;
+  return withDatabase(async (db) => {
+    const now = new Date().toISOString();
+    const event = snapshot.event;
 
-  // 1. Salva metadados do snapshot
-  await db.runAsync(
-    `INSERT INTO reception_snapshots (
-      event_id, name, event_date, status, location,
-      reception_offline_expires_at, snapshot_at, raw_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(event_id) DO UPDATE SET
-      name = excluded.name,
-      event_date = excluded.event_date,
-      status = excluded.status,
-      location = excluded.location,
-      reception_offline_expires_at = excluded.reception_offline_expires_at,
-      snapshot_at = excluded.snapshot_at,
-      raw_json = excluded.raw_json,
-      updated_at = excluded.updated_at;`,
-    event.id,
-    event.name,
-    event.event_date,
-    event.status,
-    event.location,
-    event.reception_offline_expires_at,
-    snapshot.snapshot_at || now,
-    JSON.stringify(snapshot),
-    now,
-    now,
-  );
-
-  // 2. Salva convidados do snapshot
-  for (const guest of snapshot.guests) {
+    // 1. Salva metadados do snapshot
     await db.runAsync(
-      `INSERT INTO reception_guests (
-        id, event_id, name, phone, qr_token, family_group_id,
-        is_group_leader, group_leader_id, group_sort_order,
-        checked_in_at, checked_in_by, table_id, table_name,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
+      `INSERT INTO reception_snapshots (
+        event_id, name, event_date, status, location,
+        reception_offline_expires_at, snapshot_at, raw_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(event_id) DO UPDATE SET
         name = excluded.name,
-        phone = excluded.phone,
-        qr_token = excluded.qr_token,
-        family_group_id = excluded.family_group_id,
-        is_group_leader = excluded.is_group_leader,
-        group_leader_id = excluded.group_leader_id,
-        group_sort_order = excluded.group_sort_order,
-        checked_in_at = COALESCE(excluded.checked_in_at, reception_guests.checked_in_at),
-        checked_in_by = COALESCE(excluded.checked_in_by, reception_guests.checked_in_by),
-        table_id = excluded.table_id,
-        table_name = excluded.table_name,
+        event_date = excluded.event_date,
+        status = excluded.status,
+        location = excluded.location,
+        reception_offline_expires_at = excluded.reception_offline_expires_at,
+        snapshot_at = excluded.snapshot_at,
+        raw_json = excluded.raw_json,
         updated_at = excluded.updated_at;`,
-      guest.id,
-      guest.event_id || event.id,
-      guest.name,
-      guest.phone ?? null,
-      guest.qr_token ? guest.qr_token.toLowerCase().trim() : null,
-      guest.family_group_id ?? null,
-      guest.is_group_leader ? 1 : 0,
-      guest.group_leader_id ?? null,
-      guest.group_sort_order ?? null,
-      guest.checked_in_at ?? null,
-      guest.checked_in_by ?? null,
-      guest.table_id ?? null,
-      guest.table_name ?? null,
+      event.id,
+      event.name,
+      event.event_date,
+      event.status,
+      event.location,
+      event.reception_offline_expires_at,
+      snapshot.snapshot_at || now,
+      JSON.stringify(snapshot),
       now,
       now,
     );
-  }
+
+    // 2. Salva convidados do snapshot
+    for (const guest of snapshot.guests) {
+      await db.runAsync(
+        `INSERT INTO reception_guests (
+          id, event_id, name, phone, qr_token, family_group_id,
+          is_group_leader, group_leader_id, group_sort_order,
+          checked_in_at, checked_in_by, table_id, table_name,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          phone = excluded.phone,
+          qr_token = excluded.qr_token,
+          family_group_id = excluded.family_group_id,
+          is_group_leader = excluded.is_group_leader,
+          group_leader_id = excluded.group_leader_id,
+          group_sort_order = excluded.group_sort_order,
+          checked_in_at = COALESCE(excluded.checked_in_at, reception_guests.checked_in_at),
+          checked_in_by = COALESCE(excluded.checked_in_by, reception_guests.checked_in_by),
+          table_id = excluded.table_id,
+          table_name = excluded.table_name,
+          updated_at = excluded.updated_at;`,
+        guest.id,
+        guest.event_id || event.id,
+        guest.name,
+        guest.phone ?? null,
+        guest.qr_token ? guest.qr_token.toLowerCase().trim() : null,
+        guest.family_group_id ?? null,
+        guest.is_group_leader ? 1 : 0,
+        guest.group_leader_id ?? null,
+        guest.group_sort_order ?? null,
+        guest.checked_in_at ?? null,
+        guest.checked_in_by ?? null,
+        guest.table_id ?? null,
+        guest.table_name ?? null,
+        now,
+        now,
+      );
+    }
+  }, dbOverride);
 }
 
 /**
@@ -215,11 +265,12 @@ export async function getSnapshot(
   eventId: string,
   dbOverride?: SQLiteDatabase,
 ): Promise<ReceptionSnapshotRow | null> {
-  const db = await getDatabase(dbOverride);
-  return db.getFirstAsync<ReceptionSnapshotRow>(
-    `SELECT * FROM reception_snapshots WHERE event_id = ?;`,
-    eventId,
-  );
+  return withDatabase(async (db) => {
+    return db.getFirstAsync<ReceptionSnapshotRow>(
+      `SELECT * FROM reception_snapshots WHERE event_id = ?;`,
+      eventId,
+    );
+  }, dbOverride);
 }
 
 /**
@@ -228,36 +279,38 @@ export async function getSnapshot(
 export async function findGuestByQrToken(
   eventId: string,
   qrToken: string,
+  dbOverride?: SQLiteDatabase,
 ): Promise<ReceptionGuest | null> {
-  const db = await getDatabase();
-  const normalizedToken = qrToken.toLowerCase().trim();
+  return withDatabase(async (db) => {
+    const normalizedToken = qrToken.toLowerCase().trim();
 
-  const row = await db.getFirstAsync<{
-    id: string;
-    event_id: string;
-    name: string;
-    phone: string | null;
-    qr_token: string | null;
-    family_group_id: string | null;
-    is_group_leader: number;
-    group_leader_id: string | null;
-    group_sort_order: number | null;
-    checked_in_at: string | null;
-    checked_in_by: string | null;
-    table_id: string | null;
-    table_name: string | null;
-  }>(
-    `SELECT * FROM reception_guests WHERE event_id = ? AND qr_token = ?;`,
-    eventId,
-    normalizedToken,
-  );
+    const row = await db.getFirstAsync<{
+      id: string;
+      event_id: string;
+      name: string;
+      phone: string | null;
+      qr_token: string | null;
+      family_group_id: string | null;
+      is_group_leader: number;
+      group_leader_id: string | null;
+      group_sort_order: number | null;
+      checked_in_at: string | null;
+      checked_in_by: string | null;
+      table_id: string | null;
+      table_name: string | null;
+    }>(
+      `SELECT * FROM reception_guests WHERE event_id = ? AND qr_token = ?;`,
+      eventId,
+      normalizedToken,
+    );
 
-  if (!row) return null;
+    if (!row) return null;
 
-  return {
-    ...row,
-    is_group_leader: Boolean(row.is_group_leader),
-  };
+    return {
+      ...row,
+      is_group_leader: Boolean(row.is_group_leader),
+    };
+  }, dbOverride);
 }
 
 /**
@@ -266,34 +319,36 @@ export async function findGuestByQrToken(
 export async function findGuestById(
   eventId: string,
   guestId: string,
+  dbOverride?: SQLiteDatabase,
 ): Promise<ReceptionGuest | null> {
-  const db = await getDatabase();
-  const row = await db.getFirstAsync<{
-    id: string;
-    event_id: string;
-    name: string;
-    phone: string | null;
-    qr_token: string | null;
-    family_group_id: string | null;
-    is_group_leader: number;
-    group_leader_id: string | null;
-    group_sort_order: number | null;
-    checked_in_at: string | null;
-    checked_in_by: string | null;
-    table_id: string | null;
-    table_name: string | null;
-  }>(
-    `SELECT * FROM reception_guests WHERE event_id = ? AND id = ?;`,
-    eventId,
-    guestId,
-  );
+  return withDatabase(async (db) => {
+    const row = await db.getFirstAsync<{
+      id: string;
+      event_id: string;
+      name: string;
+      phone: string | null;
+      qr_token: string | null;
+      family_group_id: string | null;
+      is_group_leader: number;
+      group_leader_id: string | null;
+      group_sort_order: number | null;
+      checked_in_at: string | null;
+      checked_in_by: string | null;
+      table_id: string | null;
+      table_name: string | null;
+    }>(
+      `SELECT * FROM reception_guests WHERE event_id = ? AND id = ?;`,
+      eventId,
+      guestId,
+    );
 
-  if (!row) return null;
+    if (!row) return null;
 
-  return {
-    ...row,
-    is_group_leader: Boolean(row.is_group_leader),
-  };
+    return {
+      ...row,
+      is_group_leader: Boolean(row.is_group_leader),
+    };
+  }, dbOverride);
 }
 
 /**
@@ -302,68 +357,76 @@ export async function findGuestById(
 export async function getFamilyGroupMembers(
   eventId: string,
   familyGroupId: string,
+  dbOverride?: SQLiteDatabase,
 ): Promise<ReceptionGuest[]> {
-  const db = await getDatabase();
-  const rows = await db.getAllAsync<{
-    id: string;
-    event_id: string;
-    name: string;
-    phone: string | null;
-    qr_token: string | null;
-    family_group_id: string | null;
-    is_group_leader: number;
-    group_leader_id: string | null;
-    group_sort_order: number | null;
-    checked_in_at: string | null;
-    checked_in_by: string | null;
-    table_id: string | null;
-    table_name: string | null;
-  }>(
-    `SELECT * FROM reception_guests
-     WHERE event_id = ? AND family_group_id = ?
-     ORDER BY is_group_leader DESC, group_sort_order ASC, name ASC;`,
-    eventId,
-    familyGroupId,
-  );
+  return withDatabase(async (db) => {
+    const rows = await db.getAllAsync<{
+      id: string;
+      event_id: string;
+      name: string;
+      phone: string | null;
+      qr_token: string | null;
+      family_group_id: string | null;
+      is_group_leader: number;
+      group_leader_id: string | null;
+      group_sort_order: number | null;
+      checked_in_at: string | null;
+      checked_in_by: string | null;
+      table_id: string | null;
+      table_name: string | null;
+    }>(
+      `SELECT * FROM reception_guests
+       WHERE event_id = ? AND family_group_id = ?
+       ORDER BY is_group_leader DESC, group_sort_order ASC, name ASC;`,
+      eventId,
+      familyGroupId,
+    );
 
-  return rows.map((r) => ({
-    ...r,
-    is_group_leader: Boolean(r.is_group_leader),
-  }));
+    return rows.map((r) => ({
+      ...r,
+      is_group_leader: Boolean(r.is_group_leader),
+    }));
+  }, dbOverride);
 }
 
 /**
- * Busca convidados por nome no evento.
+ * Busca convidados por nome ou telefone no evento.
  */
-export async function searchGuests(eventId: string, query: string): Promise<ReceptionGuest[]> {
-  const db = await getDatabase();
-  const term = `%${query.trim()}%`;
-  const rows = await db.getAllAsync<{
-    id: string;
-    event_id: string;
-    name: string;
-    phone: string | null;
-    qr_token: string | null;
-    family_group_id: string | null;
-    is_group_leader: number;
-    group_leader_id: string | null;
-    group_sort_order: number | null;
-    checked_in_at: string | null;
-    checked_in_by: string | null;
-    table_id: string | null;
-    table_name: string | null;
-  }>(
-    `SELECT * FROM reception_guests
-     WHERE event_id = ? AND name LIKE ?
-     ORDER BY name ASC LIMIT 50;`,
-    eventId,
-    term,
-  );
+export async function searchGuests(
+  eventId: string,
+  query: string,
+  dbOverride?: SQLiteDatabase,
+): Promise<ReceptionGuest[]> {
+  return withDatabase(async (db) => {
+    const term = `%${query.trim()}%`;
+    const rows = await db.getAllAsync<{
+      id: string;
+      event_id: string;
+      name: string;
+      phone: string | null;
+      qr_token: string | null;
+      family_group_id: string | null;
+      is_group_leader: number;
+      group_leader_id: string | null;
+      group_sort_order: number | null;
+      checked_in_at: string | null;
+      checked_in_by: string | null;
+      table_id: string | null;
+      table_name: string | null;
+    }>(
+      `SELECT * FROM reception_guests
+       WHERE event_id = ? AND (name LIKE ? OR phone LIKE ?)
+       ORDER BY name ASC LIMIT 50;`,
+      eventId,
+      term,
+      term,
+    );
 
-  return rows.map((r) => ({
-    ...r,
-    is_group_leader: Boolean(r.is_group_leader),
-  }));
+    return rows.map((r) => ({
+      ...r,
+      is_group_leader: Boolean(r.is_group_leader),
+    }));
+  }, dbOverride);
 }
 
 /**
@@ -372,69 +435,71 @@ export async function searchGuests(eventId: string, query: string): Promise<Rece
  */
 export async function enqueueCheckIn(
   input: CreateReceptionQueueInput,
+  dbOverride?: SQLiteDatabase,
 ): Promise<ReceptionQueueRow> {
-  const db = await getDatabase();
-  const scanId = input.client_scan_id || input.clientScanId || generateUuidV4();
-  const scannedAt = input.scanned_at || new Date().toISOString();
-  const now = new Date().toISOString();
+  return withDatabase(async (db) => {
+    const scanId = input.client_scan_id || input.clientScanId || generateUuidV4();
+    const scannedAt = input.scanned_at || new Date().toISOString();
+    const now = new Date().toISOString();
 
-  const canonicalHash =
-    input.canonical_payload_hash ||
-    computeCanonicalPayloadHashSync({
+    const canonicalHash =
+      input.canonical_payload_hash ||
+      computeCanonicalPayloadHashSync({
+        client_scan_id: scanId,
+        scanned_qr_token: input.scanned_qr_token ?? null,
+        scanned_guest_id: input.scanned_guest_id ?? null,
+        confirmed_guest_ids: input.confirmed_guest_ids,
+      });
+
+    const serializedConfirmed = JSON.stringify(input.confirmed_guest_ids);
+
+    // 1. Grava na fila de operações duráveis
+    await db.runAsync(
+      `INSERT INTO reception_queue (
+        client_scan_id, event_id, scanned_qr_token, scanned_guest_id,
+        confirmed_guest_ids, canonical_payload_hash, state,
+        retry_count, created_at, scanned_at, synced_at,
+        error_code, error_message, server_response
+      ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, NULL, NULL, NULL, NULL);`,
+      scanId,
+      input.event_id,
+      input.scanned_qr_token ?? null,
+      input.scanned_guest_id ?? null,
+      serializedConfirmed,
+      canonicalHash,
+      now,
+      scannedAt,
+    );
+
+    // 2. Atualiza status local nos convidados para resposta visual imediata (otimista)
+    for (const guestId of input.confirmed_guest_ids) {
+      await db.runAsync(
+        `UPDATE reception_guests
+         SET checked_in_at = COALESCE(checked_in_at, ?),
+             checked_in_by = COALESCE(checked_in_by, 'Portaria Nativa')
+         WHERE id = ?;`,
+        scannedAt,
+        guestId,
+      );
+    }
+
+    return {
       client_scan_id: scanId,
+      event_id: input.event_id,
       scanned_qr_token: input.scanned_qr_token ?? null,
       scanned_guest_id: input.scanned_guest_id ?? null,
       confirmed_guest_ids: input.confirmed_guest_ids,
-    });
-
-  const serializedConfirmed = JSON.stringify(input.confirmed_guest_ids);
-
-  // 1. Grava na fila de operações duráveis
-  await db.runAsync(
-    `INSERT INTO reception_queue (
-      client_scan_id, event_id, scanned_qr_token, scanned_guest_id,
-      confirmed_guest_ids, canonical_payload_hash, state,
-      retry_count, created_at, scanned_at, synced_at,
-      error_code, error_message, server_response
-    ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, NULL, NULL, NULL, NULL);`,
-    scanId,
-    input.event_id,
-    input.scanned_qr_token ?? null,
-    input.scanned_guest_id ?? null,
-    serializedConfirmed,
-    canonicalHash,
-    now,
-    scannedAt,
-  );
-
-  // 2. Atualiza status local nos convidados para resposta visual imediata (otimista)
-  for (const guestId of input.confirmed_guest_ids) {
-    await db.runAsync(
-      `UPDATE reception_guests
-       SET checked_in_at = COALESCE(checked_in_at, ?),
-           checked_in_by = COALESCE(checked_in_by, 'Portaria Nativa')
-       WHERE id = ?;`,
-      scannedAt,
-      guestId,
-    );
-  }
-
-  return {
-    client_scan_id: scanId,
-    event_id: input.event_id,
-    scanned_qr_token: input.scanned_qr_token ?? null,
-    scanned_guest_id: input.scanned_guest_id ?? null,
-    confirmed_guest_ids: input.confirmed_guest_ids,
-    canonical_payload_hash: canonicalHash,
-    state: 'pending',
-    retry_count: 0,
-    created_at: now,
-    scanned_at: scannedAt,
-    synced_at: null,
-    error_code: null,
-    error_message: null,
-    server_response: null,
-  };
+      canonical_payload_hash: canonicalHash,
+      state: 'pending',
+      retry_count: 0,
+      created_at: now,
+      scanned_at: scannedAt,
+      synced_at: null,
+      error_code: null,
+      error_message: null,
+      server_response: null,
+    };
+  }, dbOverride);
 }
 
 /**
@@ -444,19 +509,20 @@ export async function getPendingQueue(
   eventId?: string,
   dbOverride?: SQLiteDatabase,
 ): Promise<ReceptionQueueRow[]> {
-  const db = await getDatabase(dbOverride);
-  const query = eventId
-    ? `SELECT * FROM reception_queue
-       WHERE event_id = ? AND state IN ('pending', 'in_flight', 'needs_attention')
-       ORDER BY created_at ASC;`
-    : `SELECT * FROM reception_queue
-       WHERE state IN ('pending', 'in_flight', 'needs_attention')
-       ORDER BY created_at ASC;`;
+  return withDatabase(async (db) => {
+    const query = eventId
+      ? `SELECT * FROM reception_queue
+         WHERE event_id = ? AND state IN ('pending', 'in_flight', 'needs_attention')
+         ORDER BY created_at ASC;`
+      : `SELECT * FROM reception_queue
+         WHERE state IN ('pending', 'in_flight', 'needs_attention')
+         ORDER BY created_at ASC;`;
 
-  const params = eventId ? [eventId] : [];
-  const rows = await db.getAllAsync<any>(query, ...params);
+    const params = eventId ? [eventId] : [];
+    const rows = await db.getAllAsync<any>(query, ...params);
 
-  return rows.map(mapQueueRow);
+    return rows.map(mapQueueRow);
+  }, dbOverride);
 }
 
 /**
@@ -473,39 +539,40 @@ export async function updateQueueState(
   },
   dbOverride?: SQLiteDatabase,
 ): Promise<void> {
-  const db = await getDatabase(dbOverride);
-  const existing = await db.getFirstAsync<{ state: CheckInState }>(
-    `SELECT state FROM reception_queue WHERE client_scan_id = ?;`,
-    clientScanId,
-  );
+  return withDatabase(async (db) => {
+    const existing = await db.getFirstAsync<{ state: CheckInState }>(
+      `SELECT state FROM reception_queue WHERE client_scan_id = ?;`,
+      clientScanId,
+    );
 
-  if (!existing) {
-    throw new Error(`Operação ${clientScanId} não encontrada na fila SQLite.`);
-  }
+    if (!existing) {
+      throw new Error(`Operação ${clientScanId} não encontrada na fila SQLite.`);
+    }
 
-  // Valida regras da máquina de estados
-  validateTransition(existing.state, newState);
+    // Valida regras da máquina de estados
+    validateTransition(existing.state, newState);
 
-  const syncedAt = details?.synced_at ?? null;
-  const errorCode = details?.error_code ?? null;
-  const errorMessage = details?.error_message ?? null;
-  const serverResponse = details?.server_response ? JSON.stringify(details.server_response) : null;
+    const syncedAt = details?.synced_at ?? null;
+    const errorCode = details?.error_code ?? null;
+    const errorMessage = details?.error_message ?? null;
+    const serverResponse = details?.server_response ? JSON.stringify(details.server_response) : null;
 
-  await db.runAsync(
-    `UPDATE reception_queue
-     SET state = ?,
-         synced_at = COALESCE(?, synced_at),
-         error_code = ?,
-         error_message = ?,
-         server_response = ?
-     WHERE client_scan_id = ?;`,
-    newState,
-    syncedAt,
-    errorCode,
-    errorMessage,
-    serverResponse,
-    clientScanId,
-  );
+    await db.runAsync(
+      `UPDATE reception_queue
+      SET state = ?,
+          synced_at = COALESCE(?, synced_at),
+          error_code = ?,
+          error_message = ?,
+          server_response = ?
+      WHERE client_scan_id = ?;`,
+      newState,
+      syncedAt,
+      errorCode,
+      errorMessage,
+      serverResponse,
+      clientScanId,
+    );
+  }, dbOverride);
 }
 
 /**
@@ -531,18 +598,19 @@ export async function updateGuestCheckedInStatus(
   dbOverride?: SQLiteDatabase,
 ): Promise<void> {
   if (guestIds.length === 0) return;
-  const db = await getDatabase(dbOverride);
-  for (const guestId of guestIds) {
-    await db.runAsync(
-      `UPDATE reception_guests
-       SET checked_in_at = COALESCE(?, checked_in_at),
-           checked_in_by = COALESCE(?, checked_in_by)
-       WHERE id = ?;`,
-      checkedInAt,
-      checkedInBy ?? 'Portaria Nativa',
-      guestId,
-    );
-  }
+  return withDatabase(async (db) => {
+    for (const guestId of guestIds) {
+      await db.runAsync(
+        `UPDATE reception_guests
+        SET checked_in_at = COALESCE(?, checked_in_at),
+            checked_in_by = COALESCE(?, checked_in_by)
+        WHERE id = ?;`,
+        checkedInAt,
+        checkedInBy ?? 'Portaria Nativa',
+        guestId,
+      );
+    }
+  }, dbOverride);
 }
 
 /**
@@ -554,22 +622,23 @@ export async function markQueueItemsNeedsAttention(
   errorMessage?: string,
   dbOverride?: SQLiteDatabase,
 ): Promise<number> {
-  const db = await getDatabase(dbOverride);
-  const msg = errorMessage || 'Limite de tentativas de sincronização excedido.';
-  const query = eventId
-    ? `UPDATE reception_queue
-       SET state = 'needs_attention',
-           error_code = COALESCE(error_code, 'max_retries_exceeded'),
-           error_message = ?
-       WHERE retry_count >= ? AND state = 'pending' AND event_id = ?;`
-    : `UPDATE reception_queue
-       SET state = 'needs_attention',
-           error_code = COALESCE(error_code, 'max_retries_exceeded'),
-           error_message = ?
-       WHERE retry_count >= ? AND state = 'pending';`;
-  const params = eventId ? [msg, maxRetries, eventId] : [msg, maxRetries];
-  const result = await db.runAsync(query, ...params);
-  return typeof result?.changes === 'number' ? result.changes : 0;
+  return withDatabase(async (db) => {
+    const msg = errorMessage || 'Limite de tentativas de sincronização excedido.';
+    const query = eventId
+      ? `UPDATE reception_queue
+        SET state = 'needs_attention',
+            error_code = COALESCE(error_code, 'max_retries_exceeded'),
+            error_message = ?
+        WHERE retry_count >= ? AND state = 'pending' AND event_id = ?;`
+      : `UPDATE reception_queue
+        SET state = 'needs_attention',
+            error_code = COALESCE(error_code, 'max_retries_exceeded'),
+            error_message = ?
+        WHERE retry_count >= ? AND state = 'pending';`;
+    const params = eventId ? [msg, maxRetries, eventId] : [msg, maxRetries];
+    const result = await db.runAsync(query, ...params);
+    return typeof result?.changes === 'number' ? result.changes : 0;
+  }, dbOverride);
 }
 
 function mapQueueRow(row: any): ReceptionQueueRow {

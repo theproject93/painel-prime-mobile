@@ -56,9 +56,20 @@ export function ManualSearchModal({
     }
   }, [visible, performSearch]);
 
+  // Debounce de 180ms para evitar concorrência desnecessária no SQLite durante digitação
+  useEffect(() => {
+    if (!visible || query === '') return;
+    const timer = setTimeout(() => {
+      void performSearch(query);
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [query, visible, performSearch]);
+
   const handleQueryChange = (text: string) => {
     setQuery(text);
-    void performSearch(text);
+    if (!text.trim()) {
+      void performSearch('');
+    }
   };
 
   const handleClear = () => {

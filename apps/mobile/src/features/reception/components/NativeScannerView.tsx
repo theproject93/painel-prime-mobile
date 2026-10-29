@@ -118,61 +118,61 @@ export function NativeScannerView({
           barcodeTypes: ['qr'],
         }}
         onBarcodeScanned={active ? handleBarcodeScanned : undefined}
-      >
-        {/* Máscara de foco escurecida com visor central transparente */}
-        <View style={styles.overlay}>
-          {/* Top Mask com Botão da Lanterna */}
-          <View style={styles.maskTop}>
-            <Pressable
-              style={[styles.torchButton, torch && styles.torchButtonActive]}
-              onPress={toggleTorch}
-              accessibilityLabel={torch ? 'Desligar Lanterna' : 'Ligar Lanterna'}
+      />
+
+      {/* Máscara de foco escurecida com visor central transparente (renderizada sobre a câmera via absoluteFillObject) */}
+      <View style={[StyleSheet.absoluteFillObject, styles.overlay]}>
+        {/* Top Mask com Botão da Lanterna */}
+        <View style={styles.maskTop}>
+          <Pressable
+            style={[styles.torchButton, torch && styles.torchButtonActive]}
+            onPress={toggleTorch}
+            accessibilityLabel={torch ? 'Desligar Lanterna' : 'Ligar Lanterna'}
+          >
+            <Ionicons
+              name={torch ? 'flash' : 'flash-off-outline'}
+              size={22}
+              color={torch ? '#023C69' : '#FFFFFF'}
+            />
+            <Text
+              style={[
+                styles.torchButtonText,
+                torch && styles.torchButtonTextActive,
+              ]}
             >
-              <Ionicons
-                name={torch ? 'flash' : 'flash-off-outline'}
-                size={22}
-                color={torch ? '#023C69' : '#FFFFFF'}
-              />
-              <Text
-                style={[
-                  styles.torchButtonText,
-                  torch && styles.torchButtonTextActive,
-                ]}
-              >
-                {torch ? 'Lanterna Ligada' : 'Lanterna'}
-              </Text>
-            </Pressable>
+              {torch ? 'Lanterna Ligada' : 'Lanterna'}
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Linha Central com Viewfinder (Retículo) */}
+        <View style={styles.maskCenterRow}>
+          <View style={styles.maskSide} />
+
+          <View style={styles.viewfinder}>
+            {/* 4 Cantos Visuais do Scanner */}
+            <View style={[styles.corner, styles.cornerTopLeft]} />
+            <View style={[styles.corner, styles.cornerTopRight]} />
+            <View style={[styles.corner, styles.cornerBottomLeft]} />
+            <View style={[styles.corner, styles.cornerBottomRight]} />
+
+            {/* Linha de Leitura Laser Vermelha/Dourada */}
+            <View style={styles.scanLaser} />
           </View>
 
-          {/* Linha Central com Viewfinder (Retículo) */}
-          <View style={styles.maskCenterRow}>
-            <View style={styles.maskSide} />
+          <View style={styles.maskSide} />
+        </View>
 
-            <View style={styles.viewfinder}>
-              {/* 4 Cantos Visuais do Scanner */}
-              <View style={[styles.corner, styles.cornerTopLeft]} />
-              <View style={[styles.corner, styles.cornerTopRight]} />
-              <View style={[styles.corner, styles.cornerBottomLeft]} />
-              <View style={[styles.corner, styles.cornerBottomRight]} />
-
-              {/* Linha de Leitura Laser Vermelha/Dourada */}
-              <View style={styles.scanLaser} />
-            </View>
-
-            <View style={styles.maskSide} />
-          </View>
-
-          {/* Bottom Mask com Instruções */}
-          <View style={styles.maskBottom}>
-            <View style={styles.instructionBadge}>
-              <Ionicons name="scan-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.instructionText}>
-                Aponte para o QR Code do convidado
-              </Text>
-            </View>
+        {/* Bottom Mask com Instruções */}
+        <View style={styles.maskBottom}>
+          <View style={styles.instructionBadge}>
+            <Ionicons name="scan-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.instructionText}>
+              Aponte para o QR Code do convidado
+            </Text>
           </View>
         </View>
-      </CameraView>
+      </View>
     </View>
   );
 }
