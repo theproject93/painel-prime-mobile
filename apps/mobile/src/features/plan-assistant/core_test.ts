@@ -1,6 +1,7 @@
 import { assertEquals } from 'jsr:@std/assert@1';
 
 import {
+  DEFAULT_PLAN_MESSAGES,
   HINT_REFRESH_TTL_MS,
   adaptWebPathsForMobile,
   buildHintMessage,
@@ -34,12 +35,14 @@ Deno.test('Plan assistant parses the existing response, token and history contra
   assertEquals(normalizeAccessToken('Bearer one.two.three'), 'one.two.three');
   assertEquals(normalizeAccessToken('invalid'), null);
   assertEquals(buildMessageHistory([
+    ...DEFAULT_PLAN_MESSAGES,
     { id: '1', role: 'user', text: 'Pergunta' },
     { id: '2', role: 'bot', text: 'Resposta' },
   ]), [
     { role: 'user', content: 'Pergunta' },
     { role: 'assistant', content: 'Resposta' },
   ]);
+  assertEquals(buildMessageHistory(DEFAULT_PLAN_MESSAGES), []);
 });
 
 Deno.test('Plan assistant keeps the FAB inside the nearest safe corner', () => {

@@ -159,7 +159,21 @@ export function adaptWebPathsForMobile(text: string): string {
 
 export function sanitizeAssistantMessage(text: string): string {
   if (!text || !text.trim()) return '';
-  const trimmed = text.trim();
+  const trimmed = text
+    .replace(
+      /<(?:thinking|thought|reasoning|reflection|internal_monologue)\b[^>]*>[\s\S]*?<\/(?:thinking|thought|reasoning|reflection|internal_monologue)>/gi,
+      '',
+    )
+    .replace(
+      /<(?:thinking|thought|reasoning|reflection|internal_monologue)\b[^>]*>[\s\S]*$/gi,
+      '',
+    )
+    .replace(
+      /<\/?(?:thinking|thought|reasoning|reflection|internal_monologue)\b[^>]*>/gi,
+      '',
+    )
+    .trim();
+  if (!trimmed) return '';
 
   // Guard against internal infra leaks, Edge Function names, database tables, secrets, AI provider names
   const containsInfraLeak =
@@ -339,7 +353,16 @@ export function normalizeAccessToken(token: string | null | undefined) {
 }
 
 export function buildMessageHistory(messages: ChatMessage[]) {
-  return messages.slice(-MESSAGE_HISTORY_LIMIT).map((message) => ({
+  const substantive = messages.filter(
+    (message) =>
+      message.id !== 'welcome' &&
+      !message.id.startsWith('hint-') &&
+      typeof message.text === 'string' &&
+      message.text.trim().length > 0,
+  );
+  const firstUserIdx = substantive.findIndex((message) => message.role === 'user');
+  const aligned = firstUserIdx >= 0 ? substantive.slice(firstUserIdx) : [];
+  return aligned.slice(-MESSAGE_HISTORY_LIMIT).map((message) => ({
     role: message.role === 'user' ? 'user' as const : 'assistant' as const,
     content: message.text,
   })) satisfies MessageHistoryItem[];

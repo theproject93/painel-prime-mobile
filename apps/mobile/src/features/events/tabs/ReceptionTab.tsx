@@ -1,4 +1,5 @@
 import { Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { EventEmptyState, EventListCard, EventModuleShell, EventSectionTitle } from '../EventWorkspace';
@@ -6,16 +7,33 @@ import { styles } from '../eventDetailsStyles';
 import { colors } from '../../../theme/colors';
 
 type ReceptionTabProps = {
+  eventId?: string;
   guests: any[];
   team: any[];
-  onOpenScanner: () => void;
+  onOpenScanner?: () => void;
   onOpenTeam: () => void;
   onSendAccess: (memberId: string) => void;
 };
 
-export function ReceptionTab({ guests, team, onOpenScanner, onOpenTeam, onSendAccess }: ReceptionTabProps) {
+export function ReceptionTab({
+  eventId,
+  guests,
+  team,
+  onOpenScanner,
+  onOpenTeam,
+  onSendAccess,
+}: ReceptionTabProps) {
+  const router = useRouter();
   const confirmed = guests.filter((guest) => guest.confirmed || guest.rsvp_status === 'confirmed').length;
   const arrived = guests.filter((guest) => Boolean(guest.checked_in_at)).length;
+
+  const handleOpenScanner = () => {
+    if (onOpenScanner) {
+      onOpenScanner();
+    } else if (eventId) {
+      router.push(`/eventos/${eventId}/portaria` as any);
+    }
+  };
 
   return (
     <EventModuleShell
@@ -28,7 +46,7 @@ export function ReceptionTab({ guests, team, onOpenScanner, onOpenTeam, onSendAc
         { label: 'Aguardados', value: Math.max(confirmed - arrived, 0), tone: 'gold' },
       ]}
       actionLabel="Abrir scanner"
-      onAction={onOpenScanner}
+      onAction={handleOpenScanner}
     >
       <View style={styles.receptionHero}>
         <Ionicons name="shield-checkmark-outline" size={38} color={colors.gold700} />

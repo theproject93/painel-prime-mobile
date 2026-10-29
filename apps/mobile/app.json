@@ -29,9 +29,11 @@
     "android": {
       "package": "br.com.painelprime.app",
       "versionCode": 22,
+      "allowBackup": false,
       "googleServicesFile": "./google-services.json",
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
@@ -81,6 +83,12 @@
         "expo-av",
         {
           "microphonePermission": "Permita que o Painel Prime use o microfone para conversar por voz com a Plan IA."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Painel Prime precisa de acesso à câmera para escanear QR Codes de convidados na Portaria."
         }
       ],
       "expo-font",

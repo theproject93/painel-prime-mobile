@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { Linking } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import type { EventDataKey, EventDataState, EventDetailsTab, EventPagingState } from '../eventDetailsData';
 import type { EventRow, VisibleKey } from '../eventDetailsTypes';
@@ -90,6 +90,7 @@ export function SimpleEventTabs(props: SimpleEventTabsProps) {
     gifts,
     loadingGifts,
   } = props;
+  const router = useRouter();
 
   return (
     <>
@@ -178,9 +179,10 @@ export function SimpleEventTabs(props: SimpleEventTabsProps) {
       )}
       {activeTab === 'reception' && (
         <ReceptionTab
+          eventId={eventId}
           guests={data.guests}
           team={data.team}
-          onOpenScanner={() => void Linking.openURL(`https://app.painelprime.com.br/recepcao/${eventId}`)}
+          onOpenScanner={() => router.push(`/eventos/${eventId}/portaria` as any)}
           onOpenTeam={onOpenTeam}
           onSendAccess={(memberId) => void actions.sendReceptionAccess(memberId)}
         />
