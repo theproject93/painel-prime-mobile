@@ -33,6 +33,7 @@ import {
   type ReceptionGuest,
   type ReceptionSnapshotRow,
   type CheckInState,
+  type ApplyReceptionResult,
 } from '../../../../src/features/reception';
 import { AppHaptics } from '../../../../src/lib/haptics';
 
@@ -69,6 +70,45 @@ export default function PortariaScreen() {
   const [lastScanResult, setLastScanResult] = useState<LastScanState | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Agenda auto-dismiss de cards confirmados ou já registrados
+  const scheduleCardDismiss = useCallback((state: CheckInState) => {
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+    }
+    if (state === 'confirmed' || state === 'already_checked_in' || state === 'pending') {
+      dismissTimerRef.current = setTimeout(() => {
+        setLastScanResult(null);
+      }, 5000);
+    }
+  }, []);
+
+  // Atualiza card flutuante de 'pending' para o estado retornado pela RPC ('confirmed', 'already_checked_in' ou 'rejected')
+  const applySyncResultsToLastScan = useCallback(
+    (results?: ApplyReceptionResult[]) => {
+      if (!results || results.length === 0) return;
+      setLastScanResult((prev) => {
+        if (!prev || !prev.clientScanId) return prev;
+        const matched = results.find((r) => r.client_scan_id === prev.clientScanId);
+        if (!matched) return prev;
+        const nextState: CheckInState =
+          matched.status === 'already_checked_in'
+            ? 'already_checked_in'
+            : matched.status === 'rejected'
+              ? 'rejected'
+              : 'confirmed';
+        if (prev.state === nextState) return prev;
+        void playReceptionSound(nextState);
+        scheduleCardDismiss(nextState);
+        return {
+          ...prev,
+          state: nextState,
+          errorMessage: matched.error ?? prev.errorMessage,
+        };
+      });
+    },
+    [scheduleCardDismiss],
+  );
+
   // 1. Atualiza contagem de itens pendentes no SQLite
   const refreshPendingCount = useCallback(async () => {
     if (!eventId) return;
@@ -89,6 +129,7 @@ export default function PortariaScreen() {
       const result = await syncReceptionQueue(eventId);
       setIsOnline(result.isOnline);
       setPendingCount(result.pendingCount);
+      applySyncResultsToLastScan(result.results);
     } catch (err) {
       console.warn('Exceção ao sincronizar fila:', err);
       setIsOnline(false);
@@ -96,7 +137,7 @@ export default function PortariaScreen() {
       setIsSyncing(false);
       await refreshPendingCount();
     }
-  }, [eventId, isSyncing, refreshPendingCount]);
+  }, [eventId, isSyncing, refreshPendingCount, applySyncResultsToLastScan]);
 
   const retryNeedsAttentionNow = useCallback(async () => {
     if (!eventId || isSyncing) return;
@@ -105,6 +146,7 @@ export default function PortariaScreen() {
       const result = await syncReceptionQueue(eventId, { retryNeedsAttention: true });
       setIsOnline(result.isOnline);
       setPendingCount(result.pendingCount);
+      applySyncResultsToLastScan(result.results);
     } catch (err) {
       console.warn('Exceção ao reprocessar itens needs_attention:', err);
       setIsOnline(false);
@@ -112,7 +154,7 @@ export default function PortariaScreen() {
       setIsSyncing(false);
       await refreshPendingCount();
     }
-  }, [eventId, isSyncing, refreshPendingCount]);
+  }, [eventId, isSyncing, refreshPendingCount, applySyncResultsToLastScan]);
 
   // 3. Inicialização: banco SQLite, auto-cura e carga do snapshot via serviço
   const initializeScreen = useCallback(async () => {
@@ -162,23 +204,12 @@ export default function PortariaScreen() {
     const unsubscribe = startQueueSyncWatcher(eventId, 10000, (status) => {
       setIsOnline(status.isOnline);
       setPendingCount(status.pendingCount);
+      applySyncResultsToLastScan(status.results);
     });
     return () => {
       unsubscribe();
     };
-  }, [eventId]);
-
-  // Agenda auto-dismiss de cards confirmados ou já registrados
-  const scheduleCardDismiss = (state: CheckInState) => {
-    if (dismissTimerRef.current) {
-      clearTimeout(dismissTimerRef.current);
-    }
-    if (state === 'confirmed' || state === 'already_checked_in' || state === 'pending') {
-      dismissTimerRef.current = setTimeout(() => {
-        setLastScanResult(null);
-      }, 5000);
-    }
-  };
+  }, [eventId, applySyncResultsToLastScan]);
 
   // 4. Processamento de Check-in (Individual ou Grupo)
   const processCheckIn = async (

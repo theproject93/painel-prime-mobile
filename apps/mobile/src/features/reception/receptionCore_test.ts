@@ -275,12 +275,19 @@ describe('2. Máquina de Estados Finitos Local (AC #2)', () => {
 });
 
 describe('3. Auto-Cura na Inicialização (AC #3)', () => {
-  it('fornece a consulta SQL canônica correta', () => {
+  it('fornece a consulta SQL canônica correta (sem incremento por padrão)', () => {
     const sql = getAutoHealQuery();
+    assert.ok(sql.includes("SET state = 'pending'"));
+    assert.ok(!sql.includes('retry_count'), 'startup heal não deve incrementar retry_count');
+    assert.ok(sql.includes("WHERE state = 'in_flight'"));
+    assert.equal(sql, AUTO_HEAL_SQL);
+  });
+
+  it('incrementa retry_count apenas quando solicitado explicitamente', () => {
+    const sql = getAutoHealQuery(true);
     assert.ok(sql.includes("SET state = 'pending'"));
     assert.ok(sql.includes('retry_count = retry_count + 1'));
     assert.ok(sql.includes("WHERE state = 'in_flight'"));
-    assert.equal(sql, AUTO_HEAL_SQL);
   });
 
   it('executa a auto-cura revertendo in_flight para pending', async () => {

@@ -15,7 +15,16 @@ declare module 'expo-sqlite' {
     closeAsync(): Promise<void>;
   }
 
-  export function openDatabaseAsync(databaseName: string): Promise<SQLiteDatabase>;
+  export interface SQLiteOpenOptions {
+    enableChangeListener?: boolean;
+    useNewConnection?: boolean;
+    finalizeUnusedStatementsBeforeClosing?: boolean;
+  }
+
+  export function openDatabaseAsync(
+    databaseName: string,
+    options?: SQLiteOpenOptions,
+  ): Promise<SQLiteDatabase>;
 }
 
 declare module 'expo-crypto' {
@@ -43,6 +52,7 @@ declare module 'expo-crypto' {
   ): Promise<string>;
 
   export function randomUUID(): string;
+  export function getRandomBytes(byteCount: number): Uint8Array;
 }
 
 declare module 'expo-camera' {

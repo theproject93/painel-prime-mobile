@@ -8,7 +8,6 @@ import {
   type ReceptionSnapshotRow,
 } from '../types/receptionTypes';
 import {
-  getDatabase,
   getPendingQueue,
   getSnapshot,
   markQueueItemsInFlight,
@@ -16,6 +15,7 @@ import {
   saveSnapshot,
   updateGuestCheckedInStatus,
   updateQueueState,
+  withDatabase,
 } from '../storage/receptionDatabase';
 import { autoHealInFlightOperations } from '../engine/receptionAutoHeal';
 
@@ -61,6 +61,7 @@ export interface SyncStatus {
   pendingCount: number;
   lastSyncedAt: string | null;
   error: string | null;
+  results?: ApplyReceptionResult[];
 }
 
 // Mapa para evitar execuções simultâneas concorrentes da mesma fila de evento
@@ -104,67 +105,130 @@ async function executeQueueSync(
   eventId: string,
   options?: SyncOptions,
 ): Promise<SyncResult> {
-  const db = options?.db ?? (await getDatabase());
-  const client = options?.supabaseClient ?? (await getDefaultSupabaseClient());
-  const maxRetries = options?.maxRetries ?? 5;
-  const batchSize = options?.batchSize ?? 50;
+  return withDatabase(async (db) => {
+    const client = options?.supabaseClient ?? (await getDefaultSupabaseClient());
+    const maxRetries = options?.maxRetries ?? 5;
+    const batchSize = options?.batchSize ?? 50;
 
-  // 1. Reprocessamento manual: se solicitado, reseta operações 'needs_attention' para 'pending'
-  if (options?.retryNeedsAttention) {
-    await db.runAsync(
-      `UPDATE reception_queue
-       SET state = 'pending',
-           error_code = NULL,
-           error_message = NULL
-       WHERE event_id = ? AND state = 'needs_attention';`,
-      eventId,
-    );
-  }
+    // 1. Reprocessamento manual: se solicitado, reseta operações 'needs_attention' para 'pending'
+    if (options?.retryNeedsAttention) {
+      await db.runAsync(
+        `UPDATE reception_queue
+         SET state = 'pending',
+             error_code = NULL,
+             error_message = NULL
+         WHERE event_id = ? AND state = 'needs_attention';`,
+        eventId,
+      );
+    }
 
-  // 2. Consulta itens pendentes na fila do evento
-  const pendingRows = await getPendingQueue(eventId, db);
-  const eligibleItems = pendingRows.filter((i) => i.state === 'pending');
+    // 2. Consulta itens pendentes na fila do evento
+    const pendingRows = await getPendingQueue(eventId, db);
+    const eligibleItems = pendingRows.filter((i) => i.state === 'pending');
 
-  if (eligibleItems.length === 0) {
-    const remainingNeedsAttention = pendingRows.filter(
-      (i) => i.state === 'needs_attention',
-    ).length;
-    return {
-      syncedCount: 0,
-      pendingCount: remainingNeedsAttention,
-      isOnline: true,
-      results: [],
-    };
-  }
+    if (eligibleItems.length === 0) {
+      const remainingNeedsAttention = pendingRows.filter(
+        (i) => i.state === 'needs_attention',
+      ).length;
+      return {
+        syncedCount: 0,
+        pendingCount: remainingNeedsAttention,
+        isOnline: true,
+        results: [],
+      };
+    }
 
-  let totalSynced = 0;
-  const allResults: ApplyReceptionResult[] = [];
+    let totalSynced = 0;
+    const allResults: ApplyReceptionResult[] = [];
 
-  // 3. Processamento em chunks para não estourar payload da RPC
-  for (let i = 0; i < eligibleItems.length; i += batchSize) {
-    const chunk = eligibleItems.slice(i, i + batchSize);
-    const scanIds = chunk.map((item) => item.client_scan_id);
+    // 3. Processamento em chunks para não estourar payload da RPC
+    for (let i = 0; i < eligibleItems.length; i += batchSize) {
+      const chunk = eligibleItems.slice(i, i + batchSize);
+      const scanIds = chunk.map((item) => item.client_scan_id);
 
-    // Marca o lote como in_flight no SQLite
-    await markQueueItemsInFlight(scanIds, db);
+      // Marca o lote como in_flight no SQLite
+      await markQueueItemsInFlight(scanIds, db);
 
-    const operationsPayload: ApplyReceptionOperationPayload[] = chunk.map((item) => ({
-      client_scan_id: item.client_scan_id,
-      scanned_qr_token: item.scanned_qr_token,
-      scanned_guest_id: item.scanned_guest_id,
-      confirmed_guest_ids: item.confirmed_guest_ids,
-      scanned_at: item.scanned_at,
-    }));
+      const operationsPayload: ApplyReceptionOperationPayload[] = chunk.map((item) => ({
+        client_scan_id: item.client_scan_id,
+        scanned_qr_token: item.scanned_qr_token,
+        scanned_guest_id: item.scanned_guest_id,
+        confirmed_guest_ids: item.confirmed_guest_ids,
+        scanned_at: item.scanned_at,
+      }));
 
-    try {
-      const { data, error } = await client.rpc('apply_reception_checkins', {
-        p_event_id: eventId,
-        p_operations: operationsPayload,
-      });
+      try {
+        const { data, error } = await client.rpc('apply_reception_checkins', {
+          p_event_id: eventId,
+          p_operations: operationsPayload,
+        });
 
-      if (error || !data || !Array.isArray(data.results)) {
-        const errorMsg = error?.message || 'Resposta inválida do servidor ao sincronizar check-ins.';
+        if (error || !data || !Array.isArray(data.results)) {
+          const errorMsg = error?.message || 'Resposta inválida do servidor ao sincronizar check-ins.';
 
+          // Auto-cura: restaura in_flight para pending com incremento de retry_count (F1)
+          await autoHealInFlightOperations(db, { incrementRetry: true });
+          await markQueueItemsNeedsAttention(maxRetries, eventId, errorMsg, db);
+
+          const currentQueue = await getPendingQueue(eventId, db);
+          return {
+            syncedCount: totalSynced,
+            pendingCount: currentQueue.length,
+            isOnline: false,
+            error: errorMsg,
+            results: allResults,
+          };
+        }
+
+        const response = data as ApplyReceptionResponse;
+        const syncedAt = response.synced_at || new Date().toISOString();
+
+        // Processa os resultados individuais do lote
+        for (const res of response.results) {
+          let nextState: CheckInState = 'confirmed';
+          if (res.status === 'already_checked_in') {
+            nextState = 'already_checked_in';
+          } else if (res.status === 'rejected') {
+            nextState = 'rejected';
+          } else if (res.status === 'applied') {
+            nextState = 'confirmed';
+          }
+
+          // Atualiza estado do scan na fila SQLite respeitando a FSM
+          await updateQueueState(
+            res.client_scan_id,
+            nextState,
+            {
+              synced_at: syncedAt,
+              error_code: res.error,
+              error_message: res.error,
+              server_response: res as unknown as Record<string, unknown>,
+            },
+            db,
+          );
+
+          // Atualiza status do convidado no SQLite se confirmado no servidor
+          if (res.status === 'applied' || res.status === 'already_checked_in') {
+            const guestIds = res.newly_checked_in_ids?.length
+              ? res.newly_checked_in_ids
+              : res.confirmed_guest_ids || [];
+            if (guestIds.length > 0) {
+              await updateGuestCheckedInStatus(
+                guestIds,
+                res.scanned_at || syncedAt,
+                res.checked_in_by || 'Portaria Nativa',
+                db,
+              );
+            }
+          }
+
+          totalSynced += 1;
+          allResults.push(res);
+        }
+      } catch (err: any) {
+        const errorMsg = err?.message || 'Falha de conexão com a rede ao sincronizar.';
+
+        // Auto-cura imediata em caso de exceção de rede com incremento de retry_count (F1)
         await autoHealInFlightOperations(db, { incrementRetry: true });
         await markQueueItemsNeedsAttention(maxRetries, eventId, errorMsg, db);
 
@@ -177,76 +241,16 @@ async function executeQueueSync(
           results: allResults,
         };
       }
-
-      const response = data as ApplyReceptionResponse;
-      const syncedAt = response.synced_at || new Date().toISOString();
-
-      // Processa os resultados individuais do lote
-      for (const res of response.results) {
-        let nextState: CheckInState = 'confirmed';
-        if (res.status === 'already_checked_in') {
-          nextState = 'already_checked_in';
-        } else if (res.status === 'rejected') {
-          nextState = 'rejected';
-        } else if (res.status === 'applied') {
-          nextState = 'confirmed';
-        }
-
-        // Atualiza estado do scan na fila SQLite respeitando a FSM
-        await updateQueueState(
-          res.client_scan_id,
-          nextState,
-          {
-            synced_at: syncedAt,
-            error_code: res.error,
-            error_message: res.error,
-            server_response: res as unknown as Record<string, unknown>,
-          },
-          db,
-        );
-
-        // Atualiza status do convidado no SQLite se confirmado no servidor
-        if (res.status === 'applied' || res.status === 'already_checked_in') {
-          const guestIds = res.newly_checked_in_ids?.length
-            ? res.newly_checked_in_ids
-            : res.confirmed_guest_ids || [];
-          if (guestIds.length > 0) {
-            await updateGuestCheckedInStatus(
-              guestIds,
-              res.scanned_at || syncedAt,
-              res.checked_in_by || 'Portaria Nativa',
-              db,
-            );
-          }
-        }
-
-        totalSynced += 1;
-        allResults.push(res);
-      }
-    } catch (err: any) {
-      const errorMsg = err?.message || 'Falha de conexão com a rede ao sincronizar.';
-
-      await autoHealInFlightOperations(db, { incrementRetry: true });
-      await markQueueItemsNeedsAttention(maxRetries, eventId, errorMsg, db);
-
-      const currentQueue = await getPendingQueue(eventId, db);
-      return {
-        syncedCount: totalSynced,
-        pendingCount: currentQueue.length,
-        isOnline: false,
-        error: errorMsg,
-        results: allResults,
-      };
     }
-  }
 
-  const finalQueue = await getPendingQueue(eventId, db);
-  return {
-    syncedCount: totalSynced,
-    pendingCount: finalQueue.length,
-    isOnline: true,
-    results: allResults,
-  };
+    const finalQueue = await getPendingQueue(eventId, db);
+    return {
+      syncedCount: totalSynced,
+      pendingCount: finalQueue.length,
+      isOnline: true,
+      results: allResults,
+    };
+  }, options?.db);
 }
 
 /**
@@ -301,6 +305,7 @@ export function startQueueSyncWatcher(
           pendingCount: result.pendingCount,
           lastSyncedAt: result.syncedCount > 0 ? new Date().toISOString() : null,
           error: result.error ?? null,
+          results: result.results,
         });
       }
     } catch (err: any) {
