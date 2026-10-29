@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Modal,
   View,
@@ -31,6 +31,7 @@ export function ManualSearchModal({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ReceptionGuest[]>([]);
   const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const performSearch = useCallback(
     async (searchTerm: string) => {
@@ -54,22 +55,17 @@ export function ManualSearchModal({
       setQuery('');
       void performSearch('');
     }
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [visible, performSearch]);
-
-  // Debounce de 180ms para evitar concorrência desnecessária no SQLite durante digitação
-  useEffect(() => {
-    if (!visible || query === '') return;
-    const timer = setTimeout(() => {
-      void performSearch(query);
-    }, 180);
-    return () => clearTimeout(timer);
-  }, [query, visible, performSearch]);
 
   const handleQueryChange = (text: string) => {
     setQuery(text);
-    if (!text.trim()) {
-      void performSearch('');
-    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      void performSearch(text);
+    }, 250);
   };
 
   const handleClear = () => {

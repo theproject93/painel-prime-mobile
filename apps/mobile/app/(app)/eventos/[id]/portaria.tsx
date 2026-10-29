@@ -86,11 +86,27 @@ export default function PortariaScreen() {
     setIsSyncing(true);
 
     try {
-      const result = await syncReceptionQueue(eventId, { retryNeedsAttention: true });
+      const result = await syncReceptionQueue(eventId);
       setIsOnline(result.isOnline);
       setPendingCount(result.pendingCount);
     } catch (err) {
       console.warn('Exceção ao sincronizar fila:', err);
+      setIsOnline(false);
+    } finally {
+      setIsSyncing(false);
+      await refreshPendingCount();
+    }
+  }, [eventId, isSyncing, refreshPendingCount]);
+
+  const retryNeedsAttentionNow = useCallback(async () => {
+    if (!eventId || isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const result = await syncReceptionQueue(eventId, { retryNeedsAttention: true });
+      setIsOnline(result.isOnline);
+      setPendingCount(result.pendingCount);
+    } catch (err) {
+      console.warn('Exceção ao reprocessar itens needs_attention:', err);
       setIsOnline(false);
     } finally {
       setIsSyncing(false);
@@ -182,13 +198,11 @@ export default function PortariaScreen() {
 
       const companionsCount = Math.max(0, confirmedGuestIds.length - 1);
 
-      // Feedback sonoro e tátil correspondente
-      const finalState: CheckInState = isOnline ? 'confirmed' : 'pending';
-      void playReceptionSound(finalState);
+      void playReceptionSound('pending');
       void AppHaptics.success();
 
       setLastScanResult({
-        state: finalState,
+        state: 'pending',
         guestName: guest.name,
         tableName: guest.table_name,
         companionsCount,
@@ -196,10 +210,9 @@ export default function PortariaScreen() {
         clientScanId: queueOp.client_scan_id,
       });
 
-      scheduleCardDismiss(finalState);
+      scheduleCardDismiss('pending');
       await refreshPendingCount();
 
-      // Dispara sincronização em segundo plano se conectado
       if (isOnline) {
         void syncQueueNow();
       }
@@ -450,7 +463,7 @@ export default function PortariaScreen() {
             onDismiss={() => setLastScanResult(null)}
             onRetry={
               lastScanResult.state === 'needs_attention'
-                ? () => void syncQueueNow()
+                ? () => void retryNeedsAttentionNow()
                 : undefined
             }
           />
