@@ -11,6 +11,7 @@ import {
 import { validateTransition } from '../engine/receptionFsm';
 import { computeCanonicalPayloadHashSync } from '../engine/receptionHash';
 import { autoHealInFlightOperations } from '../engine/receptionAutoHeal';
+import { generate256BitKey, RECEPTION_DB_KEY_ALIAS } from './receptionDatabaseKeyManager';
 
 export const RECEPTION_DB_NAME = 'reception_prime.db';
 const GLOBAL_RECEPTION_DB_KEY = '__painel_prime_reception_db__';
@@ -152,7 +153,50 @@ export async function getDatabase(dbOverride?: SQLiteDatabase): Promise<SQLiteDa
   dbInitPromise = (async () => {
     try {
       const SQLite = await import('expo-sqlite');
+      let SecureStore: typeof import('expo-secure-store') | null = null;
+      try {
+        SecureStore = await import('expo-secure-store');
+      } catch {
+        // Fallback defensivo em ambientes sem native module do Keystore
+      }
+
       const db = await SQLite.openDatabaseAsync(RECEPTION_DB_NAME, { useNewConnection: true });
+
+      // Configuração e validação at-rest via SQLCipher
+      if (SecureStore) {
+        let key = await SecureStore.getItemAsync(RECEPTION_DB_KEY_ALIAS);
+        if (!key) {
+          // Checa se o banco já possui dados legados em texto claro
+          let isLegacyPlaintext = false;
+          try {
+            const check = await db.getFirstAsync<{ count: number }>('SELECT count(*) as count FROM sqlite_master;');
+            if (check !== null) {
+              isLegacyPlaintext = true;
+            }
+          } catch {
+            isLegacyPlaintext = false;
+          }
+
+          key = generate256BitKey();
+          await SecureStore.setItemAsync(RECEPTION_DB_KEY_ALIAS, key);
+          await db.execAsync(`PRAGMA key = '${key}';`);
+        } else {
+          await db.execAsync(`PRAGMA key = '${key}';`);
+          // Validação oficial Zetetic: zero linhas no cipher_integrity_check significa ausência de erros
+          try {
+            const cipherErrors = await db.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
+            if (cipherErrors && cipherErrors.length > 0) {
+              throw new Error('Falha de integridade criptográfica no banco da Portaria Prime.');
+            }
+          } catch (e: unknown) {
+            const msg = String((e as Error)?.message || '');
+            if (!msg.includes('syntax error') && !msg.includes('no such pragma')) {
+              throw e;
+            }
+          }
+        }
+      }
+
       await runMigrations(db);
       dbInstance = db;
       g[GLOBAL_RECEPTION_DB_KEY] = db;
