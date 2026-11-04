@@ -1,5 +1,6 @@
 /**
  * Gerenciador de Chaves e Detecção Estrutural de Estado do SQLite para a Portaria Prime.
+ * Implementa classificação quadrivalente e geração estritamente criptográfica (zero Math.random).
  */
 
 import type {
@@ -17,23 +18,29 @@ export const RECEPTION_DB_KEY_ALIAS = 'reception_prime_sqlcipher_key_v1';
 const SQLITE_HEADER_STRING = 'SQLite format 3\0';
 
 /**
- * Gera chave criptográfica de 256 bits (64 caracteres hexadecimais).
+ * Valida formato estrito de chave hex de 256 bits (64 caracteres hexadecimais).
+ */
+export function validateHexKey(key: string): string {
+  if (typeof key !== 'string' || !/^[0-9a-fA-F]{64}$/.test(key)) {
+    throw new Error('Chave de criptografia inválida: deve conter exatamente 64 caracteres hexadecimais (256 bits).');
+  }
+  return key.toLowerCase();
+}
+
+/**
+ * Gera chave criptográfica de 256 bits usando entropia segura do sistema operacional.
+ * Falha de forma controlada caso fontes seguras (crypto.getRandomValues) não estejam disponíveis.
  */
 export function generate256BitKey(): string {
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
     const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
+    globalThis.crypto.getRandomValues(bytes);
     return Array.from(bytes)
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
   }
-  // Fallback seguro usando Math.random + timestamp caso crypto nativo não esteja presente no ambiente
-  let hex = '';
-  for (let i = 0; i < 32; i++) {
-    const byte = Math.floor(Math.random() * 256);
-    hex += byte.toString(16).padStart(2, '0');
-  }
-  return hex;
+
+  throw new Error('Fonte de entropia criptográfica segura (crypto.getRandomValues) não disponível no ambiente.');
 }
 
 /**
@@ -88,17 +95,18 @@ export async function detectDatabaseState(
   // 2. Não possui o cabeçalho em texto claro (provável banco criptografado por SQLCipher)
   const existingKey = await keyStorage.getItemAsync(RECEPTION_DB_KEY_ALIAS);
   if (!existingKey) {
-    // Banco criptografado existe mas a chave está ausente no Keystore
+    // Banco cifrado existe mas a chave está ausente no Keystore
     return 'KEY_LOST';
   }
 
   try {
-    const conn = await connectionOpener(dbPath, existingKey);
+    const validKey = validateHexKey(existingKey);
+    const conn = await connectionOpener(dbPath, validKey);
     try {
       // Força a leitura inicial para decifrar a página 1
       await conn.getFirstAsync<{ count: number }>('SELECT count(*) as count FROM sqlite_master;');
 
-      // Validação oficial da Zetetic: zero linhas no cipher_integrity_check significa AUSÊNCIA de erros
+      // Validação oficial Zetetic: zero linhas no cipher_integrity_check significa AUSÊNCIA de erros
       const cipherErrors = await conn.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
       if (cipherErrors && cipherErrors.length > 0) {
         return 'KEY_LOST';
@@ -125,8 +133,8 @@ export async function resolveKeyForState(
   switch (state) {
     case 'NON_EXISTENT':
     case 'LEGACY_PLAINTEXT_VALIDATED': {
-      // Em ambos os casos, precisamos de uma nova chave limpa no Keystore
-      const newKey = generateKeyFn();
+      // Em ambos os casos, geramos uma nova chave criptográfica segura e persistimos no Keystore
+      const newKey = validateHexKey(generateKeyFn());
       await keyStorage.setItemAsync(RECEPTION_DB_KEY_ALIAS, newKey);
       return newKey;
     }
@@ -136,7 +144,7 @@ export async function resolveKeyForState(
       if (!existingKey) {
         throw new DatabaseKeyMissingError('Chave do banco de dados não encontrada no Keystore.');
       }
-      return existingKey;
+      return validateHexKey(existingKey);
     }
 
     case 'KEY_LOST':

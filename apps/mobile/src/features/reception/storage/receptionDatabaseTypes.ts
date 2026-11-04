@@ -50,22 +50,28 @@ export interface IFileSystem {
   readText(filePath: string): Promise<string>;
 }
 
+/**
+ * Esquema canônico e exato da tabela reception_queue do Painel Prime.
+ */
 export interface QueueItemRecord {
   client_scan_id: string;
   event_id: string;
-  guest_id: string;
-  action: string;
-  payload: string | null;
+  scanned_qr_token: string | null;
+  scanned_guest_id: string | null;
+  confirmed_guest_ids: string;
+  canonical_payload_hash: string;
   state: string;
   retry_count: number;
   created_at: string;
+  scanned_at: string;
+  synced_at: string | null;
   error_code: string | null;
   error_message: string | null;
-  synced_at: string | null;
+  server_response: string | null;
 }
 
 export class DatabaseKeyMissingError extends Error {
-  constructor(message = 'Chave do banco de dados ausente no Keystore. Operação bloqueada para evitar corrupção.') {
+  constructor(message = 'Chave do banco de dados ausente ou inválida no Keystore. Operação bloqueada para evitar destruição de dados.') {
     super(message);
     this.name = 'DatabaseKeyMissingError';
   }
@@ -103,5 +109,12 @@ export class CipherIntegrityError extends Error {
   constructor(message = 'Falha no teste de integridade criptográfica do SQLCipher.') {
     super(message);
     this.name = 'CipherIntegrityError';
+  }
+}
+
+export class SecureStorageUnavailableError extends Error {
+  constructor(message = 'Módulo seguro de chaves (Keystore / SecureStore) indisponível. Inicialização bloqueada em modo fail-closed.') {
+    super(message);
+    this.name = 'SecureStorageUnavailableError';
   }
 }

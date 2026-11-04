@@ -11,7 +11,27 @@ import {
 import { validateTransition } from '../engine/receptionFsm';
 import { computeCanonicalPayloadHashSync } from '../engine/receptionHash';
 import { autoHealInFlightOperations } from '../engine/receptionAutoHeal';
-import { generate256BitKey, RECEPTION_DB_KEY_ALIAS } from './receptionDatabaseKeyManager';
+import {
+  detectDatabaseState,
+  resolveKeyForState,
+  validateHexKey,
+  RECEPTION_DB_KEY_ALIAS,
+} from './receptionDatabaseKeyManager';
+import {
+  runMigration,
+  reconcileIncompleteMigration,
+} from './receptionDatabaseMigrator';
+import {
+  ExpoFileSystemAdapter,
+  ExpoSecureStoreAdapter,
+  createExpoConnectionOpener,
+} from './receptionExpoAdapters';
+import {
+  DatabaseKeyMissingError,
+  DatabaseCorruptedOrUnknownError,
+  CipherIntegrityError,
+  SecureStorageUnavailableError,
+} from './receptionDatabaseTypes';
 
 export const RECEPTION_DB_NAME = 'reception_prime.db';
 const GLOBAL_RECEPTION_DB_KEY = '__painel_prime_reception_db__';
@@ -153,47 +173,90 @@ export async function getDatabase(dbOverride?: SQLiteDatabase): Promise<SQLiteDa
   dbInitPromise = (async () => {
     try {
       const SQLite = await import('expo-sqlite');
-      let SecureStore: typeof import('expo-secure-store') | null = null;
       try {
-        SecureStore = await import('expo-secure-store');
+        await import('expo-secure-store');
       } catch {
-        // Fallback defensivo em ambientes sem native module do Keystore
+        throw new SecureStorageUnavailableError(
+          'Módulo expo-secure-store indisponível. Operação da Portaria Prime bloqueada em modo fail-closed.'
+        );
       }
 
+      const keyStorage = new ExpoSecureStoreAdapter();
+      const fs = new ExpoFileSystemAdapter();
+      const connectionOpener = createExpoConnectionOpener();
+
+      // Obtém o caminho físico real do banco no dispositivo
+      const probeDb = await SQLite.openDatabaseAsync(RECEPTION_DB_NAME, { useNewConnection: true });
+      const rawDb = probeDb as unknown as {
+        databasePath?: string;
+        databaseFilePath?: string;
+        nativeDatabase?: { databasePath?: string };
+      };
+      const fullPath =
+        rawDb.databasePath ??
+        rawDb.databaseFilePath ??
+        rawDb.nativeDatabase?.databasePath ??
+        RECEPTION_DB_NAME;
+      await probeDb.closeAsync();
+
+      const lastSlash = fullPath.lastIndexOf('/');
+      const dbDir = lastSlash !== -1 ? fullPath.substring(0, lastSlash) : fullPath;
+
+      // 1. Reconciliação prévia de interrupções abruptas do Android (SIGKILL)
+      const pendingKey = await keyStorage.getItemAsync(RECEPTION_DB_KEY_ALIAS);
+      if (pendingKey) {
+        await reconcileIncompleteMigration(dbDir, RECEPTION_DB_NAME, fs, pendingKey, connectionOpener);
+      }
+
+      // 2. Classificação estrutural quadrivalente do banco em disco
+      const state = await detectDatabaseState(fullPath, keyStorage, fs, connectionOpener);
+
+      let key: string;
+
+      if (state === 'LEGACY_PLAINTEXT_VALIDATED') {
+        // Banco legado em texto claro: resolve chave no Keystore e executa migração durável com validação da fila
+        key = await resolveKeyForState('LEGACY_PLAINTEXT_VALIDATED', keyStorage);
+        await runMigration({
+          dbDir,
+          dbName: RECEPTION_DB_NAME,
+          key,
+          fs,
+          connectionOpener,
+        });
+      } else if (state === 'NON_EXISTENT') {
+        key = await resolveKeyForState('NON_EXISTENT', keyStorage);
+      } else if (state === 'ENCRYPTED_VALIDATED') {
+        key = await resolveKeyForState('ENCRYPTED_VALIDATED', keyStorage);
+      } else if (state === 'KEY_LOST') {
+        throw new DatabaseKeyMissingError(
+          'Banco de dados criptografado existente, mas a chave está ausente no Keystore. Operação bloqueada para evitar corrupção.'
+        );
+      } else {
+        throw new DatabaseCorruptedOrUnknownError(
+          'Arquivo de banco de dados em estado desconhecido ou corrompido. Nenhuma alteração permitida.'
+        );
+      }
+
+      const validKey = validateHexKey(key);
+
+      // 3. Abertura do banco com a chave autenticada
       const db = await SQLite.openDatabaseAsync(RECEPTION_DB_NAME, { useNewConnection: true });
+      await db.execAsync(`PRAGMA key = '${validKey}';`);
 
-      // Configuração e validação at-rest via SQLCipher
-      if (SecureStore) {
-        let key = await SecureStore.getItemAsync(RECEPTION_DB_KEY_ALIAS);
-        if (!key) {
-          // Checa se o banco já possui dados legados em texto claro
-          let isLegacyPlaintext = false;
-          try {
-            const check = await db.getFirstAsync<{ count: number }>('SELECT count(*) as count FROM sqlite_master;');
-            if (check !== null) {
-              isLegacyPlaintext = true;
-            }
-          } catch {
-            isLegacyPlaintext = false;
-          }
-
-          key = generate256BitKey();
-          await SecureStore.setItemAsync(RECEPTION_DB_KEY_ALIAS, key);
-          await db.execAsync(`PRAGMA key = '${key}';`);
-        } else {
-          await db.execAsync(`PRAGMA key = '${key}';`);
-          // Validação oficial Zetetic: zero linhas no cipher_integrity_check significa ausência de erros
-          try {
-            const cipherErrors = await db.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
-            if (cipherErrors && cipherErrors.length > 0) {
-              throw new Error('Falha de integridade criptográfica no banco da Portaria Prime.');
-            }
-          } catch (e: unknown) {
-            const msg = String((e as Error)?.message || '');
-            if (!msg.includes('syntax error') && !msg.includes('no such pragma')) {
-              throw e;
-            }
-          }
+      // 4. Verificação oficial Zetetic: zero linhas no cipher_integrity_check significa ausência de erros
+      try {
+        const cipherErrors = await db.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
+        if (cipherErrors && cipherErrors.length > 0) {
+          await db.closeAsync();
+          throw new CipherIntegrityError(
+            `Falha de integridade criptográfica no banco da Portaria Prime: ${cipherErrors.map((e) => e.error).join(', ')}`
+          );
+        }
+      } catch (e: unknown) {
+        const msg = String((e as Error)?.message || '');
+        if (!msg.includes('syntax error') && !msg.includes('no such pragma')) {
+          await db.closeAsync();
+          throw e;
         }
       }
 

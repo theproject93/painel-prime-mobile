@@ -1,6 +1,7 @@
 /**
  * Máquina de Estados de Migração Durável e Reconciliação do SQLite para SQLCipher
  * na Portaria Prime (reception_prime.db).
+ * Validação profunda com o esquema real da tabela reception_queue (14 colunas).
  */
 
 import type {
@@ -16,6 +17,7 @@ import {
   SQLCipherNativeMissingError,
   WalCheckpointBusyError,
 } from './receptionDatabaseTypes.ts';
+import { validateHexKey } from './receptionDatabaseKeyManager.ts';
 
 export interface MigrationOptions {
   dbDir: string;
@@ -34,6 +36,17 @@ export interface MigrationResult {
 }
 
 /**
+ * Consulta canônica da tabela reception_queue utilizando exatamente os 14 campos do esquema real.
+ */
+export const RECEPTION_QUEUE_SELECT_SQL = `
+  SELECT client_scan_id, event_id, scanned_qr_token, scanned_guest_id,
+         confirmed_guest_ids, canonical_payload_hash, state, retry_count,
+         created_at, scanned_at, synced_at, error_code, error_message, server_response
+  FROM reception_queue
+  ORDER BY client_scan_id ASC;
+`.trim();
+
+/**
  * Calcula checksum determinístico simples de lista de itens da fila.
  */
 export function computeQueueChecksum(items: QueueItemRecord[]): string {
@@ -48,14 +61,24 @@ export function computeQueueChecksum(items: QueueItemRecord[]): string {
 }
 
 /**
- * Escapa caminho e chave para uso seguro em comandos SQL PRAGMA / ATTACH.
+ * Lê os itens da fila de forma estrita, falhando abertamente caso ocorra erro SQL quando a tabela existir.
  */
-function sanitizeSqlString(input: string): string {
-  return input.replace(/'/g, "''");
+async function fetchQueueItemsStrictly(conn: ISqliteConnection): Promise<QueueItemRecord[]> {
+  const tableCheck = await conn.getFirstAsync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='reception_queue';"
+  );
+  if (!tableCheck || !tableCheck.name) {
+    // Tabela ainda não existe no banco
+    return [];
+  }
+
+  // A tabela existe: executa consulta obrigatória SEM mascarar exceções
+  return await conn.getAllAsync<QueueItemRecord>(RECEPTION_QUEUE_SELECT_SQL);
 }
 
 /**
- * Recupera e reconcilia estado se o app foi interrompido (SIGKILL) durante uma migração anterior.
+ * Reconcilia e recupera o estado caso o aplicativo tenha sido interrompido (SIGKILL)
+ * durante uma migração anterior. Examina fisicamente os arquivos em disco.
  */
 export async function reconcileIncompleteMigration(
   dbDir: string,
@@ -66,70 +89,74 @@ export async function reconcileIncompleteMigration(
 ): Promise<boolean> {
   const cleanDbDir = dbDir.replace(/\\/g, '/');
   const journalPath = `${cleanDbDir}/migration.state.json`;
-  const journalExists = await fs.exists(journalPath);
-  if (!journalExists) {
-    return false;
-  }
-
-  let journal: MigrationJournalState;
-  try {
-    const raw = await fs.readText(journalPath);
-    journal = JSON.parse(raw);
-  } catch {
-    // Arquivo de journal corrompido: remove resíduos .tmp defensivamente
-    const tmpPath = `${cleanDbDir}/${dbName}.tmp`;
-    if (await fs.exists(tmpPath)) await fs.delete(tmpPath);
-    await fs.delete(journalPath);
-    return true;
-  }
-
   const mainPath = `${cleanDbDir}/${dbName}`;
   const tmpPath = `${cleanDbDir}/${dbName}.tmp`;
   const bakPath = `${cleanDbDir}/${dbName}.bak`;
 
-  if (journal.stage === 'SWAPPING' || journal.stage === 'COMPLETED') {
-    // Interrompido durante a substituição: avalia qual versão está ativa
-    const mainExists = await fs.exists(mainPath);
-    let mainIsEncryptedAndValid = false;
+  const journalExists = await fs.exists(journalPath);
+  const bakExists = await fs.exists(bakPath);
+  const tmpExists = await fs.exists(tmpPath);
+  const mainExists = await fs.exists(mainPath);
 
-    if (mainExists) {
-      try {
-        const conn = await connectionOpener(mainPath, key);
-        try {
-          await conn.getFirstAsync('SELECT count(*) FROM sqlite_master;');
-          const errors = await conn.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
-          if (!errors || errors.length === 0) {
-            mainIsEncryptedAndValid = true;
-          }
-        } finally {
-          await conn.closeAsync();
-        }
-      } catch {
-        mainIsEncryptedAndValid = false;
-      }
-    }
-
-    if (!mainIsEncryptedAndValid && (await fs.exists(bakPath))) {
-      // O swap falhou na metade e o main está quebrado: restaura backup
-      if (mainExists) await fs.delete(mainPath);
-      await fs.rename(bakPath, mainPath);
-      if (await fs.exists(`${bakPath}-wal`)) await fs.rename(`${bakPath}-wal`, `${mainPath}-wal`);
-      if (await fs.exists(`${bakPath}-shm`)) await fs.rename(`${bakPath}-shm`, `${mainPath}-shm`);
-    } else if (mainIsEncryptedAndValid) {
-      // Main já está íntegro e criptografado: limpa backups residuais
-      if (await fs.exists(bakPath)) await fs.delete(bakPath);
-      if (await fs.exists(`${bakPath}-wal`)) await fs.delete(`${bakPath}-wal`);
-      if (await fs.exists(`${bakPath}-shm`)) await fs.delete(`${bakPath}-shm`);
-    }
-  } else {
-    // Interrompido antes do swap (ex: EXPORTING ou CHECKPOINTING_WAL):
-    // Descarta .tmp e preserva o banco legado
-    if (await fs.exists(tmpPath)) await fs.delete(tmpPath);
-    if (await fs.exists(`${tmpPath}-wal`)) await fs.delete(`${tmpPath}-wal`);
-    if (await fs.exists(`${tmpPath}-shm`)) await fs.delete(`${tmpPath}-shm`);
+  if (!journalExists && !bakExists && !tmpExists) {
+    return false; // Nenhuma migração pendente ou resíduo no disco
   }
 
-  await fs.delete(journalPath);
+  // 1. Testa se o banco principal 'reception_prime.db' já está cifrado e 100% íntegro
+  let mainIsEncryptedAndValid = false;
+  if (mainExists) {
+    try {
+      const validKey = validateHexKey(key);
+      const conn = await connectionOpener(mainPath, validKey);
+      try {
+        await conn.getFirstAsync('SELECT count(*) FROM sqlite_master;');
+        const errors = await conn.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
+        if (!errors || errors.length === 0) {
+          mainIsEncryptedAndValid = true;
+        }
+      } finally {
+        await conn.closeAsync();
+      }
+    } catch {
+      mainIsEncryptedAndValid = false;
+    }
+  }
+
+  if (mainIsEncryptedAndValid) {
+    // O banco principal já é a versão criptografada e está saudável
+    if (bakExists) await fs.delete(bakPath);
+    if (await fs.exists(`${bakPath}-wal`)) await fs.delete(`${bakPath}-wal`);
+    if (await fs.exists(`${bakPath}-shm`)) await fs.delete(`${bakPath}-shm`);
+    if (tmpExists) await fs.delete(tmpPath);
+    if (await fs.exists(`${tmpPath}-wal`)) await fs.delete(`${tmpPath}-wal`);
+    if (await fs.exists(`${tmpPath}-shm`)) await fs.delete(`${tmpPath}-shm`);
+    if (journalExists) await fs.delete(journalPath);
+    return true;
+  }
+
+  // 2. Se o main NÃO é válido, mas o backup legado (.bak) existe, restaura o backup imediatamente
+  if (bakExists) {
+    if (mainExists) await fs.delete(mainPath);
+    if (await fs.exists(`${mainPath}-wal`)) await fs.delete(`${mainPath}-wal`);
+    if (await fs.exists(`${mainPath}-shm`)) await fs.delete(`${mainPath}-shm`);
+
+    await fs.rename(bakPath, mainPath);
+    if (await fs.exists(`${bakPath}-wal`)) await fs.rename(`${bakPath}-wal`, `${mainPath}-wal`);
+    if (await fs.exists(`${bakPath}-shm`)) await fs.rename(`${bakPath}-shm`, `${mainPath}-shm`);
+
+    if (tmpExists) await fs.delete(tmpPath);
+    if (await fs.exists(`${tmpPath}-wal`)) await fs.delete(`${tmpPath}-wal`);
+    if (await fs.exists(`${tmpPath}-shm`)) await fs.delete(`${tmpPath}-shm`);
+    if (journalExists) await fs.delete(journalPath);
+    return true;
+  }
+
+  // 3. Se foi interrompido antes do swap, descarta o .tmp e mantém o banco legado intacto
+  if (tmpExists) await fs.delete(tmpPath);
+  if (await fs.exists(`${tmpPath}-wal`)) await fs.delete(`${tmpPath}-wal`);
+  if (await fs.exists(`${tmpPath}-shm`)) await fs.delete(`${tmpPath}-shm`);
+  if (journalExists) await fs.delete(journalPath);
+
   return true;
 }
 
@@ -144,8 +171,10 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
   const tmpPath = `${cleanDbDir}/${dbName}.tmp`;
   const bakPath = `${cleanDbDir}/${dbName}.bak`;
 
-  // 1. Reconciliação prévia de boots interrompidos
-  const reconciled = await reconcileIncompleteMigration(dbDir, dbName, fs, key, connectionOpener);
+  const validKey = validateHexKey(key);
+
+  // 1. Reconciliação prévia física de boots interrompidos
+  const reconciled = await reconcileIncompleteMigration(dbDir, dbName, fs, validKey, connectionOpener);
 
   // 2. Validação obrigatória de suporte ao SQLCipher no binário
   const probeConn = await connectionOpener(mainPath);
@@ -166,6 +195,7 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
 
   let sourceUserVersion = 0;
   let queueItems: QueueItemRecord[] = [];
+  let queueChecksum = '';
 
   try {
     // 4. Executa checkpoint estrito do WAL
@@ -178,7 +208,7 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
 
     if (checkpointResult && checkpointResult.busy !== 0) {
       throw new WalCheckpointBusyError(
-        `Checkpoint do WAL bloqueado por leitores/escritores concorrentes (busy: ${checkpointResult.busy}).`
+        `Checkpoint do WAL bloqueado por conexões concorrentes (busy: ${checkpointResult.busy}).`
       );
     }
 
@@ -190,21 +220,11 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
     const versionResult = await sourceConn.getFirstAsync<{ user_version: number }>('PRAGMA user_version;');
     sourceUserVersion = versionResult?.user_version ?? 0;
 
-    // 6. Lê integralmente a tabela reception_queue para validação profunda
-    try {
-      queueItems = await sourceConn.getAllAsync<QueueItemRecord>(
-        `SELECT client_scan_id, event_id, guest_id, action, payload, state, retry_count, created_at, error_code, error_message, synced_at
-         FROM reception_queue
-         ORDER BY client_scan_id ASC;`
-      );
-    } catch {
-      // Tabela pode ainda não ter sido criada se banco legado acabou de ser instanciado
-      queueItems = [];
-    }
+    // 6. Lê estritamente a tabela reception_queue com as 14 colunas reais
+    queueItems = await fetchQueueItemsStrictly(sourceConn);
+    queueChecksum = computeQueueChecksum(queueItems);
 
-    const queueChecksum = computeQueueChecksum(queueItems);
-
-    // 7. Grava journal com estado EXPORTING
+    // 7. Grava journal durável com estado EXPORTING
     const journal: MigrationJournalState = {
       stage: 'EXPORTING',
       sourceVersion: sourceUserVersion,
@@ -224,11 +244,10 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
       await fs.delete(tmpPath);
     }
 
-    const escapedTmpPath = sanitizeSqlString(tmpPath);
-    const escapedKey = sanitizeSqlString(key);
+    const escapedTmpPath = tmpPath.replace(/'/g, "''");
 
     await sourceConn.execAsync(
-      `ATTACH DATABASE '${escapedTmpPath}' AS encrypted KEY '${escapedKey}';`
+      `ATTACH DATABASE '${escapedTmpPath}' AS encrypted KEY '${validKey}';`
     );
 
     try {
@@ -242,22 +261,13 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
   }
 
   // 10. Abre banco de destino criptografado para validações profundas
-  const targetConn = await connectionOpener(tmpPath, key);
+  const targetConn = await connectionOpener(tmpPath, validKey);
   try {
-    // Migra explicitamente o user_version (já que sqlcipher_export não o copia)
+    // Migra explicitamente o user_version
     await targetConn.execAsync(`PRAGMA user_version = ${sourceUserVersion};`);
 
-    // Validação Profunda: Verifica tabela canônica reception_queue
-    let targetQueueItems: QueueItemRecord[] = [];
-    try {
-      targetQueueItems = await targetConn.getAllAsync<QueueItemRecord>(
-        `SELECT client_scan_id, event_id, guest_id, action, payload, state, retry_count, created_at, error_code, error_message, synced_at
-         FROM reception_queue
-         ORDER BY client_scan_id ASC;`
-      );
-    } catch {
-      targetQueueItems = [];
-    }
+    // Validação Profunda: Verifica tabela canônica reception_queue campo a campo
+    const targetQueueItems = await fetchQueueItemsStrictly(targetConn);
 
     if (targetQueueItems.length !== queueItems.length) {
       throw new MigrationIntegrityMismatchError(
@@ -265,12 +275,34 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
       );
     }
 
+    // Validação profunda linha a linha
+    for (let i = 0; i < queueItems.length; i++) {
+      const src = queueItems[i];
+      const tgt = targetQueueItems[i];
+      if (
+        src.client_scan_id !== tgt.client_scan_id ||
+        src.event_id !== tgt.event_id ||
+        src.scanned_qr_token !== tgt.scanned_qr_token ||
+        src.scanned_guest_id !== tgt.scanned_guest_id ||
+        src.confirmed_guest_ids !== tgt.confirmed_guest_ids ||
+        src.canonical_payload_hash !== tgt.canonical_payload_hash ||
+        src.state !== tgt.state ||
+        src.retry_count !== tgt.retry_count ||
+        src.created_at !== tgt.created_at ||
+        src.scanned_at !== tgt.scanned_at
+      ) {
+        throw new MigrationIntegrityMismatchError(
+          `Inconsistência de dados detectada no item client_scan_id: ${src.client_scan_id}`
+        );
+      }
+    }
+
     const targetChecksum = computeQueueChecksum(targetQueueItems);
-    if (targetChecksum !== computeQueueChecksum(queueItems)) {
+    if (targetChecksum !== queueChecksum) {
       throw new MigrationIntegrityMismatchError('Inconsistência de checksum nos itens da reception_queue.');
     }
 
-    // Verificação oficial da Zetetic: PRAGMA cipher_integrity_check (espera 0 linhas)
+    // Verificação oficial Zetetic: PRAGMA cipher_integrity_check (espera 0 linhas)
     const cipherErrors = await targetConn.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
     if (cipherErrors && cipherErrors.length > 0) {
       throw new CipherIntegrityError(
@@ -297,7 +329,7 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
     stage: 'SWAPPING',
     sourceVersion: sourceUserVersion,
     sourceQueueCount: queueItems.length,
-    sourceQueueChecksum: computeQueueChecksum(queueItems),
+    sourceQueueChecksum: queueChecksum,
     timestamp: new Date().toISOString(),
     dbName,
   };
@@ -317,7 +349,7 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
   if (await fs.exists(`${tmpPath}-shm`)) await fs.rename(`${tmpPath}-shm`, `${mainPath}-shm`);
 
   // 13. Verificação final do novo banco no destino final
-  const finalConn = await connectionOpener(mainPath, key);
+  const finalConn = await connectionOpener(mainPath, validKey);
   try {
     await finalConn.getFirstAsync('SELECT count(*) FROM sqlite_master;');
     const finalCipherErrors = await finalConn.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
