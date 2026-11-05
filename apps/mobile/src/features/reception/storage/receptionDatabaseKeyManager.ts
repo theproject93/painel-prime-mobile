@@ -31,9 +31,11 @@ export function validateHexKey(key: string): string {
 
 /**
  * Gera chave criptográfica de 256 bits usando entropia segura do sistema operacional.
- * Falha de forma controlada caso fontes seguras (crypto.getRandomValues) não estejam disponíveis.
+ * Suporta crypto.getRandomValues (Web/Node) e expo-crypto.getRandomBytes (Hermes/Android/iOS).
+ * Falha de forma controlada em modo fail-closed caso fontes seguras não estejam disponíveis.
  */
 export function generate256BitKey(): string {
+  // 1. Tenta crypto.getRandomValues nativo do ambiente (Web / Node 19+ / polyfilled Hermes)
   if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
     const bytes = new Uint8Array(32);
     globalThis.crypto.getRandomValues(bytes);
@@ -42,7 +44,25 @@ export function generate256BitKey(): string {
       .join('');
   }
 
-  throw new Error('Fonte de entropia criptográfica segura (crypto.getRandomValues) não disponível no ambiente.');
+  // 2. Tenta expo-crypto (Hermes em Android/iOS nativo via java.security.SecureRandom)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { getRandomBytes } = require('expo-crypto') as {
+      getRandomBytes: (n: number) => Uint8Array;
+    };
+    if (typeof getRandomBytes === 'function') {
+      const bytes = getRandomBytes(32);
+      return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+  } catch {
+    // expo-crypto não disponível
+  }
+
+  throw new Error(
+    'Fonte de entropia criptográfica segura (crypto.getRandomValues ou expo-crypto) não disponível no ambiente.'
+  );
 }
 
 /**
