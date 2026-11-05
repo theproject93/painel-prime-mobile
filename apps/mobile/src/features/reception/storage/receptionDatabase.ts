@@ -15,22 +15,28 @@ import {
   detectDatabaseState,
   resolveKeyForState,
   validateHexKey,
+  assertSQLCipherActive,
   RECEPTION_DB_KEY_ALIAS,
 } from './receptionDatabaseKeyManager';
 import {
   runMigration,
   reconcileIncompleteMigration,
+  verifySQLCipherNativeSupport,
 } from './receptionDatabaseMigrator';
 import {
   ExpoFileSystemAdapter,
   ExpoSecureStoreAdapter,
   createExpoConnectionOpener,
+  getCanonicalDatabaseDirectory,
+  getCanonicalDatabasePath,
 } from './receptionExpoAdapters';
 import {
   DatabaseKeyMissingError,
   DatabaseCorruptedOrUnknownError,
   CipherIntegrityError,
   SecureStorageUnavailableError,
+  SQLCipherNativeMissingError,
+  type DatabaseState,
 } from './receptionDatabaseTypes';
 
 export const RECEPTION_DB_NAME = 'reception_prime.db';
@@ -185,36 +191,30 @@ export async function getDatabase(dbOverride?: SQLiteDatabase): Promise<SQLiteDa
       const fs = new ExpoFileSystemAdapter();
       const connectionOpener = createExpoConnectionOpener();
 
-      // Obtém o caminho físico real do banco no dispositivo
-      const probeDb = await SQLite.openDatabaseAsync(RECEPTION_DB_NAME, { useNewConnection: true });
-      const rawDb = probeDb as unknown as {
-        databasePath?: string;
-        databaseFilePath?: string;
-        nativeDatabase?: { databasePath?: string };
-      };
-      const fullPath =
-        rawDb.databasePath ??
-        rawDb.databaseFilePath ??
-        rawDb.nativeDatabase?.databasePath ??
-        RECEPTION_DB_NAME;
-      await probeDb.closeAsync();
+      // 1. Validação mandatória de suporte nativo ao SQLCipher em TODOS os caminhos (probe em :memory:)
+      await verifySQLCipherNativeSupport(connectionOpener);
 
-      const lastSlash = fullPath.lastIndexOf('/');
-      const dbDir = lastSlash !== -1 ? fullPath.substring(0, lastSlash) : fullPath;
+      // 2. Obtém diretório canônico e caminho do banco SEM abrir nem criar arquivo previamente
+      const dbDir = getCanonicalDatabaseDirectory();
+      const fullPath = getCanonicalDatabasePath(RECEPTION_DB_NAME);
 
-      // 1. Reconciliação prévia de interrupções abruptas do Android (SIGKILL)
-      const pendingKey = await keyStorage.getItemAsync(RECEPTION_DB_KEY_ALIAS);
-      if (pendingKey) {
-        await reconcileIncompleteMigration(dbDir, RECEPTION_DB_NAME, fs, pendingKey, connectionOpener);
+      // 3. Checa existência física do arquivo no disco antes de qualquer openDatabaseAsync
+      const dbExists = await fs.exists(fullPath);
+
+      let state: DatabaseState;
+      if (!dbExists) {
+        state = 'NON_EXISTENT';
+      } else {
+        // Reconcilia boots interrompidos anteriores (SIGKILL) se houver journal
+        const pendingKey = await keyStorage.getItemAsync(RECEPTION_DB_KEY_ALIAS);
+        if (pendingKey) {
+          await reconcileIncompleteMigration(dbDir, RECEPTION_DB_NAME, fs, pendingKey, connectionOpener);
+        }
+        state = await detectDatabaseState(fullPath, keyStorage, fs, connectionOpener);
       }
 
-      // 2. Classificação estrutural quadrivalente do banco em disco
-      const state = await detectDatabaseState(fullPath, keyStorage, fs, connectionOpener);
-
       let key: string;
-
       if (state === 'LEGACY_PLAINTEXT_VALIDATED') {
-        // Banco legado em texto claro: resolve chave no Keystore e executa migração durável com validação da fila
         key = await resolveKeyForState('LEGACY_PLAINTEXT_VALIDATED', keyStorage);
         await runMigration({
           dbDir,
@@ -239,25 +239,39 @@ export async function getDatabase(dbOverride?: SQLiteDatabase): Promise<SQLiteDa
 
       const validKey = validateHexKey(key);
 
-      // 3. Abertura do banco com a chave autenticada
-      const db = await SQLite.openDatabaseAsync(RECEPTION_DB_NAME, { useNewConnection: true });
-      await db.execAsync(`PRAGMA key = '${validKey}';`);
+      const openFn = SQLite.openDatabaseAsync as (
+        name: string,
+        options?: any,
+        directory?: string
+      ) => Promise<SQLiteDatabase>;
 
-      // 4. Verificação oficial Zetetic: zero linhas no cipher_integrity_check significa ausência de erros
-      try {
-        const cipherErrors = await db.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
-        if (cipherErrors && cipherErrors.length > 0) {
-          await db.closeAsync();
-          throw new CipherIntegrityError(
-            `Falha de integridade criptográfica no banco da Portaria Prime: ${cipherErrors.map((e) => e.error).join(', ')}`
-          );
-        }
-      } catch (e: unknown) {
-        const msg = String((e as Error)?.message || '');
-        if (!msg.includes('syntax error') && !msg.includes('no such pragma')) {
-          await db.closeAsync();
-          throw e;
-        }
+      // 4. Abertura do banco com diretório canônico explícito e aplicação de PRAGMA key
+      const db = await openFn(
+        RECEPTION_DB_NAME,
+        { useNewConnection: true },
+        dbDir
+      );
+
+      // Aplica chave no formato padrão seguro x'...' do SQLCipher
+      await db.execAsync(`PRAGMA key = "x'${validKey}'";`);
+
+      // Validação ativa de que o PRAGMA cipher_version está operacional na conexão principal
+      const verRow = await db.getFirstAsync<{ cipher_version?: string; 'cipher_version()'?: string }>(
+        'PRAGMA cipher_version;'
+      );
+      const activeVer = verRow?.cipher_version ?? verRow?.['cipher_version()'];
+      if (!activeVer || typeof activeVer !== 'string' || activeVer.trim().length === 0) {
+        await db.closeAsync();
+        throw new SQLCipherNativeMissingError('Conexão principal não retornou versão válida do SQLCipher.');
+      }
+
+      // Verificação oficial Zetetic: zero linhas no cipher_integrity_check significa ausência de erros
+      const cipherErrors = await db.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
+      if (cipherErrors && cipherErrors.length > 0) {
+        await db.closeAsync();
+        throw new CipherIntegrityError(
+          `Falha de integridade criptográfica no banco da Portaria Prime: ${cipherErrors.map((e) => e.error).join(', ')}`
+        );
       }
 
       await runMigrations(db);

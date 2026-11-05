@@ -21,6 +21,8 @@ export type MigrationStage =
 export interface MigrationJournalState {
   stage: MigrationStage;
   sourceVersion: number;
+  sourceSnapshotsCount: number;
+  sourceGuestsCount: number;
   sourceQueueCount: number;
   sourceQueueChecksum: string;
   timestamp: string;
@@ -51,7 +53,44 @@ export interface IFileSystem {
 }
 
 /**
- * Esquema canônico e exato da tabela reception_queue do Painel Prime.
+ * Esquema canônico da tabela reception_snapshots (10 colunas).
+ */
+export interface SnapshotRecord {
+  event_id: string;
+  name: string;
+  event_date: string;
+  status: string;
+  location: string | null;
+  reception_offline_expires_at: string | null;
+  snapshot_at: string;
+  raw_json: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Esquema canônico da tabela reception_guests (15 colunas).
+ */
+export interface GuestRecord {
+  id: string;
+  event_id: string;
+  name: string;
+  phone: string | null;
+  qr_token: string | null;
+  family_group_id: string | null;
+  is_group_leader: number;
+  group_leader_id: string | null;
+  group_sort_order: number | null;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+  table_id: string | null;
+  table_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Esquema canônico e exato da tabela reception_queue do Painel Prime (14 colunas).
  */
 export interface QueueItemRecord {
   client_scan_id: string;
@@ -99,7 +138,7 @@ export class SQLCipherNativeMissingError extends Error {
 }
 
 export class MigrationIntegrityMismatchError extends Error {
-  constructor(message = 'Inconsistência detectada entre os dados de origem e destino durante a validação da fila.') {
+  constructor(message = 'Inconsistência detectada entre os dados de origem e destino durante a validação da migração.') {
     super(message);
     this.name = 'MigrationIntegrityMismatchError';
   }

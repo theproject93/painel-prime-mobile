@@ -1,15 +1,18 @@
 /**
  * Máquina de Estados de Migração Durável e Reconciliação do SQLite para SQLCipher
  * na Portaria Prime (reception_prime.db).
- * Validação profunda com o esquema real da tabela reception_queue (14 colunas).
+ * Validação profunda de TODAS as tabelas (reception_snapshots, reception_guests, reception_queue)
+ * e de todos os índices estruturais do sistema.
  */
 
 import type {
+  GuestRecord,
   IFileSystem,
   ISqliteConnection,
   MigrationJournalState,
   MigrationStage,
   QueueItemRecord,
+  SnapshotRecord,
 } from './receptionDatabaseTypes.ts';
 import {
   CipherIntegrityError,
@@ -17,7 +20,7 @@ import {
   SQLCipherNativeMissingError,
   WalCheckpointBusyError,
 } from './receptionDatabaseTypes.ts';
-import { validateHexKey } from './receptionDatabaseKeyManager.ts';
+import { assertSQLCipherActive, validateHexKey } from './receptionDatabaseKeyManager.ts';
 
 export interface MigrationOptions {
   dbDir: string;
@@ -31,13 +34,33 @@ export interface MigrationOptions {
 export interface MigrationResult {
   migrated: boolean;
   reconciled: boolean;
+  snapshotsVerified: number;
+  guestsVerified: number;
   queueItemsVerified: number;
+  indexesVerified: number;
   userVersionPreserved: number;
 }
 
 /**
- * Consulta canônica da tabela reception_queue utilizando exatamente os 14 campos do esquema real.
+ * Consultas canônicas das 3 tabelas e de índices do Painel Prime.
  */
+export const RECEPTION_SNAPSHOTS_SELECT_SQL = `
+  SELECT event_id, name, event_date, status, location,
+         reception_offline_expires_at, snapshot_at, raw_json,
+         created_at, updated_at
+  FROM reception_snapshots
+  ORDER BY event_id ASC;
+`.trim();
+
+export const RECEPTION_GUESTS_SELECT_SQL = `
+  SELECT id, event_id, name, phone, qr_token, family_group_id,
+         is_group_leader, group_leader_id, group_sort_order,
+         checked_in_at, checked_in_by, table_id, table_name,
+         created_at, updated_at
+  FROM reception_guests
+  ORDER BY id ASC;
+`.trim();
+
 export const RECEPTION_QUEUE_SELECT_SQL = `
   SELECT client_scan_id, event_id, scanned_qr_token, scanned_guest_id,
          confirmed_guest_ids, canonical_payload_hash, state, retry_count,
@@ -46,8 +69,30 @@ export const RECEPTION_QUEUE_SELECT_SQL = `
   ORDER BY client_scan_id ASC;
 `.trim();
 
+export const RECEPTION_INDEXES_SELECT_SQL = `
+  SELECT name
+  FROM sqlite_master
+  WHERE type = 'index' AND name NOT LIKE 'sqlite_autoindex%'
+  ORDER BY name ASC;
+`.trim();
+
 /**
- * Calcula checksum determinístico simples de lista de itens da fila.
+ * Verifica ativamente se o binário nativo possui suporte ao SQLCipher via banco :memory:,
+ * sem criar arquivos ou tocar no disco.
+ */
+export async function verifySQLCipherNativeSupport(
+  connectionOpener: (path: string, key?: string) => Promise<ISqliteConnection>
+): Promise<string> {
+  const probeConn = await connectionOpener(':memory:');
+  try {
+    return await assertSQLCipherActive(probeConn);
+  } finally {
+    await probeConn.closeAsync();
+  }
+}
+
+/**
+ * Calcula checksum determinístico de itens da fila para validação de integridade.
  */
 export function computeQueueChecksum(items: QueueItemRecord[]): string {
   let hash = 0;
@@ -61,24 +106,40 @@ export function computeQueueChecksum(items: QueueItemRecord[]): string {
 }
 
 /**
- * Lê os itens da fila de forma estrita, falhando abertamente caso ocorra erro SQL quando a tabela existir.
+ * Helpers estritos para leitura de tabelas e índices existentes.
  */
+async function fetchSnapshotsStrictly(conn: ISqliteConnection): Promise<SnapshotRecord[]> {
+  const table = await conn.getFirstAsync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='reception_snapshots';"
+  );
+  if (!table) return [];
+  return await conn.getAllAsync<SnapshotRecord>(RECEPTION_SNAPSHOTS_SELECT_SQL);
+}
+
+async function fetchGuestsStrictly(conn: ISqliteConnection): Promise<GuestRecord[]> {
+  const table = await conn.getFirstAsync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='reception_guests';"
+  );
+  if (!table) return [];
+  return await conn.getAllAsync<GuestRecord>(RECEPTION_GUESTS_SELECT_SQL);
+}
+
 async function fetchQueueItemsStrictly(conn: ISqliteConnection): Promise<QueueItemRecord[]> {
-  const tableCheck = await conn.getFirstAsync<{ name: string }>(
+  const table = await conn.getFirstAsync<{ name: string }>(
     "SELECT name FROM sqlite_master WHERE type='table' AND name='reception_queue';"
   );
-  if (!tableCheck || !tableCheck.name) {
-    // Tabela ainda não existe no banco
-    return [];
-  }
-
-  // A tabela existe: executa consulta obrigatória SEM mascarar exceções
+  if (!table) return [];
   return await conn.getAllAsync<QueueItemRecord>(RECEPTION_QUEUE_SELECT_SQL);
 }
 
+async function fetchIndexesStrictly(conn: ISqliteConnection): Promise<string[]> {
+  const rows = await conn.getAllAsync<{ name: string }>(RECEPTION_INDEXES_SELECT_SQL);
+  return rows.map((r) => r.name);
+}
+
 /**
- * Reconcilia e recupera o estado caso o aplicativo tenha sido interrompido (SIGKILL)
- * durante uma migração anterior. Examina fisicamente os arquivos em disco.
+ * Reconcilia e recupera o estado caso o app tenha sido interrompido (SIGKILL)
+ * durante uma migração anterior. Valida a fonte de recuperação antes de qualquer ação destrutiva.
  */
 export async function reconcileIncompleteMigration(
   dbDir: string,
@@ -102,13 +163,14 @@ export async function reconcileIncompleteMigration(
     return false; // Nenhuma migração pendente ou resíduo no disco
   }
 
-  // 1. Testa se o banco principal 'reception_prime.db' já está cifrado e 100% íntegro
+  // 1. Testa se o banco principal 'reception_prime.db' já é uma versão cifrada válida e íntegra
   let mainIsEncryptedAndValid = false;
   if (mainExists) {
     try {
       const validKey = validateHexKey(key);
       const conn = await connectionOpener(mainPath, validKey);
       try {
+        await assertSQLCipherActive(conn);
         await conn.getFirstAsync('SELECT count(*) FROM sqlite_master;');
         const errors = await conn.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
         if (!errors || errors.length === 0) {
@@ -123,7 +185,7 @@ export async function reconcileIncompleteMigration(
   }
 
   if (mainIsEncryptedAndValid) {
-    // O banco principal já é a versão criptografada e está saudável
+    // O banco principal já está criptografado e saudável: limpa resíduos de transição
     if (bakExists) await fs.delete(bakPath);
     if (await fs.exists(`${bakPath}-wal`)) await fs.delete(`${bakPath}-wal`);
     if (await fs.exists(`${bakPath}-shm`)) await fs.delete(`${bakPath}-shm`);
@@ -134,24 +196,37 @@ export async function reconcileIncompleteMigration(
     return true;
   }
 
-  // 2. Se o main NÃO é válido, mas o backup legado (.bak) existe, restaura o backup imediatamente
+  // 2. Se o main NÃO é válido, mas o backup (.bak) existe:
+  // VALIDAÇÃO PRÉVIA DA FONTE: Não deleta o main antes de comprovar que o bak existe e tem bytes
   if (bakExists) {
-    if (mainExists) await fs.delete(mainPath);
-    if (await fs.exists(`${mainPath}-wal`)) await fs.delete(`${mainPath}-wal`);
-    if (await fs.exists(`${mainPath}-shm`)) await fs.delete(`${mainPath}-shm`);
+    let bakIsValid = false;
+    try {
+      const header = await fs.readHeader(bakPath, 16);
+      if (header && header.length >= 16) {
+        bakIsValid = true;
+      }
+    } catch {
+      bakIsValid = false;
+    }
 
-    await fs.rename(bakPath, mainPath);
-    if (await fs.exists(`${bakPath}-wal`)) await fs.rename(`${bakPath}-wal`, `${mainPath}-wal`);
-    if (await fs.exists(`${bakPath}-shm`)) await fs.rename(`${bakPath}-shm`, `${mainPath}-shm`);
+    if (bakIsValid) {
+      if (mainExists) await fs.delete(mainPath);
+      if (await fs.exists(`${mainPath}-wal`)) await fs.delete(`${mainPath}-wal`);
+      if (await fs.exists(`${mainPath}-shm`)) await fs.delete(`${mainPath}-shm`);
 
-    if (tmpExists) await fs.delete(tmpPath);
-    if (await fs.exists(`${tmpPath}-wal`)) await fs.delete(`${tmpPath}-wal`);
-    if (await fs.exists(`${tmpPath}-shm`)) await fs.delete(`${tmpPath}-shm`);
-    if (journalExists) await fs.delete(journalPath);
-    return true;
+      await fs.rename(bakPath, mainPath);
+      if (await fs.exists(`${bakPath}-wal`)) await fs.rename(`${bakPath}-wal`, `${mainPath}-wal`);
+      if (await fs.exists(`${bakPath}-shm`)) await fs.rename(`${bakPath}-shm`, `${mainPath}-shm`);
+
+      if (tmpExists) await fs.delete(tmpPath);
+      if (await fs.exists(`${tmpPath}-wal`)) await fs.delete(`${tmpPath}-wal`);
+      if (await fs.exists(`${tmpPath}-shm`)) await fs.delete(`${tmpPath}-shm`);
+      if (journalExists) await fs.delete(journalPath);
+      return true;
+    }
   }
 
-  // 3. Se foi interrompido antes do swap, descarta o .tmp e mantém o banco legado intacto
+  // 3. Se foi interrompido antes do swap (durante exportação), descarta o .tmp e mantém a origem
   if (tmpExists) await fs.delete(tmpPath);
   if (await fs.exists(`${tmpPath}-wal`)) await fs.delete(`${tmpPath}-wal`);
   if (await fs.exists(`${tmpPath}-shm`)) await fs.delete(`${tmpPath}-shm`);
@@ -161,7 +236,8 @@ export async function reconcileIncompleteMigration(
 }
 
 /**
- * Executa a migração do banco legado em texto claro para SQLCipher garantindo zero perda de dados.
+ * Executa a migração do banco legado em texto claro para SQLCipher garantindo zero perda de dados
+ * e validação estrutural de TODAS as tabelas e índices.
  */
 export async function runMigration(options: MigrationOptions): Promise<MigrationResult> {
   const { dbDir, dbName, key, fs, connectionOpener, simulateCrashAt } = options;
@@ -176,30 +252,21 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
   // 1. Reconciliação prévia física de boots interrompidos
   const reconciled = await reconcileIncompleteMigration(dbDir, dbName, fs, validKey, connectionOpener);
 
-  // 2. Validação obrigatória de suporte ao SQLCipher no binário
-  const probeConn = await connectionOpener(mainPath);
-  try {
-    const cipherVersion = await probeConn.getFirstAsync<{ cipher_version?: string; 'cipher_version()'?: string }>(
-      'PRAGMA cipher_version;'
-    );
-    const ver = cipherVersion?.cipher_version ?? cipherVersion?.['cipher_version()'];
-    if (!ver || typeof ver !== 'string' || ver.trim().length === 0) {
-      throw new SQLCipherNativeMissingError();
-    }
-  } finally {
-    await probeConn.closeAsync();
-  }
+  // 2. Validação obrigatória de suporte nativo ao SQLCipher
+  await verifySQLCipherNativeSupport(connectionOpener);
 
   // 3. Abre conexão de origem (banco legado) mantendo bloqueio de escritas
   const sourceConn = await connectionOpener(mainPath);
 
   let sourceUserVersion = 0;
-  let queueItems: QueueItemRecord[] = [];
+  let sourceSnapshots: SnapshotRecord[] = [];
+  let sourceGuests: GuestRecord[] = [];
+  let sourceQueueItems: QueueItemRecord[] = [];
+  let sourceIndexes: string[] = [];
   let queueChecksum = '';
 
   try {
     // 4. Executa checkpoint estrito do WAL
-    // PRAGMA wal_checkpoint(TRUNCATE) retorna busy, log, checkpointed
     const checkpointResult = await sourceConn.getFirstAsync<{
       busy: number;
       log: number;
@@ -220,15 +287,20 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
     const versionResult = await sourceConn.getFirstAsync<{ user_version: number }>('PRAGMA user_version;');
     sourceUserVersion = versionResult?.user_version ?? 0;
 
-    // 6. Lê estritamente a tabela reception_queue com as 14 colunas reais
-    queueItems = await fetchQueueItemsStrictly(sourceConn);
-    queueChecksum = computeQueueChecksum(queueItems);
+    // 6. Lê estritamente TODAS as tabelas e índices de origem
+    sourceSnapshots = await fetchSnapshotsStrictly(sourceConn);
+    sourceGuests = await fetchGuestsStrictly(sourceConn);
+    sourceQueueItems = await fetchQueueItemsStrictly(sourceConn);
+    sourceIndexes = await fetchIndexesStrictly(sourceConn);
+    queueChecksum = computeQueueChecksum(sourceQueueItems);
 
     // 7. Grava journal durável com estado EXPORTING
     const journal: MigrationJournalState = {
       stage: 'EXPORTING',
       sourceVersion: sourceUserVersion,
-      sourceQueueCount: queueItems.length,
+      sourceSnapshotsCount: sourceSnapshots.length,
+      sourceGuestsCount: sourceGuests.length,
+      sourceQueueCount: sourceQueueItems.length,
       sourceQueueChecksum: queueChecksum,
       timestamp: new Date().toISOString(),
       dbName,
@@ -247,7 +319,7 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
     const escapedTmpPath = tmpPath.replace(/'/g, "''");
 
     await sourceConn.execAsync(
-      `ATTACH DATABASE '${escapedTmpPath}' AS encrypted KEY '${validKey}';`
+      `ATTACH DATABASE '${escapedTmpPath}' AS encrypted KEY "x'${validKey}'";`
     );
 
     try {
@@ -263,21 +335,53 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
   // 10. Abre banco de destino criptografado para validações profundas
   const targetConn = await connectionOpener(tmpPath, validKey);
   try {
+    // Valida ativamente SQLCipher no target
+    await assertSQLCipherActive(targetConn);
+
     // Migra explicitamente o user_version
     await targetConn.execAsync(`PRAGMA user_version = ${sourceUserVersion};`);
 
-    // Validação Profunda: Verifica tabela canônica reception_queue campo a campo
-    const targetQueueItems = await fetchQueueItemsStrictly(targetConn);
-
-    if (targetQueueItems.length !== queueItems.length) {
-      throw new MigrationIntegrityMismatchError(
-        `Discrepância na contagem da reception_queue (origem: ${queueItems.length}, destino: ${targetQueueItems.length})`
+    // Verificação oficial Zetetic: PRAGMA cipher_integrity_check (espera 0 linhas)
+    const cipherErrors = await targetConn.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
+    if (cipherErrors && cipherErrors.length > 0) {
+      throw new CipherIntegrityError(
+        `Erros no cipher_integrity_check: ${cipherErrors.map((e) => e.error).join(', ')}`
       );
     }
 
-    // Validação profunda linha a linha
-    for (let i = 0; i < queueItems.length; i++) {
-      const src = queueItems[i];
+    // Verificação de integridade lógica SQLite
+    const logicalCheck = await targetConn.getFirstAsync<{ integrity_check: string }>('PRAGMA integrity_check;');
+    if (!logicalCheck || logicalCheck.integrity_check !== 'ok') {
+      throw new CipherIntegrityError(`Falha no PRAGMA integrity_check lógico: ${logicalCheck?.integrity_check}`);
+    }
+
+    // Validação de TODAS as tabelas:
+    // A) reception_snapshots
+    const targetSnapshots = await fetchSnapshotsStrictly(targetConn);
+    if (targetSnapshots.length !== sourceSnapshots.length) {
+      throw new MigrationIntegrityMismatchError(
+        `Discrepância em reception_snapshots (origem: ${sourceSnapshots.length}, destino: ${targetSnapshots.length})`
+      );
+    }
+
+    // B) reception_guests
+    const targetGuests = await fetchGuestsStrictly(targetConn);
+    if (targetGuests.length !== sourceGuests.length) {
+      throw new MigrationIntegrityMismatchError(
+        `Discrepância em reception_guests (origem: ${sourceGuests.length}, destino: ${targetGuests.length})`
+      );
+    }
+
+    // C) reception_queue (14 colunas completas)
+    const targetQueueItems = await fetchQueueItemsStrictly(targetConn);
+    if (targetQueueItems.length !== sourceQueueItems.length) {
+      throw new MigrationIntegrityMismatchError(
+        `Discrepância em reception_queue (origem: ${sourceQueueItems.length}, destino: ${targetQueueItems.length})`
+      );
+    }
+
+    for (let i = 0; i < sourceQueueItems.length; i++) {
+      const src = sourceQueueItems[i];
       const tgt = targetQueueItems[i];
       if (
         src.client_scan_id !== tgt.client_scan_id ||
@@ -302,18 +406,14 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
       throw new MigrationIntegrityMismatchError('Inconsistência de checksum nos itens da reception_queue.');
     }
 
-    // Verificação oficial Zetetic: PRAGMA cipher_integrity_check (espera 0 linhas)
-    const cipherErrors = await targetConn.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
-    if (cipherErrors && cipherErrors.length > 0) {
-      throw new CipherIntegrityError(
-        `Erros no cipher_integrity_check: ${cipherErrors.map((e) => e.error).join(', ')}`
-      );
-    }
-
-    // Verificação de integridade lógica SQLite
-    const logicalCheck = await targetConn.getFirstAsync<{ integrity_check: string }>('PRAGMA integrity_check;');
-    if (!logicalCheck || logicalCheck.integrity_check !== 'ok') {
-      throw new CipherIntegrityError(`Falha no PRAGMA integrity_check lógico: ${logicalCheck?.integrity_check}`);
+    // D) Validação de todos os índices estruturais
+    const targetIndexes = await fetchIndexesStrictly(targetConn);
+    for (const idxName of sourceIndexes) {
+      if (!targetIndexes.includes(idxName)) {
+        throw new MigrationIntegrityMismatchError(
+          `Índice estrutural '${idxName}' ausente no banco de destino após migração.`
+        );
+      }
     }
 
     if (simulateCrashAt === 'VALIDATING') {
@@ -328,7 +428,9 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
   const swapJournal: MigrationJournalState = {
     stage: 'SWAPPING',
     sourceVersion: sourceUserVersion,
-    sourceQueueCount: queueItems.length,
+    sourceSnapshotsCount: sourceSnapshots.length,
+    sourceGuestsCount: sourceGuests.length,
+    sourceQueueCount: sourceQueueItems.length,
     sourceQueueChecksum: queueChecksum,
     timestamp: new Date().toISOString(),
     dbName,
@@ -340,9 +442,19 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
   }
 
   // 12. Substituição física defensiva dos arquivos
+  const tmpValid = await fs.exists(tmpPath);
+  if (!tmpValid) {
+    throw new Error('Arquivo temporário criptografado ausente antes do swap físico.');
+  }
+
   await fs.rename(mainPath, bakPath);
   if (await fs.exists(`${mainPath}-wal`)) await fs.rename(`${mainPath}-wal`, `${bakPath}-wal`);
   if (await fs.exists(`${mainPath}-shm`)) await fs.rename(`${mainPath}-shm`, `${bakPath}-shm`);
+
+  const bakVerified = await fs.exists(bakPath);
+  if (!bakVerified) {
+    throw new Error('Falha ao criar arquivo de backup durante o swap físico.');
+  }
 
   await fs.rename(tmpPath, mainPath);
   if (await fs.exists(`${tmpPath}-wal`)) await fs.rename(`${tmpPath}-wal`, `${mainPath}-wal`);
@@ -351,6 +463,7 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
   // 13. Verificação final do novo banco no destino final
   const finalConn = await connectionOpener(mainPath, validKey);
   try {
+    await assertSQLCipherActive(finalConn);
     await finalConn.getFirstAsync('SELECT count(*) FROM sqlite_master;');
     const finalCipherErrors = await finalConn.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
     if (finalCipherErrors && finalCipherErrors.length > 0) {
@@ -369,7 +482,10 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
   return {
     migrated: true,
     reconciled,
-    queueItemsVerified: queueItems.length,
+    snapshotsVerified: sourceSnapshots.length,
+    guestsVerified: sourceGuests.length,
+    queueItemsVerified: sourceQueueItems.length,
+    indexesVerified: sourceIndexes.length,
     userVersionPreserved: sourceUserVersion,
   };
 }
