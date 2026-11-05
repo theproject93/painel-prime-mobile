@@ -16,6 +16,7 @@ export type MigrationStage =
   | 'EXPORTING'
   | 'VALIDATING'
   | 'SWAPPING'
+  | 'SWAPPING_AFTER_BACKUP'
   | 'COMPLETED';
 
 export interface MigrationJournalState {

@@ -156,7 +156,11 @@ export async function reconcileIncompleteMigration(
   key: string,
   connectionOpener: (fullPath: string, key?: string) => Promise<ISqliteConnection>
 ): Promise<boolean> {
-  const validKey = validateHexKey(key);
+  let validKey: string | null = null;
+  if (key && /^[0-9a-fA-F]{64}$/.test(key)) {
+    validKey = key.toLowerCase();
+  }
+
   const cleanDbDir = dbDir.replace(/\\/g, '/');
   const journalPath = `${cleanDbDir}/migration.state.json`;
   const mainPath = `${cleanDbDir}/${dbName}`;
@@ -174,9 +178,8 @@ export async function reconcileIncompleteMigration(
 
   // 1. Testa se o banco principal 'reception_prime.db' já é uma versão cifrada válida e íntegra
   let mainIsEncryptedAndValid = false;
-  if (mainExists) {
+  if (mainExists && validKey) {
     try {
-      const validKey = validateHexKey(key);
       const conn = await connectionOpener(mainPath, validKey);
       try {
         await assertSQLCipherActive(conn);
@@ -205,14 +208,27 @@ export async function reconcileIncompleteMigration(
     return true;
   }
 
-  // 2. Se o main NÃO é válido, mas o backup (.bak) existe:
-  // VALIDAÇÃO PRÉVIA DA FONTE: Não deleta o main antes de comprovar que o bak existe e tem bytes
+  // 2. Se o main NÃO é válido (ou está ausente porque crashou após rename(main, bak)),
+  // mas o backup (.bak) existe:
+  // VALIDAÇÃO ESTRUTURAL PROFUNDA DA FONTE (SQLite real + integridade lógica e tabela de fila):
   if (bakExists) {
     let bakIsValid = false;
     try {
-      const header = await fs.readHeader(bakPath, 16);
-      if (header && header.length >= 16) {
-        bakIsValid = true;
+      const bakConn = await connectionOpener(bakPath);
+      try {
+        const check = await bakConn.getFirstAsync<{ integrity_check: string }>('PRAGMA integrity_check;');
+        if (check && check.integrity_check === 'ok') {
+          // Valida que a tabela reception_queue existe e pode ser lida
+          const tableCheck = await bakConn.getFirstAsync<{ name: string }>(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='reception_queue';"
+          );
+          if (tableCheck) {
+            await bakConn.getFirstAsync('SELECT count(*) FROM reception_queue;');
+          }
+          bakIsValid = true;
+        }
+      } finally {
+        await bakConn.closeAsync();
       }
     } catch {
       bakIsValid = false;
@@ -463,6 +479,12 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
   const bakVerified = await fs.exists(bakPath);
   if (!bakVerified) {
     throw new Error('Falha ao criar arquivo de backup durante o swap físico.');
+  }
+
+  // Interrupção adversária no momento exato em que o mainPath foi renomeado para bakPath
+  // e o tmpPath ainda não foi promovido (o arquivo principal desaparece temporariamente do disco)
+  if (simulateCrashAt === 'SWAPPING_AFTER_BACKUP') {
+    throw new Error('SIMULATED_CRASH:SWAPPING_AFTER_BACKUP');
   }
 
   await fs.rename(tmpPath, mainPath);

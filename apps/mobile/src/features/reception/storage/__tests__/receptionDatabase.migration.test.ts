@@ -766,16 +766,22 @@ test('Cenário 6 — Queda Abrupta (SIGKILL) durante EXPORTING: reconciliação 
   await fsPromises.rm(tmpDir, { recursive: true, force: true });
 });
 
-test('Cenário 7 — Queda Abrupta (SIGKILL) durante SWAPPING: reconciliação restaura backup com validação prévia', async () => {
+test('Cenário 7 — Queda Abrupta (SIGKILL) entre rename(main, bak) e rename(tmp, main) com banco principal ausente no disco: reconciliação restaura integralmente os 15 check-ins offline', async () => {
   const tmpDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sqlcipher-c7-'));
   const fs = new NodeFileSystem();
   const keyStorage = new MockSecureKeyStorage();
   const dbName = 'reception_prime.db';
   const dbPath = path.join(tmpDir, dbName);
+  const bakPath = path.join(tmpDir, `${dbName}.bak`);
+  const tmpPath = path.join(tmpDir, `${dbName}.tmp`);
+  const journalPath = path.join(tmpDir, 'migration.state.json');
 
+  // 1. Cria banco legado em WAL com 15 itens na reception_queue
   await setupLegacyRealDatabase(dbPath);
   const key = await resolveKeyForState('LEGACY_PLAINTEXT_VALIDATED', keyStorage);
 
+  // 2. Dispara a migração interrompendo EXATAMENTE após rename(main, bak),
+  // antes de promover o tmp para main
   await assert.rejects(
     async () => {
       await runMigration({
@@ -784,19 +790,30 @@ test('Cenário 7 — Queda Abrupta (SIGKILL) durante SWAPPING: reconciliação r
         key,
         fs,
         connectionOpener: createRealConnectionOpener(),
-        simulateCrashAt: 'SWAPPING',
+        simulateCrashAt: 'SWAPPING_AFTER_BACKUP',
       });
     },
-    /SIMULATED_CRASH:SWAPPING/
+    /SIMULATED_CRASH:SWAPPING_AFTER_BACKUP/
   );
 
-  // No SWAPPING crash, o journal está gravado
-  assert.strictEqual(await fs.exists(path.join(tmpDir, 'migration.state.json')), true);
+  // 3. Comprova o estado exato de falha no disco:
+  // - O banco principal NÃO EXISTE no disco!
+  // - O backup .bak EXISTE com os 15 check-ins!
+  // - O arquivo .tmp EXISTE!
+  // - O journal EXISTE!
+  assert.strictEqual(await fs.exists(dbPath), false, 'Banco principal deve estar ausente após a interrupção');
+  assert.strictEqual(await fs.exists(bakPath), true, 'Backup .bak deve existir no disco');
+  assert.strictEqual(await fs.exists(tmpPath), true, 'Arquivo .tmp deve existir no disco');
+  assert.strictEqual(await fs.exists(journalPath), true, 'Journal deve existir no disco');
 
-  // Simula queda com .bak no disco
-  await fs.rename(dbPath, path.join(tmpDir, `${dbName}.bak`));
+  // 4. Simula o boot da aplicação: detecção de artefatos pendentes dispara reconciliação
+  // mesmo com o arquivo principal ausente
+  const hasPendingMigration =
+    (await fs.exists(journalPath)) ||
+    (await fs.exists(bakPath)) ||
+    (await fs.exists(tmpPath));
+  assert.strictEqual(hasPendingMigration, true);
 
-  // Reconciliação restaura o backup íntegro
   const reconciled = await reconcileIncompleteMigration(
     tmpDir,
     dbName,
@@ -804,16 +821,62 @@ test('Cenário 7 — Queda Abrupta (SIGKILL) durante SWAPPING: reconciliação r
     key,
     createRealConnectionOpener()
   );
-  assert.strictEqual(reconciled, true);
+  assert.strictEqual(reconciled, true, 'Reconciliação deve retornar sucesso');
 
-  assert.strictEqual(await fs.exists(dbPath), true);
-  assert.strictEqual(await fs.exists(path.join(tmpDir, `${dbName}.bak`)), false);
-  assert.strictEqual(await fs.exists(path.join(tmpDir, 'migration.state.json')), false);
+  // 5. Comprova que o banco principal foi completamente restaurado e os resíduos limpos
+  assert.strictEqual(await fs.exists(dbPath), true, 'Banco principal deve estar restaurado no disco');
+  assert.strictEqual(await fs.exists(bakPath), false, 'Backup .bak deve ter sido consumido');
+  assert.strictEqual(await fs.exists(tmpPath), false, 'Arquivo .tmp temporário deve ter sido limpo');
+  assert.strictEqual(await fs.exists(journalPath), false, 'Journal deve ter sido removido');
+
+  // 6. Comprova a integridade física de todos os 15 registros de check-in offline no banco restaurado
+  const restoredConn = await createRealConnectionOpener()(dbPath);
+  const queueAfterCrash = await restoredConn.getAllAsync<QueueItemRecord>('SELECT * FROM reception_queue;');
+  assert.strictEqual(queueAfterCrash.length, 15, 'Todos os 15 registros de check-in devem estar preservados');
+  await restoredConn.closeAsync();
+
+  // 7. Agora executa a migração até o final e comprova que os dados são migrados para SQLCipher com sucesso
+  const finalResult = await runMigration({
+    dbDir: tmpDir,
+    dbName,
+    key,
+    fs,
+    connectionOpener: createRealConnectionOpener(),
+  });
+  assert.strictEqual(finalResult.migrated, true);
+  assert.strictEqual(finalResult.queueItemsVerified, 15);
 
   await fsPromises.rm(tmpDir, { recursive: true, force: true });
 });
 
-test('Cenário 8 — Rejeição em Binário sem SQLCipher nativo em TODOS os caminhos', async () => {
+test('Cenário 8 — Backup com falha estrutural: reconciliador recusa restauração e não apaga dados existentes', async () => {
+  const tmpDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sqlcipher-c8-'));
+  const fs = new NodeFileSystem();
+  const dbName = 'reception_prime.db';
+  const dbPath = path.join(tmpDir, dbName);
+  const bakPath = path.join(tmpDir, `${dbName}.bak`);
+
+  // Grava arquivo principal e backup corrompido (bytes aleatórios que não formam banco SQLite válido)
+  await fs.writeText(dbPath, 'dados_originais_reception');
+  await fs.writeText(bakPath, 'bytes_corrompidos_que_nao_sao_sqlite');
+
+  const reconciled = await reconcileIncompleteMigration(
+    tmpDir,
+    dbName,
+    fs,
+    'a'.repeat(64),
+    createRealConnectionOpener()
+  );
+
+  // O arquivo principal não deve ser apagado nem substituído por backup inválido
+  assert.strictEqual(await fs.exists(dbPath), true);
+  const content = await fs.readText(dbPath);
+  assert.strictEqual(content, 'dados_originais_reception');
+
+  await fsPromises.rm(tmpDir, { recursive: true, force: true });
+});
+
+test('Cenário 9 — Rejeição em Binário sem SQLCipher nativo em TODOS os caminhos', async () => {
   const noCipherOpener = createRealConnectionOpener({ cipherVersion: '' });
 
   await assert.rejects(

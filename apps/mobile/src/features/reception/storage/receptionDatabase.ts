@@ -194,27 +194,41 @@ export async function getDatabase(dbOverride?: SQLiteDatabase): Promise<SQLiteDa
       // 1. Validação mandatória de suporte nativo ao SQLCipher em TODOS os caminhos (probe em :memory:)
       await verifySQLCipherNativeSupport(connectionOpener);
 
-      // 2. Obtém diretório canônico e caminho do banco SEM abrir nem criar arquivo previamente
+      // 2. Obtém diretório canônico e caminhos de arquivos
       const dbDir = getCanonicalDatabaseDirectory();
       const fullPath = getCanonicalDatabasePath(RECEPTION_DB_NAME);
+      const cleanDbDir = dbDir.replace(/\\/g, '/');
+      const journalPath = `${cleanDbDir}/migration.state.json`;
+      const bakPath = `${cleanDbDir}/${RECEPTION_DB_NAME}.bak`;
+      const tmpPath = `${cleanDbDir}/${RECEPTION_DB_NAME}.tmp`;
 
-      // 3. Checa existência física do arquivo no disco antes de qualquer openDatabaseAsync
+      // 3. Reconciliação mandatória de migrações interrompidas (SIGKILL)
+      // Executa SEMPRE que houver artefatos (.bak, .tmp, journal), independentemente de o banco principal existir ou não
+      const hasPendingMigration =
+        (await fs.exists(journalPath)) ||
+        (await fs.exists(bakPath)) ||
+        (await fs.exists(tmpPath));
+
+      if (hasPendingMigration) {
+        const pendingKey = await keyStorage.getItemAsync(RECEPTION_DB_KEY_ALIAS);
+        let validatedPendingKey = '';
+        if (pendingKey) {
+          try {
+            validatedPendingKey = validateHexKey(pendingKey);
+          } catch {
+            // Chave corrompida ou inválida no Keystore
+          }
+        }
+        await reconcileIncompleteMigration(dbDir, RECEPTION_DB_NAME, fs, validatedPendingKey, connectionOpener);
+      }
+
+      // 4. Somente após a reconciliação ter restaurado o backup (se aplicável), checa a existência física
       const dbExists = await fs.exists(fullPath);
 
       let state: DatabaseState;
       if (!dbExists) {
         state = 'NON_EXISTENT';
       } else {
-        // Reconcilia boots interrompidos anteriores (SIGKILL) se houver journal
-        const pendingKey = await keyStorage.getItemAsync(RECEPTION_DB_KEY_ALIAS);
-        if (pendingKey) {
-          try {
-            const validatedPendingKey = validateHexKey(pendingKey);
-            await reconcileIncompleteMigration(dbDir, RECEPTION_DB_NAME, fs, validatedPendingKey, connectionOpener);
-          } catch {
-            // Se a chave no Keystore estiver corrompida ou malformada, não propaga para a reconciliação
-          }
-        }
         state = await detectDatabaseState(fullPath, keyStorage, fs, connectionOpener);
       }
 
