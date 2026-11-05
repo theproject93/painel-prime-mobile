@@ -297,6 +297,21 @@ export async function getDatabase(dbOverride?: SQLiteDatabase): Promise<SQLiteDa
       }
 
       await runMigrations(db);
+
+      // Auditoria formal das operações offline da reception_queue (telemetria defensiva)
+      try {
+        const queueAudit = await db.getAllAsync<{
+          client_scan_id: string;
+          state: string;
+          canonical_payload_hash: string;
+        }>(
+          'SELECT client_scan_id, state, canonical_payload_hash FROM reception_queue ORDER BY client_scan_id ASC;'
+        );
+        console.log('[ReceptionQueueAudit]', JSON.stringify(queueAudit));
+      } catch {
+        // Log defensivo caso a tabela ainda esteja sendo criada em testes unitários puros
+      }
+
       dbInstance = db;
       g[GLOBAL_RECEPTION_DB_KEY] = db;
       return db;

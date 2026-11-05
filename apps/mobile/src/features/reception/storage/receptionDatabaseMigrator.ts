@@ -182,7 +182,41 @@ export async function reconcileIncompleteMigration(
         await conn.getFirstAsync('SELECT count(*) FROM sqlite_master;');
         const errors = await conn.getAllAsync<{ error: string }>('PRAGMA cipher_integrity_check;');
         if (!errors || errors.length === 0) {
-          mainIsEncryptedAndValid = true;
+          // Validação estrita de esquema no banco principal: as 3 tabelas fundamentais da Portaria devem existir
+          const tables = await conn.getAllAsync<{ name: string }>(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('reception_snapshots', 'reception_guests', 'reception_queue');"
+          );
+          const tableNames = new Set((tables || []).map((t) => t.name));
+          const hasRequiredTables =
+            tableNames.has('reception_snapshots') &&
+            tableNames.has('reception_guests') &&
+            tableNames.has('reception_queue');
+
+          if (!hasRequiredTables) {
+            mainIsEncryptedAndValid = false;
+          } else if (journalExists) {
+            // Se houver journal de migração, o banco principal DEVE confrontar estritamente com a contagem e SHA-256 do journal.
+            // Se o principal tiver menos operações ou divergência de dados, ele NUNCA deve descartar o backup (.bak)!
+            try {
+              const journalRaw = await fs.readText(journalPath);
+              const journal = JSON.parse(journalRaw) as MigrationJournalState;
+              if (journal && typeof journal.sourceQueueCount === 'number') {
+                const mainQueueItems = await fetchQueueItemsStrictly(conn);
+                const countMatches = mainQueueItems.length === journal.sourceQueueCount;
+                const checksumMatches = journal.sourceQueueChecksum
+                  ? computeQueueChecksum(mainQueueItems) === journal.sourceQueueChecksum
+                  : journal.sourceQueueCount === 0;
+
+                mainIsEncryptedAndValid = countMatches && checksumMatches;
+              } else {
+                mainIsEncryptedAndValid = false;
+              }
+            } catch {
+              mainIsEncryptedAndValid = false;
+            }
+          } else {
+            mainIsEncryptedAndValid = true;
+          }
         }
       } finally {
         await conn.closeAsync();

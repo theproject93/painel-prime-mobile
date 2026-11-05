@@ -1049,3 +1049,84 @@ test('Cen�rio 13 � Reconcilia��o recusa backup com esquema incompleto (reception
 
   await fsPromises.rm(tmpDir, { recursive: true, force: true });
 });
+
+test('Cenário 14 — Reconciliação confronta banco principal com journal e recusa descarte de .bak quando principal possui menos operações', async () => {
+  const tmpDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sqlcipher-c14-'));
+  const fs = new NodeFileSystem();
+  const dbName = 'reception_prime.db';
+  const mainPath = path.join(tmpDir, dbName);
+  const bakPath = path.join(tmpDir, `${dbName}.bak`);
+  const journalPath = path.join(tmpDir, 'migration.state.json');
+  const validKey = 'b'.repeat(64);
+
+  // 1. Cria backup (.bak) íntegro com 15 itens na reception_queue
+  const { queue: fullQueue } = await setupLegacyRealDatabase(bakPath);
+  assert.strictEqual(fullQueue.length, 15);
+
+  // Calcula checksum da fila completa de 15 itens
+  const queueChecksum = computeQueueChecksum(fullQueue as any);
+
+  // 2. Grava o journal indicando que a base original tinha 15 itens
+  const journal = {
+    stage: 'SWAPPING',
+    sourceVersion: 5,
+    sourceSnapshotsCount: 1,
+    sourceGuestsCount: 3,
+    sourceQueueCount: 15,
+    sourceQueueChecksum: queueChecksum,
+    timestamp: new Date().toISOString(),
+    dbName,
+  };
+  await fs.writeText(journalPath, JSON.stringify(journal));
+
+  // 3. Cria um banco principal criptografado, mas incompleto (apenas 2 itens em vez de 15)
+  encryptedDatabasesRegistry.set(normalizePath(mainPath), validKey);
+  const mainDb = new DatabaseSync(mainPath);
+  mainDb.exec(`
+    CREATE TABLE reception_snapshots (event_id TEXT PRIMARY KEY, name TEXT);
+    CREATE TABLE reception_guests (id TEXT PRIMARY KEY, name TEXT);
+    CREATE TABLE reception_queue (
+      client_scan_id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      scanned_qr_token TEXT,
+      scanned_guest_id TEXT,
+      confirmed_guest_ids TEXT NOT NULL,
+      canonical_payload_hash TEXT NOT NULL,
+      state TEXT NOT NULL,
+      retry_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      scanned_at TEXT NOT NULL,
+      synced_at TEXT,
+      error_code TEXT,
+      error_message TEXT,
+      server_response TEXT
+    );
+    INSERT INTO reception_snapshots VALUES ('ev1', 'Casamento');
+    INSERT INTO reception_guests VALUES ('g1', 'Carlos');
+    INSERT INTO reception_queue VALUES ('scan_1', 'ev1', 'qr1', 'g1', '["g1"]', 'h1', 'PENDING', 0, '2026-11-05', '2026-11-05', null, null, null, null);
+    INSERT INTO reception_queue VALUES ('scan_2', 'ev1', 'qr2', 'g1', '["g1"]', 'h2', 'PENDING', 0, '2026-11-05', '2026-11-05', null, null, null, null);
+  `);
+  mainDb.close();
+
+  // 4. Executa a reconciliação.
+  // Como o principal só tem 2 itens (divergente dos 15 no journal), mainIsEncryptedAndValid é false.
+  // O reconciliador NÃO descarta o .bak; em vez disso, restaura o .bak com todos os 15 itens sobre o main!
+  const reconciled = await reconcileIncompleteMigration(
+    tmpDir,
+    dbName,
+    fs,
+    validKey,
+    createRealConnectionOpener()
+  );
+
+  assert.strictEqual(reconciled, true);
+
+  // 5. Verifica que o banco principal agora foi restaurado a partir do .bak e contém TODOS os 15 itens íntegros!
+  const restoredDb = new DatabaseSync(mainPath);
+  const restoredQueueCount = restoredDb.prepare('SELECT count(*) as c FROM reception_queue;').get() as { c: number };
+  assert.strictEqual(restoredQueueCount.c, 15, 'O banco principal restaurado deve conter todos os 15 itens do backup');
+  restoredDb.close();
+
+  encryptedDatabasesRegistry.delete(normalizePath(mainPath));
+  await fsPromises.rm(tmpDir, { recursive: true, force: true });
+});
