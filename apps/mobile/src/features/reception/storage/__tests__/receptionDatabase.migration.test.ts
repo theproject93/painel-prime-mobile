@@ -955,3 +955,47 @@ test('Cenário 11 — Checksum de fila criptográfico SHA-256 (64 hex lowercase)
   assert.strictEqual(checksum2.length, 64);
   assert.notStrictEqual(checksum1, checksum2, 'Alteração sutil de campo deve produzir avalanche effect no SHA-256');
 });
+
+test('Cenário 12 — Reconciliação confronta backup (.bak) com métricas do journal (contagem e SHA-256) e recusa restauração divergente', async () => {
+  const tmpDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sqlcipher-c12-'));
+  const fs = new NodeFileSystem();
+  const dbName = 'reception_prime.db';
+  const bakPath = path.join(tmpDir, `${dbName}.bak`);
+  const journalPath = path.join(tmpDir, 'migration.state.json');
+
+  // 1. Cria banco em .bak com 15 itens
+  await setupLegacyRealDatabase(bakPath);
+
+  // 2. Grava um journal indicando que o checksum da fila era diferente
+  const tamperedJournal = {
+    stage: 'SWAPPING',
+    sourceVersion: 1,
+    sourceSnapshotsCount: 1,
+    sourceGuestsCount: 3,
+    sourceQueueCount: 15,
+    sourceQueueChecksum: '0'.repeat(64), // checksum divergente do real
+    timestamp: new Date().toISOString(),
+    dbName,
+  };
+  await fs.writeText(journalPath, JSON.stringify(tamperedJournal));
+
+  // 3. Reconciliação sem o banco principal existente deve falhar com DatabaseCorruptedOrUnknownError
+  await assert.rejects(
+    async () => {
+      await reconcileIncompleteMigration(
+        tmpDir,
+        dbName,
+        fs,
+        'a'.repeat(64),
+        createRealConnectionOpener()
+      );
+    },
+    (err: unknown) => {
+      assert.ok(err instanceof DatabaseCorruptedOrUnknownError);
+      return true;
+    }
+  );
+
+  await fsPromises.rm(tmpDir, { recursive: true, force: true });
+});
+

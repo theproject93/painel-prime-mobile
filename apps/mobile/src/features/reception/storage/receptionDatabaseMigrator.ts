@@ -206,7 +206,7 @@ export async function reconcileIncompleteMigration(
 
   // 2. Se o main NÃO é válido (ou está ausente porque crashou após rename(main, bak)),
   // mas o backup (.bak) existe:
-  // VALIDAÇÃO ESTRUTURAL PROFUNDA DA FONTE (SQLite real + integridade lógica e tabela de fila):
+  // VALIDAÇÃO ESTRUTURAL PROFUNDA DA FONTE (SQLite real + integridade lógica + confronto estrito com contagem e SHA-256 do journal):
   if (bakExists) {
     let bakIsValid = false;
     try {
@@ -219,9 +219,32 @@ export async function reconcileIncompleteMigration(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='reception_queue';"
           );
           if (tableCheck) {
-            await bakConn.getFirstAsync('SELECT count(*) FROM reception_queue;');
+            const bakQueueItems = await fetchQueueItemsStrictly(bakConn);
+
+            // Confronta com as métricas persistidas no journal (se houver journal registrado)
+            if (journalExists) {
+              try {
+                const journalRaw = await fs.readText(journalPath);
+                const journal = JSON.parse(journalRaw) as MigrationJournalState;
+                if (journal && typeof journal.sourceQueueCount === 'number') {
+                  const countMatches = bakQueueItems.length === journal.sourceQueueCount;
+                  const checksumMatches =
+                    !journal.sourceQueueChecksum ||
+                    computeQueueChecksum(bakQueueItems) === journal.sourceQueueChecksum;
+
+                  bakIsValid = countMatches && checksumMatches;
+                } else {
+                  bakIsValid = true;
+                }
+              } catch {
+                bakIsValid = false;
+              }
+            } else {
+              bakIsValid = true;
+            }
+          } else {
+            bakIsValid = true;
           }
-          bakIsValid = true;
         }
       } finally {
         await bakConn.closeAsync();
@@ -245,10 +268,10 @@ export async function reconcileIncompleteMigration(
       if (journalExists) await fs.delete(journalPath);
       return true;
     } else {
-      // O backup existe mas está corrompido / ilegível
+      // O backup existe mas diverge do journal ou está corrompido / ilegível
       if (!mainExists) {
         throw new DatabaseCorruptedOrUnknownError(
-          'Arquivo de backup (.bak) de migração pendente está corrompido e o banco principal está ausente. Operação bloqueada em modo fail-closed.'
+          'Arquivo de backup (.bak) de migração pendente diverge do journal ou está corrompido e o banco principal está ausente. Operação bloqueada em modo fail-closed.'
         );
       }
     }
