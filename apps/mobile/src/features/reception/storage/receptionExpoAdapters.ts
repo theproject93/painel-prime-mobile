@@ -15,14 +15,32 @@ import type {
 } from './receptionDatabaseTypes.ts';
 import { validateHexKey } from './receptionDatabaseKeyManager.ts';
 
+function toFsPath(uriOrPath: string): string {
+  return uriOrPath.replace(/^file:\/\//, '').replace(/\\/g, '/');
+}
+
+function toFileUri(pathOrUri: string): string {
+  if (pathOrUri.startsWith('file://')) return pathOrUri;
+  const normalized = pathOrUri.replace(/\\/g, '/');
+  return `file://${normalized.startsWith('/') ? '' : '/'}${normalized}`;
+}
+
 /**
  * Retorna o diretório canônico padrão onde o expo-sqlite armazena bancos de dados.
+ * Retorna caminho absoluto do sistema de arquivos (sem prefixo file://) para total compatibilidade com SQLite/JNI.
  */
 export function getCanonicalDatabaseDirectory(): string {
-  const dir =
-    (SQLite as { defaultDatabaseDirectory?: string }).defaultDatabaseDirectory ??
-    (FileSystem.documentDirectory ? `${FileSystem.documentDirectory}SQLite` : 'SQLite');
-  return dir.replace(/\/+$/, '');
+  const nativeDir =
+    (SQLite as any).defaultDatabaseDirectory ??
+    (SQLite as any).ExpoSQLite?.defaultDatabaseDirectory;
+  let dir = nativeDir;
+  if (!dir && FileSystem.documentDirectory) {
+    dir = `${FileSystem.documentDirectory}SQLite`;
+  }
+  if (!dir) {
+    dir = 'SQLite';
+  }
+  return toFsPath(dir).replace(/\/+$/, '');
 }
 
 /**
@@ -37,12 +55,12 @@ export function getCanonicalDatabasePath(dbName = 'reception_prime.db'): string 
  */
 export class ExpoFileSystemAdapter implements IFileSystem {
   async exists(filePath: string): Promise<boolean> {
-    const info = await FileSystem.getInfoAsync(filePath);
+    const info = await FileSystem.getInfoAsync(toFileUri(filePath));
     return info.exists;
   }
 
   async readHeader(filePath: string, bytes: number): Promise<Uint8Array> {
-    const content = await FileSystem.readAsStringAsync(filePath, {
+    const content = await FileSystem.readAsStringAsync(toFileUri(filePath), {
       encoding: FileSystem.EncodingType.Base64,
       length: bytes,
       position: 0,
@@ -78,21 +96,21 @@ export class ExpoFileSystemAdapter implements IFileSystem {
   }
 
   async rename(sourcePath: string, targetPath: string): Promise<void> {
-    await FileSystem.moveAsync({ from: sourcePath, to: targetPath });
+    await FileSystem.moveAsync({ from: toFileUri(sourcePath), to: toFileUri(targetPath) });
   }
 
   async delete(filePath: string): Promise<void> {
-    await FileSystem.deleteAsync(filePath, { idempotent: true });
+    await FileSystem.deleteAsync(toFileUri(filePath), { idempotent: true });
   }
 
   async writeText(filePath: string, text: string): Promise<void> {
-    await FileSystem.writeAsStringAsync(filePath, text, {
+    await FileSystem.writeAsStringAsync(toFileUri(filePath), text, {
       encoding: FileSystem.EncodingType.UTF8,
     });
   }
 
   async readText(filePath: string): Promise<string> {
-    return await FileSystem.readAsStringAsync(filePath, {
+    return await FileSystem.readAsStringAsync(toFileUri(filePath), {
       encoding: FileSystem.EncodingType.UTF8,
     });
   }
@@ -140,11 +158,13 @@ export function createExpoConnectionOpener() {
     let dbDirectory: string | undefined = undefined;
 
     if (pathOrName !== ':memory:') {
-      const normalized = pathOrName.replace(/\\/g, '/');
-      const lastSlash = normalized.lastIndexOf('/');
+      const fsPath = toFsPath(pathOrName);
+      const lastSlash = fsPath.lastIndexOf('/');
       if (lastSlash !== -1) {
-        dbDirectory = normalized.substring(0, lastSlash);
-        dbName = normalized.substring(lastSlash + 1);
+        dbDirectory = fsPath.substring(0, lastSlash);
+        dbName = fsPath.substring(lastSlash + 1);
+      } else {
+        dbName = fsPath;
       }
     }
 
