@@ -214,11 +214,19 @@ export async function reconcileIncompleteMigration(
       try {
         const check = await bakConn.getFirstAsync<{ integrity_check: string }>('PRAGMA integrity_check;');
         if (check && check.integrity_check === 'ok') {
-          // Valida que a tabela reception_queue existe e pode ser lida
-          const tableCheck = await bakConn.getFirstAsync<{ name: string }>(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='reception_queue';"
+          // Validação estrita de esquema: as 3 tabelas fundamentais da Portaria devem existir
+          const tables = await bakConn.getAllAsync<{ name: string }>(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('reception_snapshots', 'reception_guests', 'reception_queue');"
           );
-          if (tableCheck) {
+          const tableNames = new Set((tables || []).map((t) => t.name));
+          const hasRequiredTables =
+            tableNames.has('reception_snapshots') &&
+            tableNames.has('reception_guests') &&
+            tableNames.has('reception_queue');
+
+          if (!hasRequiredTables) {
+            bakIsValid = false;
+          } else {
             const bakQueueItems = await fetchQueueItemsStrictly(bakConn);
 
             // Confronta com as métricas persistidas no journal (se houver journal registrado)
@@ -228,22 +236,24 @@ export async function reconcileIncompleteMigration(
                 const journal = JSON.parse(journalRaw) as MigrationJournalState;
                 if (journal && typeof journal.sourceQueueCount === 'number') {
                   const countMatches = bakQueueItems.length === journal.sourceQueueCount;
-                  const checksumMatches =
-                    !journal.sourceQueueChecksum ||
-                    computeQueueChecksum(bakQueueItems) === journal.sourceQueueChecksum;
+                  // Se o journal possui checksum registrado, a igualdade do SHA-256 é mandatória;
+                  // se não possui checksum, só é admitido caso a fila esteja comprovadamente vazia (0)
+                  const checksumMatches = journal.sourceQueueChecksum
+                    ? computeQueueChecksum(bakQueueItems) === journal.sourceQueueChecksum
+                    : journal.sourceQueueCount === 0;
 
                   bakIsValid = countMatches && checksumMatches;
                 } else {
-                  bakIsValid = true;
+                  // Journal sem contagem válida ou estrutura corrompida
+                  bakIsValid = false;
                 }
               } catch {
                 bakIsValid = false;
               }
             } else {
+              // Sem journal prévio: validado pelo esquema e integrity_check
               bakIsValid = true;
             }
-          } else {
-            bakIsValid = true;
           }
         }
       } finally {

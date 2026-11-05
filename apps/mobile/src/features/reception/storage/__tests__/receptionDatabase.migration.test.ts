@@ -999,3 +999,53 @@ test('CenÃ¡rio 12 â€” ReconciliaÃ§Ã£o confronta backup (.bak) com mÃ©tricas do j
   await fsPromises.rm(tmpDir, { recursive: true, force: true });
 });
 
+
+test('Cenário 13 — Reconciliação recusa backup com esquema incompleto (reception_queue ausente) ou journal sem checksum obrigatório', async () => {
+  const tmpDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sqlcipher-c13-'));
+  const fs = new NodeFileSystem();
+  const dbName = 'reception_prime.db';
+  const bakPath = path.join(tmpDir, `${dbName}.bak`);
+  const journalPath = path.join(tmpDir, 'migration.state.json');
+
+  // Cria banco com esquema parcial (sem reception_queue)
+  const db = new DatabaseSync(bakPath);
+  db.exec(`
+    CREATE TABLE reception_snapshots (event_id TEXT PRIMARY KEY);
+    CREATE TABLE reception_guests (id TEXT PRIMARY KEY);
+  `);
+  db.close();
+
+  // Journal indicando operações pendentes
+  await fs.writeText(
+    journalPath,
+    JSON.stringify({
+      stage: 'SWAPPING',
+      sourceVersion: 1,
+      sourceSnapshotsCount: 1,
+      sourceGuestsCount: 1,
+      sourceQueueCount: 5,
+      sourceQueueChecksum: 'a'.repeat(64),
+      timestamp: new Date().toISOString(),
+      dbName,
+    })
+  );
+
+  // Reconciliação deve falhar em fail-closed
+  await assert.rejects(
+    async () => {
+      await reconcileIncompleteMigration(
+        tmpDir,
+        dbName,
+        fs,
+        'a'.repeat(64),
+        createRealConnectionOpener()
+      );
+    },
+    (err: unknown) => {
+      assert.ok(err instanceof DatabaseCorruptedOrUnknownError);
+      return true;
+    }
+  );
+
+  await fsPromises.rm(tmpDir, { recursive: true, force: true });
+});
