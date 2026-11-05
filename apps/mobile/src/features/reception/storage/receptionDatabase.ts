@@ -215,8 +215,11 @@ export async function getDatabase(dbOverride?: SQLiteDatabase): Promise<SQLiteDa
         if (pendingKey) {
           try {
             validatedPendingKey = validateHexKey(pendingKey);
-          } catch {
-            // Chave corrompida ou inválida no Keystore
+          } catch (err) {
+            // Chave presente no Keystore mas corrompida ou malformada: fail-closed imediato
+            throw new DatabaseCorruptedOrUnknownError(
+              `Chave do SQLCipher corrompida ou malformada no Keystore durante recuperação de migração: ${err instanceof Error ? err.message : String(err)}`
+            );
           }
         }
         await reconcileIncompleteMigration(dbDir, RECEPTION_DB_NAME, fs, validatedPendingKey, connectionOpener);

@@ -16,11 +16,13 @@ import type {
 } from './receptionDatabaseTypes.ts';
 import {
   CipherIntegrityError,
+  DatabaseCorruptedOrUnknownError,
   MigrationIntegrityMismatchError,
   SQLCipherNativeMissingError,
   WalCheckpointBusyError,
 } from './receptionDatabaseTypes.ts';
 import { assertSQLCipherActive, validateHexKey } from './receptionDatabaseKeyManager.ts';
+import { sha256Pure } from '../engine/receptionHash.ts';
 
 export interface MigrationOptions {
   dbDir: string;
@@ -92,17 +94,11 @@ export async function verifySQLCipherNativeSupport(
 }
 
 /**
- * Calcula checksum determinístico de itens da fila para validação de integridade.
+ * Calcula checksum criptográfico determinístico (SHA-256) de itens da fila para validação de integridade.
  */
 export function computeQueueChecksum(items: QueueItemRecord[]): string {
-  let hash = 0;
   const str = JSON.stringify(items);
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  return hash.toString(16);
+  return sha256Pure(str);
 }
 
 /**
@@ -248,6 +244,13 @@ export async function reconcileIncompleteMigration(
       if (await fs.exists(`${tmpPath}-shm`)) await fs.delete(`${tmpPath}-shm`);
       if (journalExists) await fs.delete(journalPath);
       return true;
+    } else {
+      // O backup existe mas está corrompido / ilegível
+      if (!mainExists) {
+        throw new DatabaseCorruptedOrUnknownError(
+          'Arquivo de backup (.bak) de migração pendente está corrompido e o banco principal está ausente. Operação bloqueada em modo fail-closed.'
+        );
+      }
     }
   }
 

@@ -39,6 +39,7 @@ import {
   validateHexKey,
 } from '../receptionDatabaseKeyManager.ts';
 import {
+  computeQueueChecksum,
   reconcileIncompleteMigration,
   runMigration,
   verifySQLCipherNativeSupport,
@@ -888,4 +889,69 @@ test('Cenário 9 — Rejeição em Binário sem SQLCipher nativo em TODOS os cam
       return true;
     }
   );
+});
+
+test('Cenário 10 — Backup (.bak) corrompido com banco principal ausente: fail-closed mandatória impedindo criação de banco vazio', async () => {
+  const tmpDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'sqlcipher-c10-'));
+  const fs = new NodeFileSystem();
+  const dbName = 'reception_prime.db';
+  const bakPath = path.join(tmpDir, `${dbName}.bak`);
+
+  // Apenas o backup existe, mas contém bytes corrompidos
+  await fs.writeText(bakPath, 'bytes_corrompidos_sem_sqlite');
+
+  await assert.rejects(
+    async () => {
+      await reconcileIncompleteMigration(
+        tmpDir,
+        dbName,
+        fs,
+        'a'.repeat(64),
+        createRealConnectionOpener()
+      );
+    },
+    (err: unknown) => {
+      assert.ok(err instanceof DatabaseCorruptedOrUnknownError);
+      return true;
+    }
+  );
+
+  await fsPromises.rm(tmpDir, { recursive: true, force: true });
+});
+
+test('Cenário 11 — Checksum de fila criptográfico SHA-256 (64 hex lowercase) e detecção de adulteração sutil', async () => {
+  const items: QueueItemRecord[] = [
+    {
+      client_scan_id: 'scan_001',
+      event_id: 'event_casamento',
+      scanned_qr_token: 'qr_token_001',
+      scanned_guest_id: 'guest_001',
+      confirmed_guest_ids: '["guest_001"]',
+      canonical_payload_hash: 'hash_canonical_001',
+      state: 'SYNCED',
+      retry_count: 0,
+      created_at: '2026-11-04T19:30:00Z',
+      scanned_at: '2026-11-04T19:30:00Z',
+      synced_at: '2026-11-04T19:30:05Z',
+      error_code: null,
+      error_message: null,
+      server_response: null,
+    },
+  ];
+
+  const checksum1 = computeQueueChecksum(items);
+  // Deve ser exatamente um hash SHA-256 de 64 caracteres hexadecimais
+  assert.strictEqual(checksum1.length, 64);
+  assert.ok(/^[0-9a-f]{64}$/.test(checksum1));
+
+  // Alteração de apenas 1 caractere no ID
+  const modifiedItems: QueueItemRecord[] = [
+    {
+      ...items[0],
+      client_scan_id: 'scan_002',
+    },
+  ];
+  const checksum2 = computeQueueChecksum(modifiedItems);
+  assert.strictEqual(checksum2.length, 64);
+  assert.notStrictEqual(checksum1, checksum2, 'Alteração sutil de campo deve produzir avalanche effect no SHA-256');
 });
