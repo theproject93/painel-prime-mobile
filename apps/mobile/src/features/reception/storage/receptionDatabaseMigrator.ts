@@ -138,6 +138,14 @@ async function fetchIndexesStrictly(conn: ISqliteConnection): Promise<string[]> 
 }
 
 /**
+ * Sanitiza caminhos de arquivo para cláusulas SQL (como ATTACH DATABASE),
+ * escapando aspas simples, aspas duplas e normalizando contra-barras.
+ */
+export function sanitizeSqlPath(filePath: string): string {
+  return filePath.replace(/\\/g, '/').replace(/'/g, "''").replace(/"/g, '""');
+}
+
+/**
  * Reconcilia e recupera o estado caso o app tenha sido interrompido (SIGKILL)
  * durante uma migração anterior. Valida a fonte de recuperação antes de qualquer ação destrutiva.
  */
@@ -148,6 +156,7 @@ export async function reconcileIncompleteMigration(
   key: string,
   connectionOpener: (fullPath: string, key?: string) => Promise<ISqliteConnection>
 ): Promise<boolean> {
+  const validKey = validateHexKey(key);
   const cleanDbDir = dbDir.replace(/\\/g, '/');
   const journalPath = `${cleanDbDir}/migration.state.json`;
   const mainPath = `${cleanDbDir}/${dbName}`;
@@ -316,10 +325,10 @@ export async function runMigration(options: MigrationOptions): Promise<Migration
       await fs.delete(tmpPath);
     }
 
-    const escapedTmpPath = tmpPath.replace(/'/g, "''");
+    const sanitizedTmpPath = sanitizeSqlPath(tmpPath);
 
     await sourceConn.execAsync(
-      `ATTACH DATABASE '${escapedTmpPath}' AS encrypted KEY "x'${validKey}'";`
+      `ATTACH DATABASE '${sanitizedTmpPath}' AS encrypted KEY "x'${validKey}'";`
     );
 
     try {

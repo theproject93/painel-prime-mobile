@@ -208,7 +208,12 @@ export async function getDatabase(dbOverride?: SQLiteDatabase): Promise<SQLiteDa
         // Reconcilia boots interrompidos anteriores (SIGKILL) se houver journal
         const pendingKey = await keyStorage.getItemAsync(RECEPTION_DB_KEY_ALIAS);
         if (pendingKey) {
-          await reconcileIncompleteMigration(dbDir, RECEPTION_DB_NAME, fs, pendingKey, connectionOpener);
+          try {
+            const validatedPendingKey = validateHexKey(pendingKey);
+            await reconcileIncompleteMigration(dbDir, RECEPTION_DB_NAME, fs, validatedPendingKey, connectionOpener);
+          } catch {
+            // Se a chave no Keystore estiver corrompida ou malformada, não propaga para a reconciliação
+          }
         }
         state = await detectDatabaseState(fullPath, keyStorage, fs, connectionOpener);
       }
