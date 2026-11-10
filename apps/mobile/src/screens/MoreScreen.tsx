@@ -29,6 +29,12 @@ const ALL_ACCOUNT_ITEMS: MenuItem[] = [
     route: '/mais/equipe',
   },
   {
+    label: 'Central de Reuniões',
+    description: 'Videoconferências, links de sala e atas gravadas',
+    icon: 'videocam-outline',
+    route: '/reunioes',
+  },
+  {
     label: 'Perfil',
     description: 'Dados pessoais, contatos e assinatura',
     icon: 'person-outline',

@@ -69,6 +69,7 @@ export function MeetingCenter({ eventId }: MeetingCenterProps) {
         eventId,
         title: cleanTitle,
         scheduledAt: date.toISOString(),
+        invitees: [],
       });
       setScheduleOpen(false);
       setTitle('Alinhamento com o cliente');

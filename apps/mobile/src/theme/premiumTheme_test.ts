@@ -43,12 +43,13 @@ Deno.test('keeps operational telemetry out of the assessor tools menu', async ()
 });
 
 Deno.test('does not log deterministic Plan IA answers as fallback failures', async () => {
-  const assistant = await read('components/PlanAssistantFloating.tsx');
+  const chatHook = await read('features/plan-assistant/usePlanAssistantChat.ts');
+  const contracts = await Deno.readTextFile(new URL('../../../packages/app/src/plan-assistant/contracts.ts', sourceRoot));
 
-  if (!assistant.includes("response_mode?: 'ai' | 'deterministic' | 'fallback'")) {
+  if (!contracts.includes("response_mode?: 'ai' | 'deterministic' | 'fallback'")) {
     throw new Error('Plan IA response mode is not typed');
   }
-  if (!assistant.includes("data.meta.response_mode !== 'deterministic'")) {
+  if (!chatHook.includes("data.meta.response_mode !== 'deterministic'")) {
     throw new Error('deterministic answers are still treated as fallback failures');
   }
 });
