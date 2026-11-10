@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "br.com.painelprime.app",
-      "versionCode": 31,
+      "versionCode": 32,
       "allowBackup": false,
       "googleServicesFile": "./google-services.json",
       "permissions": [

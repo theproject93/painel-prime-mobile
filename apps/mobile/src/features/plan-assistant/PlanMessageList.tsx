@@ -143,7 +143,7 @@ export function PlanMessageList(props: {
         <View style={[styles.row, styles.botRow]}>
           <View style={[styles.bubble, styles.botBubble, styles.loading]}>
             <ActivityIndicator size="small" color={colors.primaryStrong} />
-            <Text style={styles.loadingText}>Plan está analisando...</Text>
+            <Text style={styles.loadingText}>Plan está consultando a plataforma...</Text>
           </View>
         </View>
       ) : null}

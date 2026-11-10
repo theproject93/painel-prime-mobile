@@ -269,10 +269,20 @@ export function PlanAssistantChatSheet(props: Props) {
                   <Text style={styles.hintsTitle}>Alertas proativos</Text>
                   {props.loadingHints ? <Text style={styles.hintsCaption}>Analisando operação...</Text> : null}
                   {!props.loadingHints && props.hints.length === 0 ? (
-                    <Text style={styles.hintsCaption}>Sem pendências urgentes agora.</Text>
+                    <View style={styles.hintsRow}>
+                      <Pressable style={styles.hintChip} onPress={() => props.onSend('O que você pode fazer?')}>
+                        <Text style={styles.hintChipText}>💡 O que você pode fazer?</Text>
+                      </Pressable>
+                      <Pressable style={styles.hintChip} onPress={() => props.onSend('Qual o resumo de caixa?')}>
+                        <Text style={styles.hintChipText}>💰 Resumo de caixa</Text>
+                      </Pressable>
+                    </View>
                   ) : null}
                   {!props.loadingHints && props.hints.length > 0 ? (
                     <View style={styles.hintsRow}>
+                      <Pressable style={styles.hintChip} onPress={() => props.onSend('O que você pode fazer?')}>
+                        <Text style={styles.hintChipText}>💡 O que você pode fazer?</Text>
+                      </Pressable>
                       {props.hints.slice(0, 3).map((hint) => (
                         <Pressable key={hint.id} style={styles.hintChip} onPress={() => props.onOpenHint(hint)}>
                           <Text style={styles.hintChipText} numberOfLines={1}>{hint.title}</Text>

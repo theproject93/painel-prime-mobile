@@ -435,7 +435,7 @@ export function usePlanAssistantChat(params: Params) {
           fileName: attachment.name,
           contentType: attachment.mimeType || 'application/pdf',
           entityType: 'plan_contract_pdf' as any,
-          entityId: currentEventId,
+          entityId: currentEventId || undefined,
         });
 
         updateMessage(botMsgId, (msg) => ({
@@ -451,9 +451,9 @@ export function usePlanAssistantChat(params: Params) {
           request_id: currentReqId,
           message: text || 'Analise este contrato e extraia os dados principais.',
           current_path: currentPath,
-          current_event_id: currentEventId,
-          context_type: 'event',
-          context_id: currentEventId,
+          current_event_id: currentEventId || null,
+          context_type: currentEventId ? 'event' : 'global',
+          context_id: currentEventId || null,
           attachments: [{ stored_file_id: upload.fileId, kind: 'contract_pdf' as const }],
           hints: topHintPayload,
           message_history: buildMessageHistory(messages),
@@ -667,20 +667,37 @@ export function usePlanAssistantChat(params: Params) {
           throw new Error(response.message || response.error);
         }
 
+        const summary =
+          (typeof response?.action_result?.message === 'string' && response.action_result.message) ||
+          (typeof response?.answer === 'string' && response.answer) ||
+          (typeof response?.result?.summary === 'string' && response.result.summary) ||
+          'Ação confirmada e executada com sucesso.';
+
         updateMessage(msgId, (msg) => ({
           ...msg,
           isActionExecuted: true,
-          actionExecutionMessage:
-            typeof response?.result?.summary === 'string'
-              ? response.result.summary
-              : 'Ação confirmada e executada com sucesso.',
+          actionExecutionMessage: summary,
         }));
+
+        const botResponseText = `Muito bem! ${summary}`;
+        pushBotMessage({
+          text: botResponseText,
+        });
+
+        if (activeThreadId && tenantId) {
+          void saveThreadMessage(supabase, {
+            threadId: activeThreadId,
+            tenantId,
+            role: 'assistant',
+            content: botResponseText,
+          });
+        }
       } catch (err) {
         console.warn('Erro ao confirmar ação no mobile:', err);
         throw err;
       }
     },
-    [updateMessage],
+    [activeThreadId, pushBotMessage, tenantId, updateMessage],
   );
 
   const cancelAction = useCallback(
