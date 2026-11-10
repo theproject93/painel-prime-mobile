@@ -286,7 +286,8 @@ export function EventsScreen() {
                 source={{
                   uri:
                     item.couple_photo_url?.trim() ||
-                    EVENT_TYPE_CARDS[(item.event_type as keyof typeof EVENT_TYPE_CARDS) || 'wedding'].image,
+                    EVENT_TYPE_CARDS[item.event_type as keyof typeof EVENT_TYPE_CARDS]?.image ||
+                    EVENT_TYPE_CARDS.wedding.image,
                 }}
                 style={styles.eventCover}
               />
