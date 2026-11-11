@@ -225,6 +225,9 @@ jobs:
       actions: read
       contents: read
     steps:
+      - name: Preparar roteiro de inspeção
+        uses: actions/checkout@v4
+
       - name: Conferir identificador do build
         shell: bash
         env:
@@ -263,6 +266,9 @@ jobs:
           adb -s 127.0.0.1:5555 shell cat /sdcard/window.xml > .artifacts/redroid/initial.xml
           adb -s 127.0.0.1:5555 logcat -d -t 300 > .artifacts/redroid/initial-logcat.txt
           ! grep -E 'FATAL EXCEPTION|ANR in br.com.painelprime.app' .artifacts/redroid/initial-logcat.txt
+
+      - name: Conferir missões e conquistas da assinante
+        run: python3 scripts/qa/redroid_adoption_owner.py
 
       - name: Disponibilizar evidências temporárias
         if: always()
