@@ -72,14 +72,41 @@ def tap_scrolling(label: str, name: str) -> None:
 
 
 owner_email = os.environ["REDROID_QA_OWNER_EMAIL"]
+owner_password = os.environ["REDROID_QA_OWNER_PASSWORD"]
 team_email = os.environ["REDROID_QA_TEAM_EMAIL"]
 team_password = os.environ["REDROID_QA_TEAM_PASSWORD"]
+
+
+def sign_out_and_sign_in(email: str, password: str, prefix: str) -> None:
+    tap_scrolling("Sair da conta", f"{prefix}-more-scroll")
+    for _ in range(25):
+        time.sleep(1)
+        login = dump(f"{prefix}-login")
+        if node_for(login, "Campo de e-mail") is not None:
+            break
+        if node_for(login, "Acessar Conta") is not None:
+            tap(login, "Acessar Conta")
+    else:
+        raise AssertionError("A tela de login não abriu após sair da conta")
+
+    tap(login, "Campo de e-mail")
+    adb("shell", "input", "text", email)
+    tap(dump(f"{prefix}-login-email"), "Campo de senha")
+    adb("shell", "input", "text", password)
+    adb("shell", "input", "keyevent", "4")
+    tap(dump(f"{prefix}-login-ready"), "Entrar na Plataforma")
+    wait_for("Mais opções", f"{prefix}-home")
+
 
 home = dump("owner-home")
 tap(home, "Mais opções")
 more = wait_for("Missões e conquistas", "owner-more")
 if owner_email not in ET.tostring(more, encoding="unicode"):
-    raise AssertionError("A sessão inicial não pertence à assinante de QA")
+    sign_out_and_sign_in(owner_email, owner_password, "owner-reset")
+    tap(dump("owner-reset-home"), "Mais opções")
+    more = wait_for("Missões e conquistas", "owner-more-reset")
+    if owner_email not in ET.tostring(more, encoding="unicode"):
+        raise AssertionError("Não foi possível autenticar a assinante de QA")
 tap(more, "Missões e conquistas")
 missions = wait_for("Encontre seu próximo passo", "owner-missions")
 if node_for(missions, "Não foi possível carregar suas missões") is not None:
@@ -103,23 +130,7 @@ after_back = dump("owner-after-back")
 if node_for(after_back, "Missões e conquistas") is None:
     tap(after_back, "Mais opções")
 wait_for("Missões e conquistas", "owner-more-return")
-tap_scrolling("Sair da conta", "owner-more-scroll")
-for _ in range(25):
-    time.sleep(1)
-    login = dump("team-login")
-    if node_for(login, "Campo de e-mail") is not None:
-        break
-    if node_for(login, "Acessar Conta") is not None:
-        tap(login, "Acessar Conta")
-else:
-    raise AssertionError("A tela de login não abriu após sair da conta")
-
-tap(login, "Campo de e-mail")
-adb("shell", "input", "text", team_email)
-tap(dump("team-login-email"), "Campo de senha")
-adb("shell", "input", "text", team_password)
-adb("shell", "input", "keyevent", "4")
-tap(dump("team-login-ready"), "Entrar na Plataforma")
+sign_out_and_sign_in(team_email, team_password, "team")
 team_home = wait_for("Mais opções", "team-home")
 if node_for(team_home, "Plan IA") is not None:
     raise AssertionError("O perfil de equipe recebeu acesso à Plan IA")
