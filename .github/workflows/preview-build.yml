@@ -267,8 +267,20 @@ jobs:
           adb -s 127.0.0.1:5555 logcat -d -t 300 > .artifacts/redroid/initial-logcat.txt
           ! grep -E 'FATAL EXCEPTION|ANR in br.com.painelprime.app' .artifacts/redroid/initial-logcat.txt
 
-      - name: Conferir missões e conquistas da assinante
+      - name: Conferir assinante e colaborador no ReDroid
+        env:
+          REDROID_QA_OWNER_EMAIL: ${{ secrets.REDROID_QA_OWNER_EMAIL }}
+          REDROID_QA_TEAM_EMAIL: ${{ secrets.REDROID_QA_TEAM_EMAIL }}
+          REDROID_QA_TEAM_PASSWORD: ${{ secrets.REDROID_QA_TEAM_PASSWORD }}
         run: python3 scripts/qa/redroid_adoption_owner.py
+
+      - name: Conferir logcat dos dois perfis
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p .artifacts/redroid
+          adb -s 127.0.0.1:5555 logcat -d -t 800 > .artifacts/redroid/final-logcat.txt
+          ! grep -E 'FATAL EXCEPTION|ANR in br.com.painelprime.app' .artifacts/redroid/final-logcat.txt
 
       - name: Disponibilizar evidências temporárias
         if: always()
