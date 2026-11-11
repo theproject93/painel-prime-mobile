@@ -255,7 +255,7 @@ jobs:
           adb -s 127.0.0.1:5555 shell dumpsys package br.com.painelprime.app | grep -m 1 'versionCode=33'
           adb -s 127.0.0.1:5555 logcat -c
           adb -s 127.0.0.1:5555 shell am force-stop br.com.painelprime.app
-          adb -s 127.0.0.1:5555 shell monkey -p br.com.painelprime.app 1
+          adb -s 127.0.0.1:5555 shell am start -n br.com.painelprime.app/.MainActivity
           sleep 8
           mkdir -p .artifacts/redroid
           adb -s 127.0.0.1:5555 exec-out screencap -p > .artifacts/redroid/initial.png
