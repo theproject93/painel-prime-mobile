@@ -1,0 +1,6 @@
+Painel Prime Android 1.6.1 (versão 33)
+
+- Nova central de Missões e conquistas em Mais.
+- Progresso e medalhas verificados no servidor, com contexto de evento.
+- Orientações disponíveis conforme o perfil da assessoria ou da equipe escalada.
+- Correções de estabilidade na troca de perfil e navegação.

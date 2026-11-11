@@ -36,7 +36,7 @@ export const MISSIONS: readonly Mission[] = [
   { id: 'reception', title: 'Prepare a Portaria Prime', instruction: 'Confira a lista. Faça check-in somente quando o convidado chegar.', route: 'reception', eventScoped: true },
   { id: 'ai', title: 'Peça ajuda à Plan IA', instruction: 'Na tela inicial, abra a Plan IA. Revise as sugestões. Toda ação proposta exige sua confirmação.', route: '/dashboard', achievement: 'Inteligência em ação', criterion: 'Proposta confirmada e executada pela Plan IA na sua conta.' },
   { id: 'rsvp', title: 'Acompanhe o WhatsApp RSVP', instruction: 'Confira contatos, destinatários e custos antes de confirmar um envio.', route: 'invites', eventScoped: true },
-  { id: 'vendor-profile', title: 'Prepare sua vitrine', instruction: 'Salve sua apresentação profissional no perfil de fornecedor.', route: '/fornecedores', achievement: 'Vitrine preparada', criterion: 'Apresentação salva no seu próprio perfil de fornecedor.' },
+  { id: 'vendor-profile', title: 'Prepare sua vitrine', instruction: 'Salve sua apresentação profissional no perfil de fornecedor.', route: null, achievement: 'Vitrine preparada', criterion: 'Apresentação salva no seu próprio perfil de fornecedor.' },
   { id: 'assigned-timeline', title: 'Consulte seu cronograma', instruction: 'Confira os horários e responsabilidades no evento em que você está escalado.', route: 'timeline', eventScoped: true, orientation: true },
   { id: 'assigned-reception', title: 'Trabalhe na portaria', instruction: 'Prepare a recepção e registre chegadas somente quando ocorrerem.', route: 'reception', eventScoped: true, orientation: true },
 ];

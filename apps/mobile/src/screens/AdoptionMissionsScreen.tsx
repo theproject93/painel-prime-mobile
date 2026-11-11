@@ -35,6 +35,7 @@ export function AdoptionMissionsScreen() {
     setSnapshot(null);
     setSelected(null);
     setEvents([]);
+    setBusy(false);
     request.current++;
   }, [userId, isTeamMemberOnly]);
 
@@ -57,6 +58,7 @@ export function AdoptionMissionsScreen() {
   const refresh = useCallback(async () => {
     if (!userId || roleLoading || (isTeamMemberOnly && eventId === null)) {
       setSnapshot(null);
+      setBusy(false);
       return;
     }
     const sequence = ++request.current;
