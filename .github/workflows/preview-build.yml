@@ -11,6 +11,11 @@ on:
     tags:
       - "android-v*"
   workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        description: 'Run do APK já compilado para homologar no ReDroid'
+        required: false
+        type: string
 
 concurrency:
   group: android-release-${{ github.ref }}
@@ -18,7 +23,7 @@ concurrency:
 
 jobs:
   redroid-probe:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.artifact_run_id == ''
     runs-on: [self-hosted, Linux, X64, painel-prime-mobile]
     timeout-minutes: 3
     steps:
@@ -31,6 +36,7 @@ jobs:
           adb -s 127.0.0.1:5555 shell getprop sys.boot_completed | grep -qx 1
 
   build:
+    if: github.event_name != 'workflow_dispatch' || inputs.artifact_run_id == ''
     runs-on: ubuntu-latest
     env:
       HAS_GCP_KEY: ${{ secrets.GCP_SA_KEY != '' }}
@@ -210,3 +216,59 @@ jobs:
             --release-notes-file "${{ steps.vars.outputs.NOTES_FILE }}"
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+  redroid-homologation:
+    if: github.event_name == 'workflow_dispatch' && inputs.artifact_run_id != ''
+    runs-on: [self-hosted, Linux, X64, painel-prime-mobile]
+    timeout-minutes: 12
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Conferir identificador do build
+        shell: bash
+        env:
+          ARTIFACT_RUN_ID: ${{ inputs.artifact_run_id }}
+        run: |
+          [[ "$ARTIFACT_RUN_ID" =~ ^[0-9]+$ ]]
+
+      - name: Baixar APK oficial do build indicado
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ github.token }}
+          pattern: painel-prime-android-*.apk
+          path: .artifacts/apk
+
+      - name: Instalar e inspecionar o APK no ReDroid
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find .artifacts/apk -name '*.apk' -type f -print -quit)"
+          test -n "$apk"
+          checksum="$(find .artifacts/apk -name '*.sha256' -type f -print -quit)"
+          test -n "$checksum"
+          (cd "$(dirname "$apk")" && sha256sum --check "$(basename "$checksum")")
+          adb connect 127.0.0.1:5555
+          test "$(adb -s 127.0.0.1:5555 get-state)" = device
+          adb -s 127.0.0.1:5555 install -r "$apk"
+          adb -s 127.0.0.1:5555 shell dumpsys package br.com.painelprime.app | grep -m 1 'versionCode=33'
+          adb -s 127.0.0.1:5555 logcat -c
+          adb -s 127.0.0.1:5555 shell am force-stop br.com.painelprime.app
+          adb -s 127.0.0.1:5555 shell monkey -p br.com.painelprime.app 1
+          sleep 8
+          mkdir -p .artifacts/redroid
+          adb -s 127.0.0.1:5555 exec-out screencap -p > .artifacts/redroid/initial.png
+          adb -s 127.0.0.1:5555 shell uiautomator dump /sdcard/window.xml >/dev/null
+          adb -s 127.0.0.1:5555 shell cat /sdcard/window.xml > .artifacts/redroid/initial.xml
+          adb -s 127.0.0.1:5555 logcat -d -t 300 > .artifacts/redroid/initial-logcat.txt
+          ! grep -E 'FATAL EXCEPTION|ANR in br.com.painelprime.app' .artifacts/redroid/initial-logcat.txt
+
+      - name: Disponibilizar evidências temporárias
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: redroid-inicial-${{ github.run_id }}
+          path: .artifacts/redroid/
+          if-no-files-found: ignore
+          retention-days: 1
