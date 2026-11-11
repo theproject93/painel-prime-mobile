@@ -99,6 +99,9 @@ if node_for(achievements, "Não foi possível carregar suas missões") is not No
 print("Sessão assinante: missões e conquistas verificadas com contexto de evento.")
 
 tap(achievements, "Voltar para a tela anterior")
+after_back = dump("owner-after-back")
+if node_for(after_back, "Missões e conquistas") is None:
+    tap(after_back, "Mais opções")
 wait_for("Missões e conquistas", "owner-more-return")
 tap_scrolling("Sair da conta", "owner-more-scroll")
 for _ in range(25):

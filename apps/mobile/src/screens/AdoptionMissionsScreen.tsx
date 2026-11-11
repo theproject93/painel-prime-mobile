@@ -115,7 +115,7 @@ export function AdoptionMissionsScreen() {
   const achievements = missions.filter(item => item.achievement);
   const current = missions.find(item => item.id === selected);
 
-  return <Screen title="Missões e conquistas" subtitle="Seu progresso é verificado na plataforma" showBack>
+  return <Screen title="Missões e conquistas" subtitle="Seu progresso é verificado na plataforma" showBack onBack={() => router.replace('/mais' as never)}>
     <View style={styles.tabs}>
       {(['missions', 'achievements'] as const).map(mode => <Pressable key={mode} style={[styles.tab, view === mode && styles.tabActive]}
         onPress={() => { setView(mode); setSelected(null); }} accessibilityRole="tab" accessibilityState={{ selected: view === mode }}>
