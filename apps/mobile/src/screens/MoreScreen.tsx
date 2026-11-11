@@ -23,6 +23,12 @@ type MenuSection = {
 
 const ALL_ACCOUNT_ITEMS: MenuItem[] = [
   {
+    label: 'Missões e conquistas',
+    description: 'Acompanhe seu progresso verificado na plataforma',
+    icon: 'trophy-outline',
+    route: '/missoes',
+  },
+  {
     label: 'Equipe',
     description: 'Pessoas, líderes e funções da sua assessoria',
     icon: 'people-circle-outline',

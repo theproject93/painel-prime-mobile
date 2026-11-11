@@ -5,7 +5,6 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ModuleWalkthroughBanner } from '../../../src/components/ModuleWalkthroughOverlay';
 import { PlanAssistantFloating } from '../../../src/components/PlanAssistantFloating';
 import { useUserRole } from '../../../src/contexts/UserRoleContext';
 import { colors, gradients } from '../../../src/theme/colors';
@@ -107,7 +106,6 @@ export default function AppTabsLayout() {
         />
         <Tabs.Screen name="mais" options={{ title: 'Mais', tabBarAccessibilityLabel: 'Mais opções' }} />
       </Tabs>
-      <ModuleWalkthroughBanner />
       {!isTeamMemberOnly && <PlanAssistantFloating />}
     </View>
   );
