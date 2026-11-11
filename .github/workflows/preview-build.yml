@@ -288,6 +288,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: redroid-inicial-${{ github.run_id }}
-          path: .artifacts/redroid/
+          path: |
+            .artifacts/redroid/initial.png
+            .artifacts/redroid/owner-event-missions.png
+            .artifacts/redroid/owner-event-missions.xml
+            .artifacts/redroid/owner-achievements.png
+            .artifacts/redroid/owner-achievements.xml
+            .artifacts/redroid/team-missions.png
+            .artifacts/redroid/team-missions.xml
+            .artifacts/redroid/team-achievements.png
+            .artifacts/redroid/team-achievements.xml
           if-no-files-found: ignore
           retention-days: 1
