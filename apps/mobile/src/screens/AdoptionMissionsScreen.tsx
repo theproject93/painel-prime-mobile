@@ -19,7 +19,10 @@ export function AdoptionMissionsScreen() {
   const { isTeamMemberOnly, assignedEvents, loading: roleLoading } = useUserRole();
   const [eventId, setEventId] = useState<string | null>(null);
   const [events, setEvents] = useState<EventOption[]>([]);
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
   const [snapshot, setSnapshot] = useState<AdoptionSnapshot | null>(null);
+  const tenantId = snapshot?.tenant_id ?? null;
   const [view, setView] = useState<ViewMode>('missions');
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,15 +48,16 @@ export function AdoptionMissionsScreen() {
       setEvents(assignedEvents.map(event => ({ id: event.id, name: event.name })));
       return;
     }
+    if (!tenantId) return;
     let cancelled = false;
-    void supabase.from('events').select('id, name').neq('status', 'deleted').order('event_date', { ascending: false }).limit(50)
+    void supabase.from('events').select('id, name').eq('tenant_id', tenantId).neq('status', 'deleted').order('event_date', { ascending: false }).limit(50)
       .then(({ data, error: loadError }) => {
         if (cancelled) return;
         if (loadError) { setError('Não foi possível carregar os eventos.'); return; }
         setEvents((data ?? []).filter(row => typeof row.id === 'string' && typeof row.name === 'string'));
       });
     return () => { cancelled = true; };
-  }, [userId, isTeamMemberOnly, assignedEvents, roleLoading]);
+  }, [userId, isTeamMemberOnly, assignedEvents, roleLoading, tenantId]);
 
   const refresh = useCallback(async () => {
     if (!userId || roleLoading || (isTeamMemberOnly && eventId === null)) {
@@ -66,6 +70,7 @@ export function AdoptionMissionsScreen() {
     setBusy(true);
     setError('');
     try {
+      if (eventId && !eventsRef.current.some(event => event.id === eventId)) throw new Error('Evento indisponível');
       const next = await verifyAdoption(userId, eventId, isTeamMemberOnly);
       if (request.current === sequence && identityRef.current === requestedIdentity) setSnapshot(next);
     } catch {
@@ -95,6 +100,7 @@ export function AdoptionMissionsScreen() {
     setBusy(true);
     setError('');
     try {
+      if (eventId && !events.some(event => event.id === eventId)) throw new Error('Evento indisponível');
       await saveAdoptionProgress(userId, eventId, isTeamMemberOnly, mission.id, status, current);
       if (identityRef.current === activeIdentity) await refresh();
     } catch {
@@ -106,8 +112,9 @@ export function AdoptionMissionsScreen() {
 
   const openWork = (mission: Mission) => {
     if (mission.eventScoped && !eventId) { setError('Escolha um evento para continuar.'); return; }
+    if (eventId && !events.some(event => event.id === eventId)) { setError('Este evento não está disponível.'); return; }
     if (!mission.route) { setError('Esta atividade ainda não tem atalho no aplicativo.'); return; }
-    const route = mission.eventScoped ? `/eventos/${eventId}?initialTab=${mission.route}` : mission.route;
+    const route = mission.eventScoped ? `/eventos/${encodeURIComponent(eventId!)}?initialTab=${encodeURIComponent(mission.route)}` : mission.route;
     router.push(route as never);
   };
 
