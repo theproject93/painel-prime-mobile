@@ -25,7 +25,7 @@ const ALL_ACCOUNT_ITEMS: MenuItem[] = [
   {
     label: 'Missões e conquistas',
     description: 'Acompanhe seu progresso verificado na plataforma',
-    icon: 'ribbon-outline',
+    icon: 'trophy-outline',
     route: '/missoes',
   },
   {
