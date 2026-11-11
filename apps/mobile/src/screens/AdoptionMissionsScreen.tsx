@@ -16,9 +16,15 @@ const MISSION_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   overview: 'compass-outline', agency: 'business-outline', event: 'calendar-outline', client: 'person-add-outline',
   contract: 'document-text-outline', guests: 'people-outline', vendors: 'storefront-outline',
   timeline: 'time-outline', tasks: 'checkbox-outline', finance: 'wallet-outline', team: 'people-circle-outline',
-  reception: 'checkmark-circle-outline', ai: 'sparkles-outline', rsvp: 'chatbubbles-outline',
+  reception: 'checkmark-circle-outline', ai: 'bulb-outline', rsvp: 'chatbubbles-outline',
   'vendor-profile': 'id-card-outline', 'assigned-timeline': 'time-outline', 'assigned-reception': 'checkmark-circle-outline',
 };
+const MISSION_TONES = [
+  { background: colors.royal100, foreground: colors.royal600 },
+  { background: colors.info100, foreground: colors.infoText },
+  { background: colors.success100, foreground: colors.success600 },
+  { background: colors.gold100, foreground: colors.gold700 },
+] as const;
 
 export function AdoptionMissionsScreen() {
   const router = useRouter();
@@ -134,20 +140,20 @@ export function AdoptionMissionsScreen() {
     <View style={styles.hero}>
       <View style={styles.heroTop}>
         <View style={styles.heroIcon}><Ionicons name="trophy" size={31} color={colors.gold700} /></View>
-        <Ionicons name="sparkles" size={24} color={colors.gold600} />
+        <Ionicons name="ribbon" size={24} color={colors.royal600} />
       </View>
       <Text style={styles.heroTitle}>{isTeamMemberOnly ? 'Sua escala, seu próximo passo' : 'Sua jornada merece destaque'}</Text>
       <Text style={styles.heroDescription}>{isTeamMemberOnly ? 'Acompanhe as orientações do evento em que você está escalado.' : 'Avance nas missões e veja suas conquistas confirmadas pela plataforma.'}</Text>
       <View style={styles.heroStats}>
         <View style={styles.heroStat}><Ionicons name="flag-outline" size={17} color={colors.gold700} /><Text style={styles.heroStatText}>{missions.length} {isTeamMemberOnly ? 'orientações' : 'missões'}</Text></View>
-        {!isTeamMemberOnly && <View style={styles.heroStat}><Ionicons name="ribbon-outline" size={17} color={colors.gold700} /><Text style={styles.heroStatText}>{earnedCount} {earnedCount === 1 ? 'conquista' : 'conquistas'}</Text></View>}
+        {!isTeamMemberOnly && <View style={[styles.heroStat, styles.heroStatAccent]}><Ionicons name="ribbon-outline" size={17} color={colors.royal600} /><Text style={[styles.heroStatText, styles.heroStatTextAccent]}>{earnedCount} {earnedCount === 1 ? 'conquista' : 'conquistas'}</Text></View>}
       </View>
       {!isTeamMemberOnly && achievements.length > 0 && <View style={styles.progressTrack} accessibilityLabel={`${earnedCount} de ${achievements.length} conquistas verificadas`}><View style={[styles.progressFill, { width: `${Math.round(earnedCount / achievements.length * 100)}%` }]} /></View>}
     </View>
     <View style={styles.tabs}>
       {(['missions', 'achievements'] as const).map(mode => <Pressable key={mode} style={[styles.tab, view === mode && styles.tabActive]}
         onPress={() => { setView(mode); setSelected(null); }} accessibilityRole="tab" accessibilityState={{ selected: view === mode }}>
-        <Ionicons name={mode === 'missions' ? 'flag-outline' : 'trophy-outline'} size={18} color={view === mode ? colors.gold700 : colors.textSecondary} />
+        <Ionicons name={mode === 'missions' ? 'flag-outline' : 'trophy-outline'} size={18} color={view === mode ? colors.royal600 : colors.textSecondary} />
         <Text style={[styles.tabText, view === mode && styles.tabTextActive]}>{mode === 'missions' ? 'Missões' : 'Conquistas'}</Text>
       </Pressable>)}
     </View>
@@ -163,13 +169,14 @@ export function AdoptionMissionsScreen() {
     {busy && <ActivityIndicator color={colors.primaryStrong} accessibilityLabel="Atualizando missões" />}
     <Pressable style={styles.refresh} onPress={() => void refresh()} disabled={busy || !userId} accessibilityRole="button"><Ionicons name="refresh" size={18} color={colors.primaryStrong} /><Text style={styles.refreshText}>Atualizar resultados</Text></Pressable>
 
-    {snapshot && view === 'missions' && missions.map(mission => {
+    {snapshot && view === 'missions' && missions.map((mission, index) => {
       const status = missionStatus(mission, snapshot);
       const expanded = selected === mission.id;
+      const tone = MISSION_TONES[index % MISSION_TONES.length];
       return <View key={mission.id} style={styles.card}>
         <Pressable style={styles.cardHeader} onPress={() => setSelected(expanded ? null : mission.id)} accessibilityRole="button" accessibilityLabel={`${mission.title}. ${status}`}>
-          <View style={styles.missionIcon}><Ionicons name={MISSION_ICONS[mission.id] ?? 'flag-outline'} size={22} color={colors.gold700} /></View>
-          <View style={styles.cardCopy}><Text style={styles.cardTitle}>{mission.title}</Text><Text style={styles.status}>{status}</Text></View>
+          <View style={[styles.missionIcon, { backgroundColor: tone.background }]}><Ionicons name={MISSION_ICONS[mission.id] ?? 'flag-outline'} size={22} color={tone.foreground} /></View>
+          <View style={styles.cardCopy}><Text style={styles.cardTitle}>{mission.title}</Text><Text style={[styles.status, status === 'Concluída' && styles.statusSuccess]}>{status}</Text></View>
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={19} color={colors.textSecondary} />
         </Pressable>
         {expanded && <View style={styles.details}>
@@ -186,11 +193,12 @@ export function AdoptionMissionsScreen() {
         </View>}
       </View>;
     })}
-    {snapshot && view === 'achievements' && (achievements.length ? achievements.map(mission => {
+    {snapshot && view === 'achievements' && (achievements.length ? achievements.map((mission, index) => {
       const earned = earnedAchievement(mission, snapshot);
+      const tone = MISSION_TONES[index % MISSION_TONES.length];
       return <View key={mission.id} style={[styles.card, earned && styles.earnedCard]}>
-        <View style={styles.achievementRow}><View style={[styles.achievementIcon, earned && styles.earnedIcon]}><Ionicons name={earned ? 'trophy' : 'trophy-outline'} size={25} color={earned ? colors.gold700 : colors.mutedText} /></View>
-          <View style={styles.cardCopy}><Text style={styles.cardTitle}>{mission.achievement}</Text><Text style={styles.status}>{earned ? 'Conquistada' : mission.eventScoped && !eventId ? 'Escolha um evento' : 'Ainda não conquistada'}</Text></View></View>
+        <View style={styles.achievementRow}><View style={[styles.achievementIcon, { backgroundColor: earned ? colors.success100 : tone.background }]}><Ionicons name={earned ? 'trophy' : 'lock-closed-outline'} size={25} color={earned ? colors.success600 : tone.foreground} /></View>
+          <View style={styles.cardCopy}><Text style={styles.cardTitle}>{mission.achievement}</Text><Text style={[styles.status, earned && styles.statusSuccess]}>{earned ? 'Desbloqueada' : mission.eventScoped && !eventId ? 'Escolha um evento' : 'A desbloquear'}</Text></View></View>
         <Text style={styles.description}>{mission.criterion ?? mission.instruction}</Text>
         {earned && <Text style={styles.criterion}>Verificada em {new Date(earned.earned_at).toLocaleDateString('pt-BR')}</Text>}
       </View>;
@@ -211,12 +219,13 @@ const styles = StyleSheet.create({
   heroTitle: { color: colors.text, fontSize: 22, fontWeight: '800', lineHeight: 27 },
   heroDescription: { color: colors.textSecondary, fontSize: 14, lineHeight: 21 },
   heroStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  heroStat: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.card },
+  heroStat: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.card }, heroStatAccent: { backgroundColor: colors.royal100 },
   heroStatText: { color: colors.gold700, fontSize: 13, fontWeight: '700' },
+  heroStatTextAccent: { color: colors.royal600 },
   progressTrack: { height: 7, overflow: 'hidden', borderRadius: 7, backgroundColor: colors.card, marginTop: 4 },
-  progressFill: { height: '100%', borderRadius: 7, backgroundColor: colors.gold600 },
-  tabs: { flexDirection: 'row', gap: 8 }, tab: { flex: 1, flexDirection: 'row', gap: 7, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.surfaceSubtle }, tabActive: { backgroundColor: colors.gold100, borderWidth: 1, borderColor: colors.gold200 }, tabText: { color: colors.textSecondary, fontWeight: '700' }, tabTextActive: { color: colors.gold700 },
-  sectionLabel: { color: colors.text, fontWeight: '700', marginTop: 8 }, eventChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, choice: { minHeight: 44, maxWidth: '100%', paddingHorizontal: 14, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }, choiceActive: { borderColor: colors.primaryStrong, backgroundColor: colors.primarySoft }, choiceText: { color: colors.text, fontWeight: '600' },
+  progressFill: { height: '100%', borderRadius: 7, backgroundColor: colors.royal600 },
+  tabs: { flexDirection: 'row', gap: 8 }, tab: { flex: 1, flexDirection: 'row', gap: 7, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.surfaceSubtle }, tabActive: { backgroundColor: colors.royal100, borderWidth: 1, borderColor: colors.royal400 }, tabText: { color: colors.textSecondary, fontWeight: '700' }, tabTextActive: { color: colors.royal600 },
+  sectionLabel: { color: colors.text, fontWeight: '700', marginTop: 8 }, eventChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, choice: { minHeight: 44, maxWidth: '100%', paddingHorizontal: 14, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card }, choiceActive: { borderColor: colors.royal600, backgroundColor: colors.royal50 }, choiceText: { color: colors.text, fontWeight: '600' },
   hint: { color: colors.textSecondary, lineHeight: 21 }, error: { padding: 12, borderRadius: 12, backgroundColor: colors.dangerBg, color: colors.dangerText }, refresh: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 }, refreshText: { color: colors.primaryStrong, fontWeight: '700' },
-  card: { padding: 16, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, gap: 10 }, earnedCard: { backgroundColor: colors.gold50, borderColor: colors.gold200 }, cardHeader: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12 }, missionIcon: { width: 43, height: 43, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold50 }, cardCopy: { flex: 1, gap: 4 }, cardTitle: { color: colors.text, fontSize: 16, fontWeight: '700' }, status: { color: colors.gold700, fontSize: 13, fontWeight: '700' }, details: { gap: 10 }, description: { color: colors.textSecondary, lineHeight: 21 }, criterion: { color: colors.textSecondary, fontSize: 13 }, disclaimer: { color: colors.mutedText, fontSize: 12, lineHeight: 18 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, action: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.primarySoft }, actionText: { color: colors.primaryStrong, fontWeight: '700' }, disabled: { opacity: 0.45 }, achievementRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, achievementIcon: { width: 50, height: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSubtle }, earnedIcon: { backgroundColor: colors.gold100 }, footer: { color: colors.mutedText, fontSize: 12 },
+  card: { padding: 16, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, gap: 10 }, earnedCard: { backgroundColor: colors.successBg, borderColor: colors.success100 }, cardHeader: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12 }, missionIcon: { width: 43, height: 43, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, cardCopy: { flex: 1, gap: 4 }, cardTitle: { color: colors.text, fontSize: 16, fontWeight: '700' }, status: { color: colors.royal600, fontSize: 13, fontWeight: '700' }, statusSuccess: { color: colors.success600 }, details: { gap: 10 }, description: { color: colors.textSecondary, lineHeight: 21 }, criterion: { color: colors.textSecondary, fontSize: 13 }, disclaimer: { color: colors.mutedText, fontSize: 12, lineHeight: 18 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, action: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.primarySoft }, actionText: { color: colors.primaryStrong, fontWeight: '700' }, disabled: { opacity: 0.45 }, achievementRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, achievementIcon: { width: 50, height: 50, borderRadius: 17, alignItems: 'center', justifyContent: 'center' }, footer: { color: colors.mutedText, fontSize: 12 },
 });
