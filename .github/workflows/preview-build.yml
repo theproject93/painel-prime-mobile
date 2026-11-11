@@ -17,6 +17,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  redroid-probe:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, Linux, X64, painel-prime-mobile]
+    timeout-minutes: 3
+    steps:
+      - name: Confirmar acesso ao ReDroid oficial
+        run: |
+          set -euo pipefail
+          command -v adb
+          adb connect 127.0.0.1:5555
+          test "$(adb -s 127.0.0.1:5555 get-state)" = device
+          adb -s 127.0.0.1:5555 shell getprop sys.boot_completed | grep -qx 1
+
   build:
     runs-on: ubuntu-latest
     env:
@@ -189,6 +202,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish to Firebase App Distribution
+        if: github.ref == 'refs/heads/main'
         run: |
           npx --yes firebase-tools@15.23.0 appdistribution:distribute "${{ steps.vars.outputs.APK_NAME }}" \
             --app "${{ secrets.FIREBASE_APP_ID }}" \
