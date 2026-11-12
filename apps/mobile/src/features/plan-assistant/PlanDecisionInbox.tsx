@@ -57,7 +57,7 @@ export function PlanDecisionInbox(props: {
     if (!props.visible || eventIds.length === 0) return;
     let active = true;
     setLoadingEvents(true);
-    void supabase.from('events').select('id,name').in('id', eventIds).then(({ data, error }) => {
+    void supabase.from('events').select('id,name').in('id', eventIds).limit(100).then(({ data, error }) => {
       if (!active) return;
       if (!error && data) {
         setEventNames(Object.fromEntries(data.map((item) => [item.id, item.name])));
