@@ -87,20 +87,13 @@ jobs:
             VERSION_RAW="${TAG_NAME#android-v}"
             echo "::notice::Building from tag: $TAG_NAME (version $VERSION_RAW)"
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            LATEST_TAG=$(git tag --sort=-v:refname | grep '^android-v' | head -1 || true)
-            PKG_VERSION=$(node -p "require('./apps/mobile/package.json').version" 2>/dev/null || echo "1.0.0")
-            if [ -n "$LATEST_TAG" ]; then
-              TAG_NAME="$LATEST_TAG"
-              VERSION_RAW="${TAG_NAME#android-v}"
-              echo "::notice::Using latest tag: $TAG_NAME"
-            else
-              VERSION_RAW="${PKG_VERSION}-build.${{ github.run_number }}"
-              TAG_NAME="android-v${VERSION_RAW}"
-              echo "::notice::Using package version with build number: $VERSION_RAW"
-            fi
+            APP_VERSION=$(node -p "require('./apps/mobile/app.json').expo.version")
+            VERSION_RAW="${APP_VERSION}-build.${{ github.run_number }}"
+            TAG_NAME="android-v${VERSION_RAW}"
+            echo "::notice::Building app version: $VERSION_RAW"
           else
-            PKG_VERSION=$(node -p "require('./apps/mobile/package.json').version" 2>/dev/null || echo "1.0.0")
-            VERSION_RAW="${PKG_VERSION}-build.${{ github.run_number }}"
+            APP_VERSION=$(node -p "require('./apps/mobile/app.json').expo.version")
+            VERSION_RAW="${APP_VERSION}-build.${{ github.run_number }}"
             TAG_NAME="android-v${VERSION_RAW}"
             echo "::notice::Building automated push on main: $VERSION_RAW"
           fi
