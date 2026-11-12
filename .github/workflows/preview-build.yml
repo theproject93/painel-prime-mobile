@@ -148,7 +148,7 @@ jobs:
           test -f "$APK"
           "$APKSIGNER" verify "$APK"
           "$APKSIGNER" verify --print-certs "$APK" | tr -d ':' | tee apk-signature.txt
-          grep -qi "bf524e07f7cb2457aa8cd183aa38b8454f2addd6a6e229ecf858778965bec82b" apk-signature.txt || echo "Release signature verified."
+          grep -qi "bf524e07f7cb2457aa8cd183aa38b8454f2addd6a6e229ecf858778965bec82b" apk-signature.txt
           sha256sum "$APK" | tee "${{ steps.vars.outputs.SHA_NAME }}"
 
       - name: Authenticate to Google Cloud for Firebase Test Lab
@@ -198,6 +198,10 @@ jobs:
           path: qa-artifact
           merge-multiple: true
 
+      - name: Verify APK checksum before QA
+        shell: bash
+        run: cd qa-artifact && sha256sum -c ./*.sha256
+
       - name: Validate both profiles on ReDroid
         shell: bash
         env:
@@ -232,6 +236,10 @@ jobs:
           pattern: painel-prime-android-*.apk
           path: release-artifact
           merge-multiple: true
+
+      - name: Verify APK checksum before publishing
+        shell: bash
+        run: cd release-artifact && sha256sum -c ./*.sha256
 
       - name: Publish to Firebase App Distribution
         shell: bash
