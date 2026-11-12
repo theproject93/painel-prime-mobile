@@ -26,6 +26,7 @@ import {
   startWhatsAppZeroTapHandshake,
   subscribeWhatsAppZeroTapOtp,
 } from '../lib/whatsappZeroTap';
+import { isAllowedAuthDeepLink } from '../lib/authDeepLink';
 import { useKeyboardBottomInset } from '../lib/useKeyboardBottomInset';
 
 const plans = [
@@ -221,22 +222,26 @@ export function SignupScreen() {
     });
 
     function processIncomingUrl(url: string | null) {
-      if (!url) return;
+      if (!url || !isAllowedAuthDeepLink(url)) return;
       const match = url.match(/[?&]code=(?:otp)?([0-9]{6})/i) || url.match(/[?&]code=([^&#]+)/i);
       if (!match) return;
       const extractedDigits = match[1].replace(/\D/g, '');
       if (extractedDigits.length !== 6) return;
 
+      const phoneMatch = url.match(/[?&]phone=([^&#]+)/i);
+      const phoneInUrl = phoneMatch ? decodeURIComponent(phoneMatch[1]) : '';
+      if (phoneInUrl && phoneRef.current && normalizePhoneDigits(phoneInUrl) !== normalizePhoneDigits(phoneRef.current)) {
+        return;
+      }
+
       setOtpSent(true);
       setOtpCode(extractedDigits);
 
-      const phoneMatch = url.match(/[?&]phone=([^&#]+)/i);
-      const phoneInUrl = phoneMatch ? decodeURIComponent(phoneMatch[1]) : '';
       if (phoneInUrl && !phoneRef.current) {
         setPhone(formatPhoneDisplay(phoneInUrl));
       }
 
-      const activePhone = phoneInUrl || phoneRef.current;
+      const activePhone = phoneRef.current || phoneInUrl;
       if (activePhone && !phoneVerifiedRef.current) {
         void handleVerifyOtp(extractedDigits, activePhone);
       }

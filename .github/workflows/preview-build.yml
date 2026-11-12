@@ -188,11 +188,68 @@ jobs:
             ${{ steps.vars.outputs.SHA_NAME }}
           if-no-files-found: error
 
-      - name: Publish to Firebase App Distribution
+  redroid-qa:
+    needs: build
+    runs-on: [self-hosted, Linux, X64, linode-runner, painel-prime-mobile]
+    concurrency:
+      group: redroid-mobile-qa
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download official APK
+        uses: actions/download-artifact@v4
+        with:
+          pattern: painel-prime-android-*.apk
+          path: qa-artifact
+          merge-multiple: true
+
+      - name: Validate both profiles on ReDroid
+        shell: bash
+        env:
+          QA_TEAM_PASSWORD: ${{ secrets.QA_TEAM_PASSWORD }}
+          QA_OWNER_PASSWORD: ${{ secrets.QA_OWNER_PASSWORD }}
         run: |
-          npx --yes firebase-tools@15.23.0 appdistribution:distribute "${{ steps.vars.outputs.APK_NAME }}" \
-            --app "${{ secrets.FIREBASE_APP_ID }}" \
-            --groups "testers" \
-            --release-notes-file "${{ steps.vars.outputs.NOTES_FILE }}"
+          set -euo pipefail
+          apk="$(find qa-artifact -maxdepth 1 -name '*.apk' -type f -print -quit)"
+          test -n "$apk"
+          python3 scripts/qa/redroid_decision_inbox.py "$apk"
+
+      - name: Upload ReDroid evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: redroid-evidence-${{ github.run_id }}
+          path: redroid-evidence/
+          if-no-files-found: warn
+          retention-days: 7
+
+  publish:
+    if: github.ref == 'refs/heads/main'
+    needs: redroid-qa
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download validated APK
+        uses: actions/download-artifact@v4
+        with:
+          pattern: painel-prime-android-*.apk
+          path: release-artifact
+          merge-multiple: true
+
+      - name: Publish to Firebase App Distribution
+        shell: bash
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+        run: |
+          set -euo pipefail
+          apk="$(find release-artifact -maxdepth 1 -name '*.apk' -type f -print -quit)"
+          test -n "$apk"
+          npx --yes firebase-tools@15.23.0 appdistribution:distribute "$apk" \
+            --app "$FIREBASE_APP_ID" \
+            --groups "testers" \
+            --release-notes-file docs/ANDROID_RELEASE_NOTES.txt

@@ -33,6 +33,13 @@ import {
 } from './planAssistantThreads';
 import { pollLocalAiJob } from './pollLocalAiJob';
 import {
+  decisionFromProposal,
+  updateDecisionStatus,
+  upsertDecision,
+  type PlanDecision,
+} from './planDecisionModel';
+import { loadDecisions, saveDecisions } from './planDecisionStore';
+import {
   getPlanAssistantAccessToken,
   invokePlanAssistantActionConfirmation,
   invokePlanAssistantChat,
@@ -66,11 +73,13 @@ export function usePlanAssistantChat(params: Params) {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [quota, setQuota] = useState<PlanIaQuotaInfo | null>(null);
   const [pendingContractAttachment, setPendingContractAttachment] = useState<PendingContractAttachment | null>(null);
+  const [decisions, setDecisions] = useState<PlanDecision[]>([]);
 
   const messageId = useRef(1);
   const hydratedUser = useRef<string | null>(null);
   const activeThreadIdRef = useRef<string | null>(null);
   const tenantIdRef = useRef<string | null>(null);
+  const hydratedDecisionsUser = useRef<string | null>(null);
 
   activeThreadIdRef.current = activeThreadId;
   tenantIdRef.current = tenantId;
@@ -176,6 +185,9 @@ export function usePlanAssistantChat(params: Params) {
     if (!currentTenant) return;
     await deleteThreadApi(supabase, currentTenant, threadId);
     setThreads((prev) => prev.filter((t) => t.id !== threadId));
+    setDecisions((prev) => prev.map((decision) => decision.threadId === threadId
+      ? { ...decision, threadId: null }
+      : decision));
     if (activeThreadIdRef.current === threadId) {
       createNewThread();
     }
@@ -220,6 +232,25 @@ export function usePlanAssistantChat(params: Params) {
     });
     return () => { active = false; };
   }, [userId]);
+
+  useEffect(() => {
+    hydratedDecisionsUser.current = null;
+    setDecisions([]);
+    if (!userId) return;
+    let active = true;
+    void loadDecisions(userId).then((stored) => {
+      if (!active) return;
+      setDecisions((current) => current.reduce((merged, item) => upsertDecision(merged, item), stored));
+      hydratedDecisionsUser.current = userId;
+    });
+    return () => { active = false; };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || hydratedDecisionsUser.current !== userId) return;
+    void saveDecisions(userId, decisions).catch((error) =>
+      console.warn('Falha ao salvar decisões da Plan IA:', error));
+  }, [decisions, userId]);
 
   // Persist draft & current snapshot to AsyncStorage
   useEffect(() => {
@@ -622,6 +653,12 @@ export function usePlanAssistantChat(params: Params) {
         citations: data.citations,
         actionProposal: data.action_proposal,
       });
+      const actionProposal = data.action_proposal;
+      if (actionProposal) {
+        setDecisions((previous) => upsertDecision(previous, decisionFromProposal(
+          actionProposal, threadCtx?.threadId ?? null, currentEventId,
+        )));
+      }
 
       // Auto-save AI reply to DB
       if (threadCtx) {
@@ -663,8 +700,8 @@ export function usePlanAssistantChat(params: Params) {
           confirmation_token: confirmationToken,
         });
 
-        if (!response?.success && response?.error) {
-          throw new Error(response.message || response.error);
+        if (!response?.success) {
+          throw new Error(response?.message || response?.error || 'Não foi possível confirmar a ação.');
         }
 
         const summary =
@@ -678,6 +715,7 @@ export function usePlanAssistantChat(params: Params) {
           isActionExecuted: true,
           actionExecutionMessage: summary,
         }));
+        setDecisions((previous) => updateDecisionStatus(previous, proposalId, 'executed', summary));
 
         const botResponseText = `Muito bem! ${summary}`;
         pushBotMessage({
@@ -694,6 +732,8 @@ export function usePlanAssistantChat(params: Params) {
         }
       } catch (err) {
         console.warn('Erro ao confirmar ação no mobile:', err);
+        setDecisions((previous) => updateDecisionStatus(previous, proposalId, 'failed',
+          'Não foi possível verificar o resultado. Confira a conversa antes de tentar novamente.'));
         throw err;
       }
     },
@@ -701,17 +741,19 @@ export function usePlanAssistantChat(params: Params) {
   );
 
   const cancelAction = useCallback(
-    (_proposalId: string, msgId: string) => {
+    (proposalId: string, msgId: string) => {
       updateMessage(msgId, (msg) => ({
         ...msg,
         isActionCancelled: true,
       }));
+      setDecisions((previous) => updateDecisionStatus(previous, proposalId, 'cancelled'));
     },
     [updateMessage],
   );
 
   return {
     messages,
+    decisions: hydratedDecisionsUser.current === userId ? decisions : [],
     input,
     setInput,
     isReplying,

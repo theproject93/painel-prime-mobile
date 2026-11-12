@@ -1,6 +1,7 @@
-Painel Prime Android 1.6.1 (versão 33)
+Painel Prime Android 1.6.2 (versão 34)
 
-- Nova central de Missões e conquistas em Mais.
-- Progresso e medalhas verificados no servidor, com contexto de evento.
-- Orientações disponíveis conforme o perfil da assessoria ou da equipe escalada.
-- Correções de estabilidade na troca de perfil e navegação.
+- Caixa de decisões da Plan IA com propostas pendentes, ações executadas e resultados não verificados por evento.
+- Atalho da decisão para a conversa correspondente e histórico protegido por usuário neste aparelho.
+- Melhor isolamento do perfil de colaborador e correção do menu de acesso restrito.
+- Validação reforçada de links de autenticação, retorno de códigos do WhatsApp e bloqueio biométrico.
+- Perfis separados para builds de prévia e pacote de loja.

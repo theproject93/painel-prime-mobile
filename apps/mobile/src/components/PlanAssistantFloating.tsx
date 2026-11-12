@@ -117,6 +117,7 @@ export function PlanAssistantFloating() {
         hints={hints.hints}
         loadingHints={hints.loadingHints}
         messages={chat.messages}
+        decisions={chat.decisions}
         input={chat.input}
         isReplying={chat.isReplying}
         onClose={closeChat}

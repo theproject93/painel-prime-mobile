@@ -76,7 +76,7 @@ export function MoreScreen() {
 
   const sections: MenuSection[] = useMemo(() => {
     const accountItems = isTeamMemberOnly
-      ? ALL_ACCOUNT_ITEMS.filter((item) => item.label !== 'Equipe')
+      ? ALL_ACCOUNT_ITEMS.filter((item) => item.route !== '/mais/equipe' && item.route !== '/reunioes')
       : ALL_ACCOUNT_ITEMS;
 
     const list: MenuSection[] = [{ title: 'Sua conta', items: accountItems }];
