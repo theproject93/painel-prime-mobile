@@ -21,7 +21,11 @@ ADB = shutil.which("adb") or "/usr/local/lib/android/sdk/platform-tools/adb"
 def run(*args: str, binary: bool = False) -> bytes | str:
     result = subprocess.run([ADB, "-s", SERIAL, *args], capture_output=True, timeout=50)
     if result.returncode:
-        raise RuntimeError("Falha no comando ADB durante a homologação")
+        # Nunca inclui os argumentos de input text, que podem conter senhas.
+        detail = "" if "input" in args else (result.stdout + result.stderr).decode(
+            "utf-8", errors="replace"
+        )[:500]
+        raise RuntimeError(f"Falha no comando ADB ({args[0]}): {detail}")
     return result.stdout if binary else result.stdout.decode("utf-8", errors="replace")
 
 
@@ -108,7 +112,7 @@ def main() -> None:
     if not re.search(r"versionCode=34\b", package_info):
         raise AssertionError("O APK instalado não corresponde ao versionCode 34")
     run("shell", "am", "force-stop", PACKAGE)
-    run("shell", "monkey", "-p", PACKAGE, "1")
+    run("shell", "am", "start", "-W", "-n", f"{PACKAGE}/.MainActivity")
     time.sleep(6)
 
     login("lucas.ferreira@painelprime.com.br", team_password)
