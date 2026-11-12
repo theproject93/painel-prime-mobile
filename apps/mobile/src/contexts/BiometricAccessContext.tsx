@@ -177,10 +177,10 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
     setBusy(true);
     try {
       await signOut();
+      setLocked(false);
     } catch (error) {
       console.warn('Sign out failed on usePassword', error);
     } finally {
-      setLocked(false);
       setBusy(false);
     }
   }, [signOut]);
