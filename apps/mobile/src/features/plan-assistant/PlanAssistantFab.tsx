@@ -14,6 +14,9 @@ export function PlanAssistantFab(props: {
     <View
       {...props.panHandlers}
       collapsable={false}
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={props.isOpen ? 'Fechar Plan IA' : 'Abrir Plan IA'}
       style={[styles.fab, { left: props.position.x, top: props.position.y }]}
     >
       {props.isOpen ? (

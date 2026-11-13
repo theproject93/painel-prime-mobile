@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { colors } from '../../theme/colors';
 import { PLAN_FACE_IMAGE } from './assets';
 import { PlanComposer } from './PlanComposer';
+import { PlanDecisionInbox } from './PlanDecisionInbox';
 import { PlanMessageList } from './PlanMessageList';
 import { PlanThreadModal } from './PlanThreadModal';
 import {
@@ -32,6 +33,7 @@ import {
   type PlanAiThread,
 } from './planAssistantThreads';
 import type { ChatMessage, PendingContractAttachment, PlanHint, PlanIaQuotaInfo } from './types';
+import type { PlanDecision } from './planDecisionModel';
 import { useVoiceRecorder } from './useVoiceRecorder';
 
 type Props = {
@@ -40,6 +42,7 @@ type Props = {
   hints: PlanHint[];
   loadingHints: boolean;
   messages: ChatMessage[];
+  decisions: PlanDecision[];
   input: string;
   isReplying: boolean;
   onClose: () => void;
@@ -71,6 +74,7 @@ export function PlanAssistantChatSheet(props: Props) {
   const userId = user?.id ?? null;
 
   const [isThreadModalOpen, setIsThreadModalOpen] = useState(false);
+  const [isDecisionInboxOpen, setIsDecisionInboxOpen] = useState(false);
   const [internalThreads, setInternalThreads] = useState<PlanAiThread[]>(props.threads ?? []);
   const [internalTenantId, setInternalTenantId] = useState<string | null>(null);
 
@@ -240,6 +244,14 @@ export function PlanAssistantChatSheet(props: Props) {
                 </View>
                 <View style={styles.headerActions}>
                   <Pressable
+                    onPress={() => { void AppHaptics.light(); setIsDecisionInboxOpen(true); }}
+                    style={styles.headerIconBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Abrir caixa de decisões"
+                  >
+                    <Ionicons name="file-tray-full-outline" size={20} color="#FFFFFF" />
+                  </Pressable>
+                  <Pressable
                     onPress={() => {
                       void AppHaptics.light();
                       setIsThreadModalOpen(true);
@@ -345,6 +357,17 @@ export function PlanAssistantChatSheet(props: Props) {
         onCreateNewThread={handleCreateNewThread}
         onRenameThread={handleRenameThread}
         onDeleteThread={handleDeleteThread}
+      />
+      <PlanDecisionInbox
+        visible={isDecisionInboxOpen && !isCurtainActive}
+        decisions={props.decisions}
+        threads={internalThreads}
+        currentEventId={props.currentEventId ?? null}
+        onClose={() => setIsDecisionInboxOpen(false)}
+        onOpenConversation={(thread) => {
+          if (thread.id !== props.activeThreadId) props.onSelectThread?.(thread);
+          setIsDecisionInboxOpen(false);
+        }}
       />
     </>
   );

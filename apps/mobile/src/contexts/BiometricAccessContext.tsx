@@ -99,8 +99,10 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
         if (!active) return;
         initializedUserId.current = null;
         setAvailable(false);
-        setEnabled(false);
-        setLocked(false);
+        // Fail-closed: se ocorreu falha inesperada na checagem biométrica,
+        // mantém bloqueado para proteger a sessão do usuário contra bypass por falha de I/O
+        setEnabled(true);
+        setLocked(true);
       }
     })();
     return () => { active = false; };
@@ -175,10 +177,10 @@ export function BiometricAccessProvider({ children }: PropsWithChildren) {
     setBusy(true);
     try {
       await signOut();
+      setLocked(false);
     } catch (error) {
       console.warn('Sign out failed on usePassword', error);
     } finally {
-      setLocked(false);
       setBusy(false);
     }
   }, [signOut]);

@@ -88,10 +88,12 @@ object WhatsAppOtpStore {
 
     val creatorPkg = callerIntent?.creatorPackage
     val incomingRequestId = intent.getStringExtra("request_id")?.trim()
-    val hasValidCreator = creatorPkg != null && WHATSAPP_PACKAGES.contains(creatorPkg)
-    val hasValidRequestId = !incomingRequestId.isNullOrEmpty() && isKnownHandshakeId(appContext, incomingRequestId)
+    val creatorUid = callerIntent?.creatorUid
+    val hasValidCreator = isTrustedPendingIntentCreator(appContext, creatorPkg, creatorUid)
 
-    if (!hasValidCreator && !hasValidRequestId) {
+    // O PendingIntent pode ser o callback criado pelo próprio app ou pelo WhatsApp.
+    // Em ambos os casos, o request_id deve corresponder a um handshake ainda não consumido.
+    if (!hasValidCreator || incomingRequestId.isNullOrEmpty()) {
       return null
     }
 
@@ -101,9 +103,29 @@ object WhatsAppOtpStore {
       return null
     }
 
+    if (!consumeHandshakeId(appContext, incomingRequestId)) return null
     savePendingCode(appContext, digits)
     emitToJs(digits)
     return digits
+  }
+
+  private fun isTrustedPendingIntentCreator(context: Context, packageName: String?, creatorUid: Int?): Boolean {
+    if (packageName == null || creatorUid == null) return false
+    if (packageName != context.packageName && !WHATSAPP_PACKAGES.contains(packageName)) return false
+    return try {
+      val pm = context.packageManager
+      pm.getApplicationInfo(packageName, 0).uid == creatorUid
+    } catch (_: Throwable) {
+      false
+    }
+  }
+
+  @Synchronized
+  private fun consumeHandshakeId(context: Context, id: String): Boolean {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val existing = (prefs.getStringSet(KEY_HANDSHAKE_IDS, emptySet()) ?: emptySet()).toMutableSet()
+    if (!existing.remove(id)) return false
+    return prefs.edit().putStringSet(KEY_HANDSHAKE_IDS, existing).commit()
   }
 
   fun consumePendingCode(context: Context): String? {
@@ -131,12 +153,6 @@ object WhatsAppOtpStore {
     existing.add(id)
     val trimmed = if (existing.size > 8) existing.takeLast(8).toSet() else existing.toSet()
     prefs.edit().putStringSet(KEY_HANDSHAKE_IDS, trimmed).apply()
-  }
-
-  private fun isKnownHandshakeId(context: Context, id: String): Boolean {
-    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    val existing = prefs.getStringSet(KEY_HANDSHAKE_IDS, emptySet()) ?: emptySet()
-    return existing.contains(id)
   }
 
   private fun emitToJs(code: String) {
