@@ -4,6 +4,20 @@ set -euo pipefail
 name="painel-prime-redroid-ci"
 serial="127.0.0.1:5555"
 
+if docker inspect painel-prime-redroid >/dev/null 2>&1; then
+  for attempt in $(seq 1 90); do
+    adb connect "$serial" >/dev/null 2>&1 || true
+    if [[ "$(adb -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+      echo "Reutilizando ReDroid permanente da KIRO."
+      adb -s "$serial" devices -l
+      exit 0
+    fi
+    sleep 2
+  done
+  echo "ReDroid permanente indisponível para o CI." >&2
+  exit 1
+fi
+
 sudo modprobe binder_linux devices="binder,hwbinder,vndbinder" 2>/dev/null || true
 if [[ ! -c /dev/binder ]]; then
   sudo mkdir -p /dev/binderfs

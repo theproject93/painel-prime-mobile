@@ -1,0 +1,18 @@
+name: ReDroid permanente na KIRO
+
+on:
+  workflow_dispatch:
+
+jobs:
+  activate:
+    name: Ativar Android para QA futuro
+    runs-on: [self-hosted, Linux, X64, linode-runner, painel-prime-mobile]
+    timeout-minutes: 8
+    concurrency:
+      group: redroid-mobile-qa
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ativar ReDroid permanente
+        shell: bash
+        run: bash scripts/qa/start_redroid_persistent.sh
