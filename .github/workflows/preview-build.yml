@@ -202,6 +202,10 @@ jobs:
         shell: bash
         run: cd qa-artifact && sha256sum -c ./*.sha256
 
+      - name: Start temporary Android for CI
+        shell: bash
+        run: bash scripts/qa/start_redroid_ci.sh
+
       - name: Validate both profiles on ReDroid
         shell: bash
         env:
@@ -212,6 +216,13 @@ jobs:
           apk="$(find qa-artifact -maxdepth 1 -name '*.apk' -type f -print -quit)"
           test -n "$apk"
           python3 scripts/qa/redroid_decision_inbox.py "$apk"
+
+      - name: Stop temporary Android for CI
+        if: always()
+        shell: bash
+        run: |
+          adb disconnect 127.0.0.1:5555 || true
+          docker rm -f painel-prime-redroid-ci >/dev/null 2>&1 || true
 
       - name: Upload ReDroid evidence
         if: always()
