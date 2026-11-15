@@ -17,14 +17,24 @@ if [[ ! -c /dev/binder ]]; then
   done
 fi
 
+volume="painel-prime-redroid-data"
+if docker container inspect "$name" >/dev/null 2>&1; then
+  volume="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/data"}}{{if .Name}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}' "$name")"
+  [[ -n "$volume" ]] || { echo "Volume de dados do ReDroid ausente; nenhuma remoção foi feita." >&2; exit 1; }
+  current_command="$(docker inspect --format '{{json .Config.Cmd}}' "$name")"
+  if [[ "$current_command" != *'ro.adb.secure=0'* ]]; then
+    docker rm -f "$name" >/dev/null
+  fi
+fi
+
 if docker container inspect "$name" >/dev/null 2>&1; then
   docker update --restart always "$name" >/dev/null
   docker start "$name" >/dev/null || true
 else
   docker run --detach --name "$name" --restart always --privileged --memory 4g \
-    --publish "$serial:5555" --volume painel-prime-redroid-data:/data \
+    --publish "$serial:5555" --volume "$volume:/data" \
     redroid/redroid:12.0.0-latest \
-    androidboot.hardware=mt6833 ro.secure=0 ro.boot.hwc=DRM_HWC \
+    androidboot.hardware=mt6833 ro.secure=0 ro.adb.secure=0 ro.boot.hwc=DRM_HWC \
     ro.opengles.version=196610 redroid.width=1080 redroid.height=2400 \
     redroid.fps=60 redroid.dpi=400 >/dev/null
 fi

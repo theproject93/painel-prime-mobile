@@ -42,7 +42,7 @@ docker rm -f "$name" >/dev/null 2>&1 || true
 docker run --detach --rm --name "$name" --privileged --memory 4g \
   --publish "$serial:5555" \
   redroid/redroid:12.0.0-latest \
-  androidboot.hardware=mt6833 ro.secure=0 ro.boot.hwc=DRM_HWC \
+  androidboot.hardware=mt6833 ro.secure=0 ro.adb.secure=0 ro.boot.hwc=DRM_HWC \
   ro.opengles.version=196610 redroid.width=1080 redroid.height=2400 \
   redroid.fps=60 redroid.dpi=400 >/dev/null
 
