@@ -182,7 +182,7 @@ export function OperationalEventTabs(props: OperationalEventTabsProps) {
       hasMore: paging.documents.hasMore, loadingMore: loadingMore === 'documents',
       onClearReceipt: () => props.setDocumentReceiptFilterId(''), onClearVendor: () => props.setDocumentVendorFilter(''),
       onSearchChange: props.setDocumentSearch, onCategoryFilterChange: props.setDocumentCategoryFilter,
-      onOpen: (doc) => void a.openDocument(doc), onDelete: (doc) => void a.deleteDocument(doc),
+      onOpen: (doc) => void a.openDocument(doc), onDelete: (doc) => a.deleteDocument(doc),
       onShowMore: () => props.showMore('documents'), onLoadMore: () => void props.loadMoreKey('documents'),
       onOpenComposer: () => setComposer('documents'), onCloseComposer: closeComposer,
       onUpload: () => void props.pickAndUploadDocument(), onNameChange: (value) => setForm((state) => ({ ...state, a: value })),

@@ -82,7 +82,12 @@ export function useEventOperationalActions({ eventId, data, form, setForm, filte
   });
 
   async function openDocument(doc: any) { try { if (doc.file_id) { await Linking.openURL(await getPrivateFileDownloadUrl(String(doc.file_id))); return; } if (doc.file_url) await Linking.openURL(String(doc.file_url)); } catch (error: any) { setError(error?.message ?? 'Não foi possível abrir o documento.'); } }
-  const deleteDocument = (doc: any) => run(async () => { if (doc.file_id) await deleteStoredFile(String(doc.file_id)).catch(() => undefined); const { error } = await supabase.from('event_documents').delete().eq('id', doc.id); if (error) throw new Error(error.message); });
+  const deleteDocument = async (doc: any) => {
+    const { error } = await supabase.from('event_documents').delete().eq('id', doc.id).select('id').single();
+    if (error) { setError(error.message); throw new Error(error.message); }
+    if (doc.file_id) await deleteStoredFile(String(doc.file_id)).catch(() => undefined);
+    await run(async () => undefined);
+  };
   const createDocumentLink = () => run(async () => { if (!form.a.trim() || !form.b.trim()) return; const { error } = await supabase.from('event_documents').insert({ event_id: eventId, name: form.a.trim(), file_url: form.b.trim(), category: form.c.trim() || 'Outros', vendor_id: documentVendorInput || null }); if (error) throw new Error(error.message); setForm((current: any) => ({ ...current, a: '', b: '', c: '' })); setDocumentVendorInput(''); setComposer(null); });
 
   return { budgetVendorInput, setBudgetVendorInput, documentVendorInput, setDocumentVendorInput, budgetPaymentMethod, setBudgetPaymentMethod,
