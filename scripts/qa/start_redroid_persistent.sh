@@ -40,5 +40,10 @@ for attempt in $(seq 1 90); do
 done
 
 docker logs --tail 80 "$name" >&2 || true
+docker inspect --format 'Estado: {{.State.Status}} | Erro: {{.State.Error}} | Reinícios: {{.RestartCount}} | Imagem: {{.Config.Image}}' "$name" >&2 || true
+lsmod | grep binder >&2 || true
+ls -l /dev/binder /dev/hwbinder /dev/vndbinder /dev/binderfs 2>&1 | tail -25 >&2 || true
+adb devices -l >&2 || true
+sudo dmesg | tail -40 >&2 || true
 echo "ReDroid permanente não concluiu a inicialização." >&2
 exit 1
