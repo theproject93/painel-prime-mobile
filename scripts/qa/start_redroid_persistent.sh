@@ -39,14 +39,8 @@ else
     redroid.fps=60 redroid.dpi=400 >/dev/null
 fi
 
+adb kill-server >/dev/null 2>&1 || true
 adb start-server >/dev/null
-if [[ ! -f "$HOME/.android/adbkey.pub" ]]; then
-  mkdir -p "$HOME/.android"
-  adb keygen "$HOME/.android/adbkey" >/dev/null 2>&1
-fi
-docker exec -i "$name" sh -c 'mkdir -p /data/misc/adb; cat >> /data/misc/adb/adb_keys; chmod 600 /data/misc/adb/adb_keys; restorecon /data/misc/adb/adb_keys 2>/dev/null || true' \
-  < "$HOME/.android/adbkey.pub"
-docker exec "$name" sh -c 'setprop ctl.restart adbd' >/dev/null 2>&1 || true
 adb disconnect "$serial" >/dev/null 2>&1 || true
 
 for attempt in $(seq 1 90); do

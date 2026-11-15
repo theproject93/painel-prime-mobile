@@ -5,13 +5,9 @@ name="painel-prime-redroid-ci"
 serial="127.0.0.1:5555"
 
 if docker inspect painel-prime-redroid >/dev/null 2>&1; then
+  adb kill-server >/dev/null 2>&1 || true
   adb start-server >/dev/null
-  if [[ -f "$HOME/.android/adbkey.pub" ]]; then
-    docker exec -i painel-prime-redroid sh -c 'mkdir -p /data/misc/adb; cat >> /data/misc/adb/adb_keys; chmod 600 /data/misc/adb/adb_keys; restorecon /data/misc/adb/adb_keys 2>/dev/null || true' \
-      < "$HOME/.android/adbkey.pub"
-    docker exec painel-prime-redroid sh -c 'setprop ctl.restart adbd' >/dev/null 2>&1 || true
-    adb disconnect "$serial" >/dev/null 2>&1 || true
-  fi
+  adb disconnect "$serial" >/dev/null 2>&1 || true
   for attempt in $(seq 1 90); do
     adb connect "$serial" >/dev/null 2>&1 || true
     if [[ "$(adb -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
