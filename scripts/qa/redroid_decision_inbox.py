@@ -78,6 +78,10 @@ def screenshot(name: str) -> None:
 def ensure_login_screen() -> None:
     if find("Campo de e-mail") is not None:
         return
+    if find("Entrar na plataforma") is not None:
+        tap("Entrar na plataforma")
+        wait_for("Campo de e-mail")
+        return
     if find("Usar e-mail e senha") is not None:
         tap("Usar e-mail e senha")
         wait_for("Campo de e-mail")
