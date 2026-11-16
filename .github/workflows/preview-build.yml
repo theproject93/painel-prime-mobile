@@ -247,7 +247,7 @@ jobs:
           retention-days: 7
 
   publish:
-    if: github.ref == 'refs/heads/main'
+    if: always() && github.ref == 'refs/heads/main' && needs.redroid-qa.result == 'success'
     needs: redroid-qa
     runs-on: ubuntu-latest
     steps:
