@@ -108,6 +108,7 @@ def main() -> None:
     subprocess.run([ADB, "connect", SERIAL], capture_output=True, timeout=20, check=True)
     apk = Path(sys.argv[1]).resolve()
     run("install", "-r", str(apk))
+    run("shell", "pm", "clear", PACKAGE)
     package_info = run("shell", "dumpsys", "package", PACKAGE)
     if not re.search(r"versionCode=34\b", package_info):
         raise AssertionError("O APK instalado não corresponde ao versionCode 34")
@@ -144,4 +145,12 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        try:
+            ui()
+            screenshot("falha-qa")
+        except Exception:
+            pass
+        raise

@@ -11,6 +11,15 @@ on:
     tags:
       - "android-v*"
   workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Execução que gerou o APK já assinado para repetir apenas QA e publicação"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  actions: read
 
 concurrency:
   group: android-release-${{ github.ref }}
@@ -18,6 +27,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_dispatch' || inputs.source_run_id == ''
     runs-on: ubuntu-latest
     env:
       HAS_GCP_KEY: ${{ secrets.GCP_SA_KEY != '' }}
@@ -183,6 +193,7 @@ jobs:
 
   redroid-qa:
     needs: build
+    if: always() && !cancelled() && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.source_run_id != ''))
     runs-on: [self-hosted, Linux, X64, linode-runner, painel-prime-mobile]
     concurrency:
       group: redroid-mobile-qa
@@ -194,6 +205,8 @@ jobs:
       - name: Download official APK
         uses: actions/download-artifact@v4
         with:
+          run-id: ${{ inputs.source_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: painel-prime-android-*.apk
           path: qa-artifact
           merge-multiple: true
@@ -244,6 +257,8 @@ jobs:
       - name: Download validated APK
         uses: actions/download-artifact@v4
         with:
+          run-id: ${{ inputs.source_run_id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: painel-prime-android-*.apk
           path: release-artifact
           merge-multiple: true
