@@ -95,8 +95,10 @@ def login(email: str, password: str) -> None:
     ensure_login_screen()
     tap("Campo de e-mail")
     run("shell", "input", "text", email)
+    run("shell", "input", "keyevent", "KEYCODE_BACK")
     tap("Campo de senha")
     run("shell", "input", "text", password)
+    run("shell", "input", "keyevent", "KEYCODE_BACK")
     tap("Entrar na Plataforma")
     wait_for("Mais opções", 65)
 
@@ -149,12 +151,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception:
-        try:
-            ui()
-            screenshot("falha-qa")
-        except Exception:
-            pass
-        raise
+    main()
