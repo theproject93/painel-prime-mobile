@@ -5,5 +5,5 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true
   },
-  "exclude": ["dist-web", "dist-android", "src/**/*_test.ts"]
+  "exclude": ["dist-web", "dist-android", "src/**/*_test.ts", "src/**/__tests__/*"]
 }
