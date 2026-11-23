@@ -105,7 +105,19 @@ def login(email: str, password: str) -> None:
     run("shell", "input", "text", password)
     run("shell", "input", "keyevent", "KEYCODE_BACK")
     tap("Entrar na Plataforma")
-    wait_for("Mais opções", 65)
+    deadline = time.monotonic() + 65
+    while time.monotonic() < deadline:
+        nodes = ui()
+        guide = find("Pular tour", nodes)
+        if guide is not None:
+            tap_node(guide)
+            time.sleep(1)
+            continue
+        if find("Mais opções", nodes) is not None:
+            return
+        time.sleep(2)
+    screenshot("falha-login-sem-navegacao")
+    raise AssertionError("Navegação principal não apareceu após o login")
 
 
 def main() -> None:
