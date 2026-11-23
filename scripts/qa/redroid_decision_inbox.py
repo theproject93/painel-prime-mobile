@@ -50,7 +50,13 @@ def find(text: str, nodes: list[ET.Element] | None = None) -> ET.Element | None:
 def wait_for(text: str, seconds: int = 45) -> ET.Element:
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
-        node = find(text)
+        nodes = ui()
+        guide = find("Pular tour", nodes)
+        if guide is not None:
+            tap_node(guide)
+            time.sleep(1)
+            continue
+        node = find(text, nodes)
         if node is not None:
             return node
         time.sleep(2)
@@ -105,19 +111,7 @@ def login(email: str, password: str) -> None:
     run("shell", "input", "text", password)
     run("shell", "input", "keyevent", "KEYCODE_BACK")
     tap("Entrar na Plataforma")
-    deadline = time.monotonic() + 65
-    while time.monotonic() < deadline:
-        nodes = ui()
-        guide = find("Pular tour", nodes)
-        if guide is not None:
-            tap_node(guide)
-            time.sleep(1)
-            continue
-        if find("Mais opções", nodes) is not None:
-            return
-        time.sleep(2)
-    screenshot("falha-login-sem-navegacao")
-    raise AssertionError("Navegação principal não apareceu após o login")
+    wait_for("Mais opções", 65)
 
 
 def main() -> None:
@@ -143,6 +137,11 @@ def main() -> None:
     login("lucas.ferreira@painelprime.com.br", team_password)
     if find("Abrir Plan IA") is not None:
         raise AssertionError("Plan IA apareceu para colaborador")
+    tap("Abrir Portaria Prime")
+    wait_for("Buscar convidados por nome ou sobrenome", 65)
+    print("Portaria Prime acessível para colaborador escalado.")
+    run("shell", "input", "keyevent", "KEYCODE_BACK")
+    wait_for("Mais opções")
     tap("Mais opções")
     nodes = ui()
     if find("Central de Reuniões", nodes) is not None:
