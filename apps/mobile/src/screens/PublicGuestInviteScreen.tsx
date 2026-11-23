@@ -109,7 +109,7 @@ export function PublicGuestInviteScreen() {
           eyebrow="CONVITE DIGITAL"
           title="Esse convite não está mais ativo"
           description="O endereço pode ter expirado, sido substituído ou perdido parte do token no compartilhamento."
-          detail={error || 'Abra novamente a mensagem recebida ou solicite um novo convite ao anfitriao.'}
+          detail={error || 'Abra novamente a mensagem recebida ou solicite um novo convite ao anfitrião.'}
           primaryLabel="Ir para o início"
           onPrimaryPress={() => router.replace(routeHrefs.landing())}
           secondaryLabel="Voltar"
@@ -121,7 +121,8 @@ export function PublicGuestInviteScreen() {
 
   return (
     <View style={styles.page}>
-      <Pressable onPress={() => goBackOrReplace(router, routeHrefs.landing())}>
+      <Pressable style={styles.backButton} accessibilityRole="button" accessibilityLabel="Voltar"
+        onPress={() => goBackOrReplace(router, routeHrefs.landing())}>
         <Text style={styles.back}>Voltar</Text>
       </Pressable>
       {error ? <Text style={styles.err}>{error}</Text> : null}
@@ -131,27 +132,37 @@ export function PublicGuestInviteScreen() {
         <Text style={styles.meta}>
           {invite.event_date ? new Date(invite.event_date).toLocaleDateString('pt-BR') : 'A definir'} | {invite.location || 'Local a definir'}
         </Text>
-        {invite.invite_dress_code ? <Text style={styles.meta}>Dress code: {invite.invite_dress_code}</Text> : null}
+        {invite.invite_dress_code ? <Text style={styles.meta}>Traje: {invite.invite_dress_code}</Text> : null}
 
         <View style={styles.row}>
-          <Pressable style={[styles.pill, status === 'confirmed' ? styles.pillOn : null]} onPress={() => setStatus('confirmed')}>
+          <Pressable style={[styles.pill, status === 'confirmed' ? styles.pillOn : null]} accessibilityRole="button"
+            accessibilityState={{ selected: status === 'confirmed' }} onPress={() => setStatus('confirmed')}>
             <Text style={styles.pillText}>Confirmar</Text>
           </Pressable>
-          <Pressable style={[styles.pill, status === 'pending' ? styles.pillOn : null]} onPress={() => setStatus('pending')}>
+          <Pressable style={[styles.pill, status === 'pending' ? styles.pillOn : null]} accessibilityRole="button"
+            accessibilityState={{ selected: status === 'pending' }} onPress={() => setStatus('pending')}>
             <Text style={styles.pillText}>Pendente</Text>
           </Pressable>
-          <Pressable style={[styles.pill, status === 'declined' ? styles.pillOn : null]} onPress={() => setStatus('declined')}>
+          <Pressable style={[styles.pill, status === 'declined' ? styles.pillOn : null]} accessibilityRole="button"
+            accessibilityState={{ selected: status === 'declined' }} onPress={() => setStatus('declined')}>
             <Text style={styles.pillText}>Recusar</Text>
           </Pressable>
         </View>
 
-        <TextInput style={styles.input} value={plusOneCount} onChangeText={setPlusOneCount} keyboardType="numeric" placeholder="Acompanhantes" />
-        <TextInput style={styles.input} value={dietaryRestrictions} onChangeText={setDietaryRestrictions} placeholder="Restricoes alimentares" />
-        <TextInput style={[styles.input, styles.area]} value={rsvpNote} onChangeText={setRsvpNote} placeholder="Observação" multiline />
+        <Text style={styles.fieldLabel}>Número de acompanhantes</Text>
+        <TextInput style={styles.input} value={plusOneCount} onChangeText={setPlusOneCount} keyboardType="number-pad"
+          accessibilityLabel="Número de acompanhantes" />
+        <Text style={styles.fieldLabel}>Restrições alimentares</Text>
+        <TextInput style={styles.input} value={dietaryRestrictions} onChangeText={setDietaryRestrictions}
+          accessibilityLabel="Restrições alimentares" />
+        <Text style={styles.fieldLabel}>Observação</Text>
+        <TextInput style={[styles.input, styles.area]} value={rsvpNote} onChangeText={setRsvpNote}
+          accessibilityLabel="Observação" multiline />
 
         {success ? <Text style={styles.ok}>{success}</Text> : null}
 
-        <Pressable style={styles.button} onPress={() => void submitRsvp()}>
+        <Pressable style={styles.button} accessibilityRole="button" accessibilityState={{ disabled: saving }}
+          disabled={saving} onPress={() => void submitRsvp()}>
           <Text style={styles.buttonText}>{saving ? 'Salvando...' : 'Salvar resposta'}</Text>
         </Pressable>
       </View>
@@ -163,6 +174,7 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.background, padding: 16, gap: 8 },
   emptyPage: { flex: 1, justifyContent: 'center', backgroundColor: '#F5F5F4', padding: 18 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
+  backButton: { minHeight: 48, alignSelf: 'flex-start', justifyContent: 'center' },
   back: { color: colors.mutedText, fontSize: 13, fontWeight: '600' },
   err: { color: colors.dangerText, backgroundColor: colors.dangerBg, borderRadius: 8, padding: 8 },
   ok: { color: '#166534', backgroundColor: '#ECFDF5', borderRadius: 8, padding: 8 },
@@ -171,11 +183,12 @@ const styles = StyleSheet.create({
   sub: { color: colors.text, fontSize: 14, fontWeight: '600' },
   meta: { color: colors.mutedText, fontSize: 12, fontWeight: '600' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  pill: { minHeight: 48, justifyContent: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
   pillOn: { borderColor: colors.primaryStrong, backgroundColor: colors.primarySoft },
   pillText: { color: colors.text, fontSize: 12, fontWeight: '700' },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, color: colors.text },
+  fieldLabel: { color: colors.text, fontWeight: '600', fontSize: 14 },
+  input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, color: colors.text },
   area: { minHeight: 90, textAlignVertical: 'top' },
-  button: { minHeight: 42, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  button: { minHeight: 48, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   buttonText: { color: colors.primaryTextOn, fontWeight: '700', fontSize: 14 },
 });

@@ -29,3 +29,15 @@ export async function saveAdoptionProgress(userId: string, eventId: string | nul
   if (error) throw new Error(error.message);
   if (typeof data !== 'number') throw new Error('Não foi possível salvar sua orientação.');
 }
+
+export async function saveAdoptionGoal(userId: string, eventId: string | null, operational: boolean,
+  goalId: string, expectedRevision: number): Promise<void> {
+  const { data, error } = await rpc('save_product_adoption_goal', {
+    p_goal_id: goalId, p_expected_revision: expectedRevision, p_expected_user_id: userId,
+    p_event_id: eventId, p_operational: operational,
+  });
+  if (error) throw new Error(error.message);
+  if (typeof data !== 'number' || !Number.isInteger(data) || data < 1) {
+    throw new Error('Não foi possível salvar seu objetivo.');
+  }
+}

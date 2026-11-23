@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { consumeAuthCallback } from '../lib/oauthCallback';
+import { consumeAuthCallback, extractAuthCallbackParams } from '../lib/oauthCallback';
 import { supabase } from '../lib/supabase';
 import { typography } from '../theme/fonts';
 
@@ -20,19 +20,12 @@ export function AuthCallbackScreen() {
     let mounted = true;
     let navigated = false;
 
-    function goDashboard() {
+    let recoveryCallback = false;
+    function goToDestination() {
       if (!mounted || navigated) return;
       navigated = true;
-      router.replace(routeHrefs.dashboard());
+      router.replace(recoveryCallback ? '/atualizar-senha' : routeHrefs.dashboard());
     }
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        goDashboard();
-      }
-    });
 
     async function finishAuth() {
       setProcessing(true);
@@ -41,6 +34,10 @@ export function AuthCallbackScreen() {
 
       const initialUrl = await Linking.getInitialURL().catch(() => null);
       const candidateUrl = incomingUrl || initialUrl;
+      recoveryCallback = extractAuthCallbackParams({
+        url: candidateUrl,
+        routeParams: routeParams as Record<string, string | string[] | undefined>,
+      }).otpType === 'recovery';
 
       const outcome = await consumeAuthCallback({
         url: candidateUrl,
@@ -50,13 +47,13 @@ export function AuthCallbackScreen() {
       if (!mounted || navigated) return;
 
       if (outcome.session) {
-        goDashboard();
+        goToDestination();
         return;
       }
 
       if (outcome.error) {
         setError(outcome.error);
-        setMessage('Não foi possível concluir o login.');
+        setMessage(recoveryCallback ? 'Não foi possível validar o link de recuperação.' : 'Não foi possível concluir o login.');
         setProcessing(false);
         return;
       }
@@ -66,7 +63,7 @@ export function AuthCallbackScreen() {
         if (!mounted || navigated) return;
         const { data } = await supabase.auth.getSession();
         if (data.session) {
-          goDashboard();
+          goToDestination();
           return;
         }
         await new Promise<void>((resolve) => setTimeout(resolve, 400));
@@ -81,7 +78,6 @@ export function AuthCallbackScreen() {
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
   }, [incomingUrl, routeParams, router]);
 

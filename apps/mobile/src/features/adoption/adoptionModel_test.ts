@@ -1,5 +1,5 @@
 import { assertEquals } from 'jsr:@std/assert';
-import { earnedAchievement, missionStatus, visibleMissions, type AdoptionSnapshot, type Mission } from './adoptionModel.ts';
+import { availableGoals, earnedAchievement, goalMissions, missionStatus, visibleMissions, type AdoptionSnapshot, type Mission } from './adoptionModel.ts';
 
 const mission: Mission = { id: 'guests', title: 'Convidados', instruction: '', route: 'guests', eventScoped: true, achievement: 'Lista iniciada' };
 const base: AdoptionSnapshot = {
@@ -21,4 +21,13 @@ Deno.test('conquistas de evento não atravessam contextos e as pessoais exigem e
   ] };
   assertEquals(earnedAchievement(mission, snapshot), undefined);
   assertEquals(earnedAchievement({ id: 'ai', title: '', instruction: '', route: null, achievement: 'IA' }, snapshot), undefined);
+});
+
+Deno.test('objetivos mostram apenas etapas autorizadas ao perfil', () => {
+  assertEquals(availableGoals(base).map(goal => goal.id), ['event']);
+  assertEquals(goalMissions(base, 'event').map(item => item.id), ['guests']);
+  assertEquals(goalMissions(base, 'agency'), []);
+  const team: AdoptionSnapshot = { ...base, audience: 'team', allowed: ['assigned-reception'] };
+  assertEquals(availableGoals(team).map(goal => goal.id), ['assigned-reception']);
+  assertEquals(goalMissions(team, 'event'), []);
 });

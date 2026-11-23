@@ -7,8 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useUserRole } from '../contexts/UserRoleContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
-import { earnedAchievement, missionStatus, visibleMissions, type AdoptionSnapshot, type Mission } from '../features/adoption/adoptionModel';
-import { saveAdoptionProgress, verifyAdoption } from '../features/adoption/adoptionRepository';
+import { availableGoals, earnedAchievement, goalMissions, missionStatus, visibleMissions, type AdoptionSnapshot, type Mission } from '../features/adoption/adoptionModel';
+import { saveAdoptionGoal, saveAdoptionProgress, verifyAdoption } from '../features/adoption/adoptionRepository';
 
 type EventOption = { id: string; name: string };
 type ViewMode = 'missions' | 'achievements';
@@ -38,6 +38,7 @@ export function AdoptionMissionsScreen() {
   const tenantId = snapshot?.tenant_id ?? null;
   const [view, setView] = useState<ViewMode>('missions');
   const [selected, setSelected] = useState<string | null>(null);
+  const [choosingGoal, setChoosingGoal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const request = useRef(0);
@@ -50,6 +51,7 @@ export function AdoptionMissionsScreen() {
     setEventId(null);
     setSnapshot(null);
     setSelected(null);
+    setChoosingGoal(false);
     setEvents([]);
     setBusy(false);
     request.current++;
@@ -123,6 +125,27 @@ export function AdoptionMissionsScreen() {
     }
   };
 
+  const chooseGoal = async (goalId: string) => {
+    if (!userId || !snapshot || busy || !availableGoals(snapshot).some(goal => goal.id === goalId)) return;
+    const activeIdentity = identity;
+    setBusy(true);
+    setError('');
+    try {
+      await saveAdoptionGoal(userId, eventId, isTeamMemberOnly, goalId, snapshot.preference?.revision ?? 0);
+      if (identityRef.current === activeIdentity) {
+        setChoosingGoal(false);
+        setSelected(null);
+        await refresh();
+      }
+    } catch {
+      if (identityRef.current === activeIdentity) {
+        setError('Não foi possível salvar seu objetivo. Atualize os resultados e tente novamente.');
+      }
+    } finally {
+      if (identityRef.current === activeIdentity) setBusy(false);
+    }
+  };
+
   const openWork = (mission: Mission) => {
     if (mission.eventScoped && !eventId) { setError('Escolha um evento para continuar.'); return; }
     if (eventId && !events.some(event => event.id === eventId)) { setError('Este evento não está disponível.'); return; }
@@ -131,8 +154,10 @@ export function AdoptionMissionsScreen() {
     router.push(route as never);
   };
 
-  const missions = snapshot ? visibleMissions(snapshot) : [];
-  const achievements = missions.filter(item => item.achievement);
+  const goals = snapshot ? availableGoals(snapshot) : [];
+  const selectedGoal = goals.find(goal => goal.id === snapshot?.preference?.goal_id);
+  const missions = snapshot ? goalMissions(snapshot, selectedGoal?.id ?? null) : [];
+  const achievements = snapshot ? visibleMissions(snapshot).filter(item => item.achievement) : [];
   const earnedCount = snapshot ? achievements.filter(item => earnedAchievement(item, snapshot)).length : 0;
   const current = missions.find(item => item.id === selected);
 
@@ -158,6 +183,24 @@ export function AdoptionMissionsScreen() {
       </Pressable>)}
     </View>
 
+    {snapshot && view === 'missions' && (choosingGoal || !selectedGoal) ? <View style={styles.goalSection}>
+      <Text style={styles.sectionLabel}>O que você quer organizar agora?</Text>
+      <Text style={styles.description}>Escolha um objetivo. Você pode mudá-lo quando precisar.</Text>
+      {goals.map(goal => <Pressable key={goal.id} style={styles.goalCard} onPress={() => void chooseGoal(goal.id)}
+        disabled={busy} accessibilityRole="button" accessibilityState={{ selected: selectedGoal?.id === goal.id, disabled: busy }}>
+        <Text style={styles.cardTitle}>{goal.title}</Text>
+        <Text style={styles.description}>{goal.outcome}</Text>
+      </Pressable>)}
+      {choosingGoal && selectedGoal ? <Action label="Voltar ao meu objetivo" onPress={() => setChoosingGoal(false)} /> : null}
+    </View> : null}
+
+    {snapshot && view === 'missions' && selectedGoal && !choosingGoal ? <View style={styles.goalSection}>
+      <Text style={styles.sectionLabel}>{selectedGoal.title}</Text>
+      <Text style={styles.description}>{selectedGoal.outcome}</Text>
+      <Text style={styles.hint}>{missions.filter(mission => snapshot.facts[mission.id]).length} de {missions.length} etapas concluídas</Text>
+      <Action label="Trocar objetivo" onPress={() => setChoosingGoal(true)} disabled={busy} />
+    </View> : null}
+
     <Text style={styles.sectionLabel}>Contexto do evento</Text>
     <View style={styles.eventChoices}>
       {!isTeamMemberOnly && <Pressable style={[styles.choice, !eventId && styles.choiceActive]} onPress={() => chooseEvent(null)}><Text style={styles.choiceText}>Assessoria</Text></Pressable>}
@@ -169,7 +212,7 @@ export function AdoptionMissionsScreen() {
     {busy && <ActivityIndicator color={colors.primaryStrong} accessibilityLabel="Atualizando missões" />}
     <Pressable style={styles.refresh} onPress={() => void refresh()} disabled={busy || !userId} accessibilityRole="button"><Ionicons name="refresh" size={18} color={colors.primaryStrong} /><Text style={styles.refreshText}>Atualizar resultados</Text></Pressable>
 
-    {snapshot && view === 'missions' && missions.map((mission, index) => {
+    {snapshot && view === 'missions' && selectedGoal && !choosingGoal && missions.map((mission, index) => {
       const status = missionStatus(mission, snapshot);
       const expanded = selected === mission.id;
       const tone = MISSION_TONES[index % MISSION_TONES.length];
@@ -210,7 +253,7 @@ export function AdoptionMissionsScreen() {
         {earned && <Text style={styles.criterion}>Verificada em {new Date(earned.earned_at).toLocaleDateString('pt-BR')}</Text>}
       </View>;
     }) : <Text style={styles.hint}>Nenhuma conquista disponível neste contexto.</Text>)}
-    {snapshot && !missions.length && <Text style={styles.hint}>Nenhuma missão disponível para seu perfil neste contexto.</Text>}
+    {snapshot && !goals.length && <Text style={styles.hint}>Nenhum objetivo disponível para seu perfil neste contexto.</Text>}
     {current && <Text style={styles.footer}>As conquistas refletem resultados reais da assessoria, do evento ou da sua conta.</Text>}
   </Screen>;
 }
@@ -221,6 +264,8 @@ function Action({ label, onPress, disabled }: { label: string; onPress: () => vo
 
 const styles = StyleSheet.create({
   hero: { padding: 20, borderRadius: 24, backgroundColor: colors.gold100, borderWidth: 1, borderColor: colors.gold200, gap: 10 },
+  goalSection: { padding: 16, gap: 10, borderRadius: 18, backgroundColor: colors.surfaceSubtle },
+  goalCard: { minHeight: 72, padding: 14, gap: 5, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   heroTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   heroIcon: { width: 58, height: 58, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.gold200 },
   heroTitle: { color: colors.text, fontSize: 22, fontWeight: '800', lineHeight: 27 },

@@ -23,9 +23,9 @@ type MenuSection = {
 
 const ALL_ACCOUNT_ITEMS: MenuItem[] = [
   {
-    label: 'Missões e conquistas',
-    description: 'Acompanhe seu progresso verificado na plataforma',
-    icon: 'trophy-outline',
+    label: 'Meu objetivo',
+    description: 'Orientações e conquistas verificadas',
+    icon: 'compass-outline',
     route: '/missoes',
   },
   {
@@ -76,7 +76,7 @@ export function MoreScreen() {
 
   const sections: MenuSection[] = useMemo(() => {
     const accountItems = isTeamMemberOnly
-      ? ALL_ACCOUNT_ITEMS.filter((item) => item.label !== 'Equipe')
+      ? ALL_ACCOUNT_ITEMS.filter((item) => ['/missoes', '/mais/perfil', '/mais/configuracoes'].includes(item.route))
       : ALL_ACCOUNT_ITEMS;
 
     const list: MenuSection[] = [{ title: 'Sua conta', items: accountItems }];
