@@ -54,6 +54,10 @@ def wait_for(text: str, seconds: int = 45) -> ET.Element:
         if node is not None:
             return node
         time.sleep(2)
+    try:
+        screenshot("falha-elemento-ausente")
+    except Exception:
+        pass
     raise AssertionError(f"Elemento não apareceu: {text}")
 
 
