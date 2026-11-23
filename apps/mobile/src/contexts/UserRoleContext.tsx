@@ -242,7 +242,7 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
   const visibleState = state.userId === userId ? state : {
     ...state, appRole: 'team_member' as const, hasTenant: false, assignedEvents: [], loading: true,
   };
-  const isOwner = visibleState.hasTenant || visibleState.appRole === 'owner' || visibleState.appRole === 'owner_and_team';
+  const isOwner = visibleState.appRole === 'owner' || visibleState.appRole === 'owner_and_team';
   const isTeamMemberOnly = visibleState.appRole === 'team_member';
   const effectiveMode: OperatingMode = isTeamMemberOnly ? 'equipe' : 'assessoria';
 
