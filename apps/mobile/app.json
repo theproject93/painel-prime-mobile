@@ -130,6 +130,12 @@
         }
       ],
       "@react-native-community/datetimepicker",
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
       "./plugins/withWhatsAppZeroTapOtp"
     ]
   }

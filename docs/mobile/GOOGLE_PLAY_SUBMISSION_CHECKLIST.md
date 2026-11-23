@@ -29,7 +29,7 @@ No Google Play Console, acesse: **Conteúdo do app > Acesso ao app** (*App acces
 - **Opção a marcar:** *"Todas as funcionalidades ou algumas estão restritas"* (*All or some functionality is restricted*).
 - **Nome da Credencial:** `Conta de Revisão do Google Play / Google Play Reviewer Demo Account`
 - **Nome de Usuário / E-mail:** `google-teste-elite@painelprime.com.br`
-- **Senha:** `PainelPrime!2026Elite`
+- **Senha:** `[CADASTRADA DIRETAMENTE NO GOOGLE PLAY CONSOLE - NUNCA ARMAZENAR NO GIT]`
 - **Telefone de Teste (opcional):** `+5511999999999`
 
 ---
@@ -45,7 +45,7 @@ INSTRUÇÕES DE ACESSO PARA REVISÃO DO GOOGLE PLAY:
 2. Na tela inicial (Landing), toque em "Entrar" no topo da tela ou aguarde o redirecionamento para a tela de Login.
 3. Insira as credenciais de teste:
    - E-mail: google-teste-elite@painelprime.com.br
-   - Senha: PainelPrime!2026Elite
+   - Senha: [SENHA_DEFINIDA_NO_GOOGLE_PLAY_CONSOLE]
 4. Toque no botão "Entrar na Plataforma".
 5. O acesso é imediato e concede permissão de Plano Elite com assinatura vitalícia ativa.
 6. A conta já está populada com eventos reais de demonstração (Casamentos, Debutantes, Corporativo), permitindo navegar por:
@@ -77,7 +77,7 @@ APP ACCESS INSTRUCTIONS FOR GOOGLE PLAY REVIEWERS:
 2. On the landing screen, tap "Entrar" (Sign In) in the upper right header or wait for the login screen.
 3. Enter the demo credentials provided below:
    - Email: google-teste-elite@painelprime.com.br
-   - Password: PainelPrime!2026Elite
+   - Password: [CONFIGURED_IN_GOOGLE_PLAY_CONSOLE]
 4. Tap the "Entrar na Plataforma" (Sign In) button.
 5. You will immediately access the app dashboard with an active "Elite Plan" demo account.
 6. The test account is fully pre-populated with realistic event management data, allowing you to review all core modules:
