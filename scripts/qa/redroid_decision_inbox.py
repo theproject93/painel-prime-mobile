@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Homologa a Caixa de decisões nos perfis sintéticos do ReDroid oficial."""
 
+import json
 import os
 import re
 import shutil
@@ -116,8 +117,9 @@ def main() -> None:
     run("install", "-r", str(apk))
     run("shell", "pm", "clear", PACKAGE)
     package_info = run("shell", "dumpsys", "package", PACKAGE)
-    if not re.search(r"versionCode=34\b", package_info):
-        raise AssertionError("O APK instalado não corresponde ao versionCode 34")
+    expected_version_code = json.loads(Path("apps/mobile/app.json").read_text(encoding="utf-8"))["expo"]["android"]["versionCode"]
+    if not re.search(fr"versionCode={expected_version_code}\b", package_info):
+        raise AssertionError(f"O APK instalado não corresponde ao versionCode {expected_version_code}")
     run("shell", "am", "force-stop", PACKAGE)
     run("shell", "am", "start", "-W", "-n", f"{PACKAGE}/.MainActivity")
     time.sleep(6)

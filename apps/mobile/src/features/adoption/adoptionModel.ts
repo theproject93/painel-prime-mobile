@@ -9,6 +9,8 @@ export type AdoptionSnapshot = {
   facts: Record<string, boolean>;
   progress: AdoptionProgress[];
   achievements: { mission_id: string; earned_at: string; scope?: 'agency' | 'event' | 'individual'; context_key?: string }[];
+  preference?: { goal_id: string | null; revision: number };
+  event_name?: string | null;
 };
 export type Mission = {
   id: string;
@@ -41,8 +43,32 @@ export const MISSIONS: readonly Mission[] = [
   { id: 'assigned-reception', title: 'Trabalhe na portaria', instruction: 'Prepare a recepção e registre chegadas somente quando ocorrerem.', route: 'reception', eventScoped: true, orientation: true },
 ];
 
+export type AdoptionGoal = { id: string; audience: AdoptionAudience; title: string; outcome: string; journeys: readonly string[] };
+
+// Mesmos objetivos e etapas da experiência Web; o servidor decide quais estão disponíveis.
+export const ADOPTION_GOALS: readonly AdoptionGoal[] = [
+  { id: 'event', audience: 'agency', title: 'Organizar um evento', outcome: 'Comece pelo cadastro, pela lista de convidados e pelo cronograma.', journeys: ['event', 'guests', 'timeline'] },
+  { id: 'agency', audience: 'agency', title: 'Estruturar minha assessoria', outcome: 'Organize sua apresentação, seus parceiros e sua equipe.', journeys: ['agency', 'vendors', 'team'] },
+  { id: 'client', audience: 'agency', title: 'Atender um cliente', outcome: 'Organize o contato e prepare o atendimento com os recursos do seu plano.', journeys: ['client', 'contract'] },
+  { id: 'day', audience: 'agency', title: 'Revisar a operação do dia', outcome: 'Confira horários, tarefas, recepção e confirmações do evento.', journeys: ['timeline', 'tasks', 'reception', 'rsvp'] },
+  { id: 'assigned-timeline', audience: 'team', title: 'Consultar minha escala', outcome: 'Encontre os horários e as responsabilidades do seu evento.', journeys: ['assigned-timeline'] },
+  { id: 'assigned-reception', audience: 'team', title: 'Preparar a recepção', outcome: 'Confira o evento e prepare o aparelho para receber os convidados.', journeys: ['assigned-reception'] },
+  { id: 'vendor-profile', audience: 'vendor', title: 'Preparar minha vitrine', outcome: 'Apresente seus serviços e os contatos que deseja compartilhar.', journeys: ['vendor-profile'] },
+];
+
 export function visibleMissions(snapshot: AdoptionSnapshot): Mission[] {
   return MISSIONS.filter(mission => snapshot.allowed.includes(mission.id));
+}
+
+export function availableGoals(snapshot: AdoptionSnapshot): AdoptionGoal[] {
+  const allowed = new Set(visibleMissions(snapshot).map(mission => mission.id));
+  return ADOPTION_GOALS.filter(goal => goal.audience === snapshot.audience && goal.journeys.some(id => allowed.has(id)));
+}
+
+export function goalMissions(snapshot: AdoptionSnapshot, goalId: string | null): Mission[] {
+  const goal = availableGoals(snapshot).find(item => item.id === goalId);
+  const allowed = visibleMissions(snapshot);
+  return goal ? goal.journeys.flatMap(id => allowed.filter(mission => mission.id === id)) : [];
 }
 
 export function missionStatus(mission: Mission, snapshot: AdoptionSnapshot): string {

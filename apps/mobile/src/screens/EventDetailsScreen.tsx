@@ -58,8 +58,10 @@ export function EventDetailsScreen() {
   const eventId = Array.isArray(params.id) ? params.id[0] ?? '' : params.id ?? '';
   const initialTabParam = Array.isArray(params.initialTab) ? params.initialTab[0] : params.initialTab;
   const { user } = useAuth();
+  const { isTeamMemberOnly } = useUserRole();
   const [activeTab, setActiveTab] = useState<EventDetailsTab>(() => {
-    if (initialTabParam && isEventDetailsInitialTab(initialTabParam)) {
+    if (initialTabParam && isEventDetailsInitialTab(initialTabParam)
+      && (!isTeamMemberOnly || TEAM_MEMBER_ALLOWED_TABS.has(initialTabParam))) {
       return initialTabParam;
     }
     return 'overview';
@@ -67,10 +69,9 @@ export function EventDetailsScreen() {
 
   useEffect(() => {
     if (initialTabParam && isEventDetailsInitialTab(initialTabParam)) {
-      setActiveTab(initialTabParam);
+      setActiveTab(isTeamMemberOnly && !TEAM_MEMBER_ALLOWED_TABS.has(initialTabParam) ? 'overview' : initialTabParam);
     }
-  }, [initialTabParam]);
-  const { isTeamMemberOnly } = useUserRole();
+  }, [initialTabParam, isTeamMemberOnly]);
   const visibleTabs = useMemo(() => {
     return isTeamMemberOnly
       ? TABS.filter((t) => TEAM_MEMBER_ALLOWED_TABS.has(t.key))

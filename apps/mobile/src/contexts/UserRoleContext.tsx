@@ -95,6 +95,7 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const activeUserId = useRef(userId);
+  const roleRequest = useRef(0);
   activeUserId.current = userId;
 
   const refreshAssignedEvents = useCallback(async () => {
@@ -109,7 +110,6 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
         console.warn('Falha ao consultar list_team_member_events:', error.message);
         return;
       }
-      if (activeUserId.current !== userId) return;
 
       let parsed: AssignedEvent[] = [];
       if (Array.isArray(data)) {
@@ -122,7 +122,9 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
         }
       }
 
-      if (activeUserId.current === userId) updateStore({ assignedEvents: parsed });
+      if (activeUserId.current === userId && storeState.userId === userId) {
+        updateStore({ assignedEvents: parsed });
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro inesperado';
       console.warn('Erro ao atualizar eventos escalados:', message);
@@ -130,6 +132,7 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
   }, [userId]);
 
   const refreshRole = useCallback(async () => {
+    const requestId = ++roleRequest.current;
     if (!userId) {
       updateStore({
         userId: null,
@@ -153,13 +156,13 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
         const saved = await AsyncStorage.getItem(cacheKey);
         if (saved) {
           const parsed = JSON.parse(saved) as Partial<UserAppContextResponse>;
-          if (activeUserId.current !== userId) return;
-          if (parsed.role === 'owner' || parsed.role === 'team_member' || parsed.role === 'owner_and_team') {
+          if (activeUserId.current !== userId || roleRequest.current !== requestId) return;
+          if (parsed.role === 'team_member') {
             updateStore({
-              appRole: parsed.role,
-              hasTenant: parsed.has_tenant ?? (parsed.role !== 'team_member'),
-              tenantId: parsed.tenant_id ?? null,
-              hasTeamRole: parsed.has_team_role ?? (parsed.role !== 'owner'),
+              appRole: 'team_member',
+              hasTenant: false,
+              tenantId: null,
+              hasTeamRole: true,
             });
           }
         }
@@ -168,11 +171,10 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
       }
     }
 
-    if (activeUserId.current !== userId) return;
-    updateStore({ loading: true, error: null });
+    if (activeUserId.current !== userId || roleRequest.current !== requestId) return;
     try {
       const { data, error } = await supabase.rpc('get_user_app_context');
-      if (activeUserId.current !== userId) return;
+      if (activeUserId.current !== userId || roleRequest.current !== requestId) return;
       if (error) {
         console.warn('Falha ao obter contexto do usuário:', error.message);
         updateStore({ loading: false, error: error.message });
@@ -186,13 +188,17 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
         ctx = (data as unknown) as UserAppContextResponse;
       }
 
-      const role: AppRole = ctx.role === 'team_member' ? 'team_member' : ctx.role === 'owner_and_team' ? 'owner_and_team' : 'owner';
+      if (ctx.role !== 'owner' && ctx.role !== 'team_member' && ctx.role !== 'owner_and_team') {
+        throw new Error('Papel de acesso inválido.');
+      }
+      const role = ctx.role;
       updateStore({
+        userId,
         appRole: role,
         hasTenant: ctx.has_tenant ?? (role !== 'team_member'),
         tenantId: ctx.tenant_id ?? null,
         hasTeamRole: ctx.has_team_role ?? (role !== 'owner'),
-        loading: false,
+        loading: true,
         error: null,
       });
 
@@ -200,16 +206,21 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
       if (cacheKey) {
         await AsyncStorage.setItem(cacheKey, JSON.stringify(ctx)).catch(() => {});
       }
-      if (activeUserId.current !== userId) return;
+      if (activeUserId.current !== userId || roleRequest.current !== requestId) return;
       await AsyncStorage.removeItem(ROLE_CACHE_KEY).catch(() => {});
 
       // Se possui papel de equipe, busca a lista de eventos escalados
       if (role === 'team_member' || role === 'owner_and_team' || ctx.has_team_role) {
         await refreshAssignedEvents();
       }
+      if (activeUserId.current === userId && roleRequest.current === requestId) {
+        updateStore({ loading: false });
+      }
     } catch (err: unknown) {
-      if (activeUserId.current !== userId) return;
+      if (activeUserId.current !== userId || roleRequest.current !== requestId) return;
       const message = err instanceof Error ? err.message : 'Erro inesperado';
+      updateStore({ appRole: 'team_member', hasTenant: false, tenantId: null,
+        hasTeamRole: false, assignedEvents: [] });
       updateStore({ loading: false, error: message });
     }
   }, [userId, refreshAssignedEvents]);
@@ -231,7 +242,7 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
   const visibleState = state.userId === userId ? state : {
     ...state, appRole: 'team_member' as const, hasTenant: false, assignedEvents: [], loading: true,
   };
-  const isOwner = visibleState.hasTenant || visibleState.appRole === 'owner' || visibleState.appRole === 'owner_and_team';
+  const isOwner = visibleState.appRole === 'owner' || visibleState.appRole === 'owner_and_team';
   const isTeamMemberOnly = visibleState.appRole === 'team_member';
   const effectiveMode: OperatingMode = isTeamMemberOnly ? 'equipe' : 'assessoria';
 
@@ -256,95 +267,8 @@ export function UserRoleProvider({ children }: PropsWithChildren) {
 
 export function useUserRole(): UserRoleContextValue {
   const context = useContext(UserRoleContext);
-
-  const state = useSyncExternalStore(
-    (onStoreChange) => {
-      listeners.add(onStoreChange);
-      return () => {
-        listeners.delete(onStoreChange);
-      };
-    },
-    () => storeState,
-  );
-
-  const isOwner = state.hasTenant || state.appRole === 'owner' || state.appRole === 'owner_and_team';
-  const isTeamMemberOnly = state.appRole === 'team_member';
-  const effectiveMode: OperatingMode = isTeamMemberOnly ? 'equipe' : 'assessoria';
-
-  const refreshAssignedEvents = useCallback(async () => {
-    try {
-      const { data, error } = await supabase.rpc('list_team_member_events');
-      if (error) return;
-      let parsed: AssignedEvent[] = [];
-      if (Array.isArray(data)) {
-        parsed = data as AssignedEvent[];
-      } else if (typeof data === 'string') {
-        try {
-          parsed = JSON.parse(data) as AssignedEvent[];
-        } catch {
-          parsed = [];
-        }
-      }
-      updateStore({ assignedEvents: parsed });
-    } catch {
-      // Ignora erro
-    }
-  }, []);
-
-  const refreshRole = useCallback(async () => {
-    updateStore({ loading: true, error: null });
-    try {
-      const { data, error } = await supabase.rpc('get_user_app_context');
-      if (error) {
-        updateStore({ loading: false, error: error.message });
-        return;
-      }
-      let ctx: UserAppContextResponse;
-      if (typeof data === 'string') {
-        ctx = JSON.parse(data) as UserAppContextResponse;
-      } else {
-        ctx = (data as unknown) as UserAppContextResponse;
-      }
-      const role: AppRole = ctx.role === 'team_member' ? 'team_member' : ctx.role === 'owner_and_team' ? 'owner_and_team' : 'owner';
-      updateStore({
-        appRole: role,
-        hasTenant: ctx.has_tenant ?? (role !== 'team_member'),
-        tenantId: ctx.tenant_id ?? null,
-        hasTeamRole: ctx.has_team_role ?? (role !== 'owner'),
-        loading: false,
-        error: null,
-      });
-      const { data: authData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
-      const currentUserId = authData?.session?.user?.id ?? null;
-      const cacheKey = getUserRoleCacheKey(currentUserId);
-      if (cacheKey) {
-        await AsyncStorage.setItem(cacheKey, JSON.stringify(ctx)).catch(() => {});
-      }
-      await AsyncStorage.removeItem(ROLE_CACHE_KEY).catch(() => {});
-      if (role === 'team_member' || role === 'owner_and_team' || ctx.has_team_role) {
-        await refreshAssignedEvents();
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro';
-      updateStore({ loading: false, error: message });
-    }
-  }, [refreshAssignedEvents]);
-
-  if (context) {
-    return context;
-  }
-
-  return {
-    appRole: state.appRole,
-    isOwner,
-    isTeamMemberOnly,
-    effectiveMode,
-    assignedEvents: state.assignedEvents,
-    loading: state.loading,
-    error: state.error,
-    refreshRole,
-    refreshAssignedEvents,
-  };
+  if (!context) throw new Error('useUserRole exige UserRoleProvider.');
+  return context;
 }
 
 /**

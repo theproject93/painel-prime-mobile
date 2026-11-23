@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../contexts/AuthContext';
+import { useUserRole } from '../contexts/UserRoleContext';
 import { AppHaptics } from '../lib/haptics';
 import { getVisibleSegments } from '../lib/router';
 import { useWalkthroughAnchors } from './WalkthroughAnchors';
@@ -173,6 +174,41 @@ export const MODULE_GUIDES: Record<ModuleGuideKey, GuideSpec> = {
   },
 };
 
+const TEAM_MODULE_GUIDES: Partial<Record<ModuleGuideKey, GuideSpec>> = {
+  dashboard: {
+    moduleLabel: 'Início',
+    steps: [{
+      title: 'Sua operação',
+      description: 'Consulte suas escalas e as orientações dos eventos aos quais você foi convidado.',
+      tip: 'Acesse a Portaria Prime e o cronograma quando houver um evento escalado.',
+      anchorKey: 'dashboard_overview',
+    }],
+  },
+  events_list: {
+    moduleLabel: 'Eventos',
+    steps: [{
+      title: 'Seus eventos',
+      description: 'Encontre os eventos da sua escala e acompanhe as informações da operação.',
+      tip: 'Toque em um evento para consultar o briefing e abrir a Portaria Prime.',
+    }],
+  },
+  event_details: {
+    moduleLabel: 'Evento',
+    steps: [{
+      title: 'Seu roteiro de trabalho',
+      description: 'Consulte o briefing, o cronograma e sua equipe neste evento.',
+      tip: 'Use a Portaria Prime para receber os convidados quando estiver escalado.',
+    }],
+  },
+  profile: {
+    moduleLabel: 'Perfil',
+    steps: [{
+      title: 'Seu perfil',
+      description: 'Confira seus dados pessoais e suas informações de contato.',
+    }],
+  },
+};
+
 export function getPrimaryStorageKey(moduleId: string) {
   return `painelprime.walkthrough.completed.${moduleId}`;
 }
@@ -221,6 +257,7 @@ function deriveModuleGuideKey(segments: readonly string[]): ModuleGuideKey | nul
 
 export function ModuleWalkthroughOverlay() {
   const { user } = useAuth();
+  const { isTeamMemberOnly } = useUserRole();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -235,7 +272,9 @@ export function ModuleWalkthroughOverlay() {
 
   const userId = user?.id ?? null;
   const moduleKey = useMemo(() => deriveModuleGuideKey(segments), [segments]);
-  const guideSpec = moduleKey ? MODULE_GUIDES[moduleKey] : null;
+  const guideSpec = moduleKey
+    ? (isTeamMemberOnly ? TEAM_MODULE_GUIDES[moduleKey] : null) ?? MODULE_GUIDES[moduleKey]
+    : null;
 
   async function checkHasSeen(modKey: string, uId: string | null): Promise<boolean> {
     const primaryKey = getPrimaryStorageKey(modKey);
